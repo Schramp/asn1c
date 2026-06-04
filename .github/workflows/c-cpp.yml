@@ -5,6 +5,7 @@ on:
     branches: [ vlm_master ]
   pull_request:
     branches: [ vlm_master ]
+  workflow_dispatch:
 
 jobs:
   build:
