@@ -1,3 +1,4 @@
+#include <limits.h>
 #include "asn1fix_internal.h"
 
 enum ftt_what {
@@ -115,6 +116,46 @@ asn1f_lookup_in_imports(arg_t *arg, asn1p_module_t *mod, const char *name) {
 	return mod;
 }
 
+/*
+ * ETSI/3GPP OID version comparison for -fallow-newer-modules.
+ * Last two arcs are (release, minor-version); everything before
+ * max(len_a, len_b)-2 must be identical.
+ *
+ * Returns:
+ *   -1  available is newer (or equal) — accept
+ *    0  version arcs are identical
+ *    1  available is older — reject
+ *    2  imported OID is a base prefix (no version arcs) — accept
+ *  INT_MIN  base arcs differ (unrelated module) — skip
+ */
+static int
+oid_version_compare(const asn1p_oid_t *imported, const asn1p_oid_t *available) {
+	int ai = (int)imported->arcs_count;
+	int av = (int)available->arcs_count;
+	int max_len = ai > av ? ai : av;
+	int ver_start = max_len - 2;
+	if(ver_start < 0) ver_start = 0;
+
+	/* Only check base arcs up to min(ai, ver_start); if imported runs out
+	 * before ver_start it's a prefix and we accept below. */
+	int base_end = ai < ver_start ? ai : ver_start;
+	for(int i = 0; i < base_end; i++) {
+		long a = imported->arcs[i].number;
+		long b = (i < av) ? available->arcs[i].number : -1;
+		if(a != b) return INT_MIN;
+	}
+
+	if(ai <= ver_start) return 2;  /* imported has no version arcs — prefix */
+
+	for(int i = ver_start; i < max_len; i++) {
+		long a = (i < ai) ? imported->arcs[i].number : -1;
+		long b = (i < av) ? available->arcs[i].number : -1;
+		if(b > a) return -1;  /* available newer */
+		if(b < a) return  1;  /* available older */
+	}
+	return 0;
+}
+
 asn1p_module_t *
 asn1f_lookup_module(arg_t *arg, const char *module_name, const asn1p_oid_t *oid, int oid_option) {
 	asn1p_module_t *mod, *ret = NULL;
@@ -153,6 +194,10 @@ asn1f_lookup_module(arg_t *arg, const char *module_name, const asn1p_oid_t *oid,
 		}
 	}
 
+	/* Enable version-aware matching for any OID-based lookup when flag is set. */
+	if(oid && !oid_option && (arg->flags & A1F_ALLOW_NEWER_MODULES))
+		oid_option = XPT_WITH_NEWER;
+
 	/*
 	 * Perform lookup using OID or module_name.
 	 */
@@ -166,6 +211,27 @@ asn1f_lookup_module(arg_t *arg, const char *module_name, const asn1p_oid_t *oid,
 				} else if(oid_option == XPT_WITH_DESCENDANTS) {
 					if(oid->arcs_count == (-1 - r))
 						r = 0;
+				} else if(oid_option == XPT_WITH_NEWER) {
+					if(strcmp(module_name, mod->ModuleName) == 0) {
+						int vcmp = oid_version_compare(oid, mod->module_oid);
+						if(vcmp == 2) {
+							WARNING("Module \"%s\": imported OID is a base prefix of "
+								"available OID; accepting (-fallow-newer-modules)",
+								module_name);
+							r = 0;
+						} else if(vcmp <= 0 && vcmp != INT_MIN) {
+							WARNING("Module \"%s\": available OID is newer than "
+								"imported OID; accepting (-fallow-newer-modules)",
+								module_name);
+							r = 0;
+						} else if(vcmp == 1) {
+							FATAL("Module \"%s\": available OID is older than "
+								"imported OID", module_name);
+							errno = ENOENT;
+							return NULL;
+						}
+						/* INT_MIN: unrelated module family, skip */
+					}
 				}
 				if(0 == r) {
 					/* Match! Even if name doesn't. */
@@ -180,65 +246,6 @@ asn1f_lookup_module(arg_t *arg, const char *module_name, const asn1p_oid_t *oid,
 		if(strcmp(module_name, mod->ModuleName) == 0)
 			return mod;
 	}
-	if(ret == NULL && oid != NULL && (arg->flags & A1F_ALLOW_NEWER_MODULES)) {
-		/*
-		 * OID-based lookup failed.  If -fallow-newer-modules is set,
-		 * fall back to name-based lookup and compare version arcs
-		 * (the last OID arc by ETSI/3GPP convention).
-		 * Accept if the available module is newer; fail if older.
-		 */
-		TQ_FOR(mod, &(arg->asn->modules), mod_next) {
-			if(strcmp(module_name, mod->ModuleName) != 0) continue;
-			if(!mod->module_oid)
-				continue;
-			/*
-			 * If the imported OID is a strict prefix of the available module
-			 * OID (e.g. LI-PS-PDU imports UmtsHI2Operations by base OID only,
-			 * while the 3GPP module adds r17(17) version-0(0) arcs), accept
-			 * unconditionally — the importer explicitly left the version open.
-			 */
-			if(oid->arcs_count < mod->module_oid->arcs_count) {
-				int prefix = 1;
-				for(unsigned int j = 0; j < oid->arcs_count; j++) {
-					if(mod->module_oid->arcs[j].number
-					   != oid->arcs[j].number) {
-						prefix = 0;
-						break;
-					}
-				}
-				if(prefix) {
-					WARNING("Module \"%s\": imported OID is a prefix of "
-						"available OID; accepting (-fallow-newer-modules)",
-						module_name);
-					return mod;
-				}
-			}
-			/*
-			 * Compare OIDs lexicographically (arc by arc from the left).
-			 * A larger OID means a newer version — this handles both ETSI
-			 * modules that version the last arc (version42(42)) and 3GPP
-			 * modules that version a penultimate arc (r17(17) version-0(0)).
-			 * asn1p_oid_compare(a,b) returns positive when b > a.
-			 */
-			int cmp = asn1p_oid_compare(mod->module_oid, oid);
-			if(cmp < 0) {
-				/* oid (imported) < mod->module_oid (available): available is newer */
-				WARNING("Module \"%s\": available OID is newer than "
-					"imported OID; accepting (-fallow-newer-modules)",
-					module_name);
-				return mod;
-			} else if(cmp > 0) {
-				/* oid (imported) > mod->module_oid (available): available is older */
-				FATAL("Module \"%s\": available OID is older than "
-					"imported OID",
-					module_name);
-				errno = ENOENT;
-				return NULL;
-			}
-			/* cmp == 0: identical OIDs but OID-based lookup above failed — skip */
-		}
-	}
-
 	if(ret == NULL) {
 		DEBUG("\tModule \"%s\" not found", module_name);
 		errno = ENOENT;

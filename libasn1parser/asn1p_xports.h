@@ -25,7 +25,8 @@ typedef struct asn1p_xports_s {
 
 	enum asn1p_import_option {
 		XPT_WITH_SUCCESSORS = 1,
-		XPT_WITH_DESCENDANTS
+		XPT_WITH_DESCENDANTS,
+		XPT_WITH_NEWER  /* accept prefix-superset or lexicographically newer OID */
 	} option;
 
 	/*
