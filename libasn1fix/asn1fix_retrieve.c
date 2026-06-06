@@ -197,7 +197,7 @@ asn1f_lookup_module(arg_t *arg, const char *module_name, const asn1p_oid_t *oid,
 	/* Enable version-aware matching for any OID-based lookup when flag is set.
 	 * Guard on arg->mod: internal/standard-module lookups use a zero-initialised
 	 * arg (no module context) and must not emit diagnostics. */
-	if(oid && !oid_option && arg->mod && (arg->flags & A1F_ALLOW_NEWER_MODULES))
+	if(oid && arg->mod && (arg->flags & A1F_ALLOW_NEWER_MODULES))
 		oid_option = XPT_WITH_NEWER;
 
 	/*
