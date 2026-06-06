@@ -1,0 +1,21 @@
+name: C/C++ CI (Alpine i386)
+on:
+  workflow_dispatch:
+jobs:
+  build-alpine-i386:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Build and test on Alpine i386
+      uses: docker://i386/debian:stable-slim
+      with:
+        entrypoint: /bin/sh
+        args: |
+          -c "
+          apt-get update &&
+          apt-get install -y build-essential autoconf automake libtool flex bison &&
+          autoreconf -ivf &&
+          ./configure &&
+          make &&
+          make check
+          "
