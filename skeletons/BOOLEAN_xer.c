@@ -86,3 +86,26 @@ BOOLEAN_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
 cb_failed:
     ASN__ENCODE_FAILED;
 }
+
+asn_enc_rval_t
+BOOLEAN_encode_xer_text(const asn_TYPE_descriptor_t *td, const void *sptr,
+                        int ilevel, enum xer_encoder_flags_e flags,
+                        asn_app_consume_bytes_f *cb, void *app_key) {
+    const BOOLEAN_t *st = (const BOOLEAN_t *)sptr;
+    asn_enc_rval_t er = {0, 0, 0};
+
+    (void)td;
+    (void)ilevel;
+    (void)flags;
+
+    if(!st) ASN__ENCODE_FAILED;
+    if(*st) {
+        ASN__CALLBACK("true", 4);
+    } else {
+        ASN__CALLBACK("false", 5);
+    }
+
+    ASN__ENCODED_OK(er);
+cb_failed:
+    ASN__ENCODE_FAILED;
+}

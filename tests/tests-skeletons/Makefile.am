@@ -15,6 +15,8 @@ check_PROGRAMS =                \
     check-REAL                  \
     check-XER                   \
     check-XER-base64            \
+    check-XER-octstr-auto       \
+    check-XER-octstr-pdu        \
     check-XER-empty-names       \
     check-XER-empty-optionals   \
     check-XER-formatting        \

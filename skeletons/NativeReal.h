@@ -48,7 +48,9 @@ der_type_encoder_f NativeReal_encode_der;
 
 #if !defined(ASN_DISABLE_XER_SUPPORT)
 xer_type_decoder_f NativeReal_decode_xer;
+xer_type_decoder_f NativeReal_decode_xer_decimal;
 xer_type_encoder_f NativeReal_encode_xer;
+xer_type_encoder_f NativeReal_encode_xer_decimal;
 #endif  /* !defined(ASN_DISABLE_XER_SUPPORT) */
 
 #if !defined(ASN_DISABLE_JER_SUPPORT)

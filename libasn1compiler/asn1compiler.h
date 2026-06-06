@@ -22,6 +22,19 @@ typedef enum asn_integer_native_type_e {
  */
 extern asn_integer_native_type_e asn1c_integer_native_type;
 
+/*
+ * Target C "long" model for generated native INTEGER storage.  AUTO keeps the
+ * historical portable assumption that generated code must fit a 32-bit long;
+ * explicit 32/64 modes are for reproducible cross-generation.
+ */
+typedef enum asn_target_long_size_e {
+	ASN_TARGET_LONG_AUTO = 0,
+	ASN_TARGET_LONG_32 = 32,
+	ASN_TARGET_LONG_64 = 64
+} asn_target_long_size_e;
+
+extern asn_target_long_size_e asn1c_target_long_size;
+
 enum asn1c_flags {
 	A1C_NOFLAGS,
 	/*

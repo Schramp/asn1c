@@ -36,8 +36,8 @@ asn_TYPE_operation_t asn_OP_OCTET_STRING = {
     0,
 #endif  /* !defined(ASN_DISABLE_BER_SUPPORT) */
 #if !defined(ASN_DISABLE_XER_SUPPORT)
-    OCTET_STRING_decode_xer_auto,    /* Auto-detect hex or Base64 format for decoding */
-    OCTET_STRING_encode_xer_base64,  /* Per X.693, Base64 is the default encoding for OCTET STRING */
+    OCTET_STRING_decode_xer_auto,  /* Liberal: accept hex (default) or Base64 */
+    OCTET_STRING_encode_xer,       /* Default: upper-case hex (xmlhstring) per X.680 §22.3 / X.693 */
 #else
     0,
     0,

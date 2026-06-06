@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Standalone test runner for oversized INTEGER constraint support and the
-# -finteger-native-type code-generation option.
+# -finteger-native-type / -flong-size code-generation options.
 #
 # Usage:
 #   ./run.sh [ASN1C_BINARY] [SKELETONS_DIR]
@@ -42,6 +42,18 @@ if "$ASN1C" -finteger-native-type=bogus -E "$ASN1" >/dev/null 2>&1; then
 else
     echo "ok: rejects -finteger-native-type=bogus"
 fi
+for s in 32 64; do
+    if "$ASN1C" -flong-size=$s -E "$ASN1" >/dev/null 2>&1; then
+        echo "ok: accepts -flong-size=$s"
+    else
+        echo "FAIL: rejected -flong-size=$s"; fail=1
+    fi
+done
+if "$ASN1C" -flong-size=bogus -E "$ASN1" >/dev/null 2>&1; then
+    echo "FAIL: accepted -flong-size=bogus"; fail=1
+else
+    echo "ok: rejects -flong-size=bogus"
+fi
 echo
 
 # ---------------------------------------------------------------------------
@@ -77,6 +89,22 @@ check_storage uint32 T2   "INTEGER_t"
 check_storage uint32 T3   "uint32_t"
 check_storage uint64 T2   "INTEGER_t"
 check_storage uint64 T5   "uint64_t"
+
+check_long_size() {  # $1=long-size $2=type $3=expected
+    d="$work/long_$1_$2"; rm -rf "$d"; mkdir -p "$d"
+    ( cd "$d" && "$ASN1C" -S "$SKELDIR" -gen-UPER -fwide-types \
+        -flong-size=$1 "$ASN1" >/dev/null 2>&1 )
+    got=$(grep -hE "typedef.* $2_t" "$d/$2.h" | head -1 \
+          | sed -E "s/typedef[[:space:]]+(.*)[[:space:]]+$2_t.*/\1/" \
+          | tr '\t' ' ' | tr -s ' ' | sed -E 's/^ +| +$//g')
+    if [ "$got" = "$3" ]; then echo "ok: long-size=$1 $2 = $got"
+    else echo "FAIL: long-size=$1 $2 = '$got' (expected '$3')"; fail=1; fi
+}
+check_long_size 32 T3 "unsigned long"
+check_long_size 32 T4 "INTEGER_t"
+check_long_size 64 T3 "long"
+check_long_size 64 T4 "long"
+check_long_size 64 T5 "unsigned long"
 echo
 
 # ---------------------------------------------------------------------------

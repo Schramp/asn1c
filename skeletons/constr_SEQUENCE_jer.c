@@ -7,6 +7,12 @@
 #include <constr_SEQUENCE.h>
 #include <OPEN_TYPE.h>
 
+#define JER_MEMBER_NAME(elm) \
+    (((elm)->encoding_constraints.jer_constraints \
+      && (elm)->encoding_constraints.jer_constraints->wire_name) \
+         ? (elm)->encoding_constraints.jer_constraints->wire_name \
+         : (elm)->name)
+
 /*
  * Return a standardized complex structure.
  */
@@ -230,7 +236,7 @@ SEQUENCE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
 
                 for(n = edx; n < edx_end; n++) {
                     elm = &td->elements[n];
-                    scv = jer_check_sym(ptr, ch_size, elm->name);
+                    scv = jer_check_sym(ptr, ch_size, JER_MEMBER_NAME(elm));
                     switch (scv) {
                         case JCK_KEY:
                             ctx->step = edx = n;
@@ -324,7 +330,7 @@ asn_enc_rval_t SEQUENCE_encode_jer(const asn_TYPE_descriptor_t *td,
         asn_enc_rval_t tmper = {0,0,0};
         asn_TYPE_member_t *elm = &td->elements[edx];
         const void *memb_ptr;
-        const char *mname = elm->name;
+        const char *mname = JER_MEMBER_NAME(elm);
         unsigned int mlen = strlen(mname);
 
         if(elm->flags & ATF_POINTER) {

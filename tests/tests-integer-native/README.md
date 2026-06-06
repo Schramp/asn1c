@@ -1,9 +1,10 @@
-# Oversized INTEGER constraint / `-finteger-native-type` tests
+# Oversized INTEGER constraint / native INTEGER storage tests
 
 These tests cover robust INTEGER constraint handling for bounds that exceed
 signed `long`/`intmax_t`, fixed-width native storage for ordinary constraints,
 and the `-finteger-native-type=int32|uint32|int64|uint64|auto` code-generation
-option.
+option.  They also cover the `-flong-size=32|64` target C `long` model used by
+the default `auto` storage policy.
 
 ## Running
 
@@ -17,8 +18,9 @@ After building asn1c in-tree:
 The script exercises four areas:
 
 1. **Command-line option parsing** — `auto`, `int32`, `uint32`, `int64`,
-   `uint64` are accepted; `bogus` is rejected with a non-zero exit. (`long`
-   is still accepted as a deprecated, undocumented alias for `auto`.)
+   `uint64` are accepted for `-finteger-native-type`, `32` and `64` are
+   accepted for `-flong-size`, and `bogus` is rejected with a non-zero exit.
+   (`long` is still accepted as a deprecated, undocumented alias for `auto`.)
 2. **Generated storage selection** — the storage type emitted for `T1..T8`
    under each mode (see table below).
 3. **`asn1c_bigint` unit tests** — decimal parsing, fit tests, canonical
@@ -49,6 +51,11 @@ Fixed-width `int32_t`/`uint32_t`/`int64_t`/`uint64_t` storage is produced
 remain correct under `auto` via `INTEGER_t` plus `asn_cval_t` bounds, and the
 unsigned wraparound / `UINT64_MAX`-vs-`-1` distinction is preserved
 regardless of storage.
+
+`-flong-size=32` selects the same conservative target model as the default.
+`-flong-size=64` lets `auto` use signed `long` first for ranges that fit
+`INT64_MIN..INT64_MAX`, then `unsigned long` for non-negative ranges that fit
+`UINT64_MAX`.
 
 ## Notes / known limitations
 

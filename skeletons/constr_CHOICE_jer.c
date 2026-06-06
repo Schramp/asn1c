@@ -6,6 +6,12 @@
 #include <asn_internal.h>
 #include <constr_CHOICE.h>
 
+#define JER_MEMBER_NAME(elm) \
+    (((elm)->encoding_constraints.jer_constraints \
+      && (elm)->encoding_constraints.jer_constraints->wire_name) \
+         ? (elm)->encoding_constraints.jer_constraints->wire_name \
+         : (elm)->name)
+
 /*
  * Return a standardized complex structure.
  */
@@ -204,7 +210,7 @@ CHOICE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
              */
             for(edx = 0; edx < td->elements_count; edx++) {
                 elm = &td->elements[edx];
-                scv = jer_check_sym(buf_ptr,ch_size,elm->name);
+                scv = jer_check_sym(buf_ptr, ch_size, JER_MEMBER_NAME(elm));
                 switch(scv) {
                 case JCK_KEY:
                     /*
@@ -297,7 +303,7 @@ CHOICE_encode_jer(const asn_TYPE_descriptor_t *td, const asn_jer_constraints_t *
         asn_enc_rval_t tmper = {0,0,0};
         asn_TYPE_member_t *elm = &td->elements[present-1];
         const void *memb_ptr = NULL;
-        const char *mname = elm->name;
+        const char *mname = JER_MEMBER_NAME(elm);
         unsigned int mlen = strlen(mname);
 
         if(elm->flags & ATF_POINTER) {

@@ -4,54 +4,44 @@
         <serialNumber>44:BE:0C:8B:50:00:24:B4:11:D3:36:30:4B:C0:33:77</serialNumber>
         <signature>
             <algorithm>1.2.840.113549.1.1.5</algorithm>
-            <parameters>05 00</parameters>
+            <parameters>0500</parameters>
         </signature>
         <issuer>
             <rdnSequence>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.6</type>
-                        <value>13 02 55 53</value>
+                        <value>13025553</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.8</type>
-                        <value>13 02 55 54</value>
+                        <value>13025554</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.7</type>
-                        <value>13 0E 53 61 6C 74 20 4C 61 6B 65 20 43 69 74 79</value>
+                        <value>130E53616C74204C616B652043697479</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.10</type>
-                        <value>
-                            13 15 54 68 65 20 55 53 45 52 54 52 55 53 54 20 
-                            4E 65 74 77 6F 72 6B
-                        </value>
+                        <value>131554686520555345525452555354204E6574776F726B</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.11</type>
-                        <value>
-                            13 18 68 74 74 70 3A 2F 2F 77 77 77 2E 75 73 65 
-                            72 74 72 75 73 74 2E 63 6F 6D
-                        </value>
+                        <value>1318687474703A2F2F7777772E7573657274727573742E636F6D</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.3</type>
-                        <value>
-                            13 22 55 54 4E 2D 55 53 45 52 46 69 72 73 74 2D 
-                            4E 65 74 77 6F 72 6B 20 41 70 70 6C 69 63 61 74 
-                            69 6F 6E 73
-                        </value>
+                        <value>132255544E2D5553455246697273742D4E6574776F726B204170706C69636174696F6E73</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
             </rdnSequence>
@@ -69,47 +59,37 @@
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.6</type>
-                        <value>13 02 55 53</value>
+                        <value>13025553</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.8</type>
-                        <value>13 02 55 54</value>
+                        <value>13025554</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.7</type>
-                        <value>13 0E 53 61 6C 74 20 4C 61 6B 65 20 43 69 74 79</value>
+                        <value>130E53616C74204C616B652043697479</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.10</type>
-                        <value>
-                            13 15 54 68 65 20 55 53 45 52 54 52 55 53 54 20 
-                            4E 65 74 77 6F 72 6B
-                        </value>
+                        <value>131554686520555345525452555354204E6574776F726B</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.11</type>
-                        <value>
-                            13 18 68 74 74 70 3A 2F 2F 77 77 77 2E 75 73 65 
-                            72 74 72 75 73 74 2E 63 6F 6D
-                        </value>
+                        <value>1318687474703A2F2F7777772E7573657274727573742E636F6D</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
                 <RelativeDistinguishedName>
                     <AttributeTypeAndValue>
                         <type>2.5.4.3</type>
-                        <value>
-                            13 22 55 54 4E 2D 55 53 45 52 46 69 72 73 74 2D 
-                            4E 65 74 77 6F 72 6B 20 41 70 70 6C 69 63 61 74 
-                            69 6F 6E 73
-                        </value>
+                        <value>132255544E2D5553455246697273742D4E6574776F726B204170706C69636174696F6E73</value>
                     </AttributeTypeAndValue>
                 </RelativeDistinguishedName>
             </rdnSequence>
@@ -117,7 +97,7 @@
         <subjectPublicKeyInfo>
             <algorithm>
                 <algorithm>1.2.840.113549.1.1.1</algorithm>
-                <parameters>05 00</parameters>
+                <parameters>0500</parameters>
             </algorithm>
             <subjectPublicKey>
                 0011000010000010000000010000101000000010100000100000000100000001
@@ -160,29 +140,28 @@
             <Extension>
                 <extnID>2.5.29.15</extnID>
                 <critical><false/></critical>
-                <extnValue>AwIBxg==</extnValue>
+                <extnValue>030201C6</extnValue>
             </Extension>
             <Extension>
                 <extnID>2.5.29.19</extnID>
                 <critical><true/></critical>
-                <extnValue>MAMBAf8=</extnValue>
+                <extnValue>30030101FF</extnValue>
             </Extension>
             <Extension>
                 <extnID>2.5.29.14</extnID>
                 <critical><false/></critical>
-                <extnValue>BBT6hsnb4LrpePVLqNYV3/DT4WoUPA==</extnValue>
+                <extnValue>0414FA86C9DBE0BAE978F54BA8D615DFF0D3E16A143C</extnValue>
             </Extension>
             <Extension>
                 <extnID>2.5.29.31</extnID>
                 <critical><false/></critical>
-                <extnValue>MEYwRKBCoECGPmh0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9VVE4tVVNFUkZpcnN0LU5ldHdvcmtB
-                    cHBsaWNhdGlvbnMuY3Js</extnValue>
+                <extnValue>30463044A042A040863E687474703A2F2F63726C2E7573657274727573742E636F6D2F55544E2D5553455246697273742D4E6574776F726B4170706C69636174696F6E732E63726C</extnValue>
             </Extension>
         </extensions>
     </tbsCertificate>
     <signatureAlgorithm>
         <algorithm>1.2.840.113549.1.1.5</algorithm>
-        <parameters>05 00</parameters>
+        <parameters>0500</parameters>
     </signatureAlgorithm>
     <signature>
         1010010011110011001001011100110011010001110101001001000110000011

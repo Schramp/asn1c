@@ -5,6 +5,8 @@
 #include "asn1c_naming.h"
 #include "asn1c_bigint.h"
 
+#include <stdint.h>
+
 #include <asn1fix_crange.h>	/* constraint groker from libasn1fix */
 #include <asn1fix_export.h>	/* other exportables from libasn1fix */
 
@@ -51,9 +53,6 @@ emit_cval_bound(arg_t *arg, const char *id, int idx, const char *sfx,
     }
     {
         asn1c_integer_t v = edge->value;
-        const asn1c_integer_t U64MAX = ((asn1c_integer_t)INT64_MAX << 1) + 1;
-        const asn1c_integer_t IMAX = (asn1c_integer_t)INTMAX_MAX;
-        const asn1c_integer_t IMIN = -(asn1c_integer_t)INTMAX_MAX - 1;
         int use_bytes;
         char dec[64];
         const char *s = asn1p_itoa(v);
@@ -62,10 +61,16 @@ emit_cval_bound(arg_t *arg, const char *id, int idx, const char *sfx,
 
         /* Negative fitting intmax_t -> SINT; non-negative fitting uintmax_t
          * -> UINT; everything else -> canonical INTEGER content octets. */
-        use_bytes = (v < 0) ? (v < IMIN) : (v > U64MAX);
+        use_bytes = 0;
+#ifdef HAVE_128_BIT_INT
+        {
+            const asn1c_integer_t UMAX = (asn1c_integer_t)UINTMAX_MAX;
+            const asn1c_integer_t IMIN = -(asn1c_integer_t)INTMAX_MAX - 1;
+            use_bytes = (v < 0) ? (v < IMIN) : (v > UMAX);
+        }
+#endif
 
         if(!use_bytes && v < 0) {
-            (void)IMAX;
             OUT("static const asn_cval_t asn_CVAL_%s_%d_%s = "
                 "{ ACV_SINT, { .s = INTMAX_C(%s) } };\n", id, idx, sfx, dec);
         } else if(!use_bytes) {

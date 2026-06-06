@@ -1,5 +1,24 @@
 1.4.3:
 	NEW FEATURES:
+	* Added schema-level XER/JER encoding instruction support for the
+	  implemented subset of X.693/X.697-style controls.  The parser now
+	  accepts `JER INSTRUCTIONS`, `[TEXT]`, `[XER:TEXT]`, `[DECIMAL]`,
+	  `[XER:DECIMAL]`, `[JER:BASE64]`, `ENCODING-CONTROL XER` directives
+	  for `TEXT`, `DECIMAL`, and `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`, and
+	  `ENCODING-CONTROL JER` directives for `BASE64`, enumerated-value
+	  `TEXT AS`, and member `NAME AS`.
+	  - Added semantic validation for target applicability, unknown targets,
+	    required `AS` values, XER `DECIMAL` requiring
+	    `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`, and duplicate JER wire names.
+	  - Added generated XER text wrappers for BOOLEAN, ENUMERATED,
+	    named-number INTEGER, and named-bit BIT STRING; XER decimal REAL
+	    routing; JER Base64 OCTET STRING wrappers; and JER member wire-name
+	    metadata used by SEQUENCE, SET, and CHOICE encoders/decoders.
+	  - Preserved compatibility for bare `[BASE64]` as XER and the legacy
+	    XER OCTET STRING `hexadecimal`, `base64`, and `utf8` control forms.
+	  - Added compiler golden and smoke tests covering allowed forms, bad
+	    values, bad applicability, exact XER/JER output, JER round trips, and
+	    JER bad-wire failures.
 	* Added `-fprefer-import-source` compiler flag.  When two modules export
 	  identically-named types and a consumer imports one from each,
 	  `asn1f_lookup_in_imports` previously fell back to a full-module body
