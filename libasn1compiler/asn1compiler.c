@@ -9,6 +9,7 @@
 
 /* Global integer native storage policy; see asn1compiler.h */
 asn_integer_native_type_e asn1c_integer_native_type = AINT_NATIVE_AUTO;
+asn_target_long_size_e asn1c_target_long_size = ASN_TARGET_LONG_AUTO;
 
 static void default_logger_cb(int, const char *fmt, ...);
 static int asn1c_compile_expr(arg_t *arg, const asn1c_ioc_table_and_objset_t *);
@@ -79,7 +80,8 @@ asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_
 	 * Apply encoding controls to types before code generation
 	 */
 	TQ_FOR(mod, &(asn->modules), mod_next) {
-		asn1c_apply_encoding_controls(asn, mod);
+		if(asn1c_apply_encoding_controls(asn, mod) < 0)
+			return -1;
 	}
 
 	/*
@@ -651,5 +653,3 @@ asn1c_mark_pdu_dependencies(arg_t *arg) {
 		}
 	}
 }
-
-

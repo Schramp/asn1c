@@ -23,6 +23,12 @@ typedef struct OCTET_STRING {
 		int bits_collected;          /* Number of bits in accumulated_value */
 		int padding_seen;            /* Whether padding was encountered */
 		int decoder_initialized;     /* Whether decoder state is valid */
+		/*
+		 * Format pinned by the first non-whitespace chunk so that all
+		 * subsequent chunks of the same value use the same converter.
+		 * 0 = undecided, 1 = hex, 2 = base64.
+		 */
+		int format_decided;
 	} _xer_decode_state;
 } OCTET_STRING_t;
 
@@ -61,8 +67,10 @@ xer_type_encoder_f OCTET_STRING_encode_xer_base64;
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 jer_type_decoder_f OCTET_STRING_decode_jer_hex;     /* Hexadecimal */
 jer_type_decoder_f OCTET_STRING_decode_jer_utf8;    /* ASCII/UTF-8 */
+jer_type_decoder_f OCTET_STRING_decode_jer_base64;  /* Base64 */
 jer_type_encoder_f OCTET_STRING_encode_jer;
 jer_type_encoder_f OCTET_STRING_encode_jer_utf8;
+jer_type_encoder_f OCTET_STRING_encode_jer_base64;
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)

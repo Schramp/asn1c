@@ -225,9 +225,17 @@ WSP	[\t\r\v\f\n ]
 	"--".*		/* skip single-line comments */
 	
 	"::="		return TOK_PPEQ;
+	"."		return '.';
 	
 	OCTET		return TOK_OCTET;
 	STRING		return TOK_STRING;
+
+	\"[^\"]*	{
+			asn1p_lval.tv_opaque.buf = 0;
+			asn1p_lval.tv_opaque.len = 0;
+			QAPPEND(yytext+1, yyleng-1);
+			yy_push_state(quoted);
+		}
 	
 	[a-z][a-zA-Z0-9]*([-][a-zA-Z0-9]+)*	{
 		asn1p_lval.tv_str = strdup(yytext);
@@ -637,4 +645,3 @@ _lex_atod(const char *ptr) {
 	}
 	return value;
 }
-

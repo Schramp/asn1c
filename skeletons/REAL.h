@@ -65,7 +65,9 @@ asn_struct_copy_f    REAL_copy;
 
 #if !defined(ASN_DISABLE_XER_SUPPORT)
 xer_type_decoder_f REAL_decode_xer;
+xer_type_decoder_f REAL_decode_xer_decimal;
 xer_type_encoder_f REAL_encode_xer;
+xer_type_encoder_f REAL_encode_xer_decimal;
 #endif  /* !defined(ASN_DISABLE_XER_SUPPORT) */
 
 #if !defined(ASN_DISABLE_JER_SUPPORT)
