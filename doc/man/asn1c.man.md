@@ -98,8 +98,12 @@ CBOR and other encoding rules.
     for the given type have been provided manually.
 
 -fallow-newer-modules
-:   Accept a module whose version OID is newer than the OID listed in
-    `IMPORTS`; fail if the available module is older.
+:   Accept an available module when its OID matches the imported module's base
+    OID and the available module is either newer in the last two version arcs
+    (release, minor) or adds exactly those two version arcs to a base prefix;
+    fail if the available module is older.
+    Also overrides `WITH SUCCESSORS` in `IMPORTS` when the imported OID is up
+    to two arcs shorter than the available OID.
 
 -fline-refs
 :   Include ASN.1 module's line numbers in generated code comments.
