@@ -121,12 +121,12 @@ asn1f_lookup_in_imports(arg_t *arg, asn1p_module_t *mod, const char *name) {
  * Last two arcs are (release, minor-version); everything before
  * max(len_a, len_b)-2 must be identical.
  *
- * Returns:
- *   -1  available is newer (or equal) — accept
- *    0  version arcs are identical
- *    1  available is older — reject
- *    2  imported OID is a base prefix (no version arcs) — accept
- *  INT_MIN  base arcs differ (unrelated module) — skip
+	 * Returns:
+	 *   -1  available is newer — accept
+	 *    0  version arcs are identical
+	 *    1  available is older — reject
+	 *    2  imported OID is a base prefix (no version arcs) — accept
+	 *  INT_MIN  base arcs differ (unrelated module) — skip
  */
 static int
 oid_version_compare(const asn1p_oid_t *imported, const asn1p_oid_t *available) {
