@@ -10,6 +10,7 @@
 #include "asn1c_misc.h"
 #include "asn1c_ioc.h"
 #include "asn1c_naming.h"
+#include <stdint.h>
 #include <asn1print.h>
 #include <asn1fix_crange.h>	/* constraint groker from libasn1fix */
 #include <asn1fix_export.h>	/* other exportables from libasn1fix */
@@ -2870,6 +2871,20 @@ asn1c_per_range_needs_generic_size_fallback(asn1cnst_range_t *range) {
 }
 
 static int
+asn1c_per_bound_fits_legacy_literal(asn1c_integer_t value) {
+#ifdef HAVE_128_BIT_INT
+    if(value < 0) {
+        const asn1c_integer_t min = -(asn1c_integer_t)INTMAX_MAX - 1;
+        return value >= min;
+    } else {
+        return value <= (asn1c_integer_t)UINTMAX_MAX;
+    }
+#else
+    return 1;
+#endif
+}
+
+static int
 emit_single_member_PER_constraint(arg_t *arg, asn1cnst_range_t *range, int alphabetsize, const char *type) {
     if(!range || range->incompatible || range->not_PER_visible) {
         OUT("{ APC_UNCONSTRAINED,\t-1, -1,  0,  0 }");
@@ -2880,6 +2895,14 @@ emit_single_member_PER_constraint(arg_t *arg, asn1cnst_range_t *range, int alpha
         /* Unsupported */
         OUT("{ APC_UNCONSTRAINED,\t-1, -1,  0,  0 }");
         return 0;
+    }
+
+    if((range->left.type == ARE_VALUE
+        && !asn1c_per_bound_fits_legacy_literal(range->left.value))
+       || (range->right.type == ARE_VALUE
+           && !asn1c_per_bound_fits_legacy_literal(range->right.value))) {
+        OUT("{ APC_UNCONSTRAINED,\t-1, -1,  0,  0 }");
+        goto pcmt;
     }
 
     if(range->left.type == ARE_VALUE) {
