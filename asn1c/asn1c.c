@@ -678,7 +678,7 @@ usage(const char *av0) {
 "  -findirect-choice     Compile members of CHOICE as indirect pointers\n"
 "  -fincludes-quoted     Generate #includes in \"double\" instead of <angle> quotes\n"
 "  -fknown-extern-type=<name>    Pretend the specified type is known\n"
-"  -fallow-newer-modules   Accept a module whose version OID is newer than imported; fail if older\n"
+"  -fallow-newer-modules   Accept newer OID (last 2 arcs) or base+2 version arcs; fail if older\n"
 "  -fline-refs           Include ASN.1 module's line numbers in comments\n"
 "  -fno-constraints      Do not generate the constraint checking code\n"
 "  -fno-include-deps     Do not generate the courtesy #includes for dependencies\n"
