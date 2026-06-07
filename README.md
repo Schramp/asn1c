@@ -65,6 +65,37 @@ JER            | jer_encode()               | JER           | jer_decode()
 *) Asterisk means both BASIC and CANONICAL variants.
 </details>
 
+# XER and JER Encoding Instructions
+
+asn1c supports schema-level XER and JER encoding instructions for selected
+standard-style encodings. Supported instructions include XER `BASE64`, `TEXT`,
+`DECIMAL`, `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`, and the legacy XER OCTET
+STRING controls `hexadecimal` and `utf8`; JER supports `BASE64`, enumerated
+value `TEXT`, and member `NAME`.
+
+```asn1
+Flag ::= [TEXT] BOOLEAN
+Blob ::= [JER:BASE64] OCTET STRING
+
+ENCODING-CONTROL XER
+    GLOBAL-DEFAULTS MODIFIED-ENCODINGS
+    DECIMAL Ratio
+    TEXT Count.one AS "uno"
+END
+
+ENCODING-CONTROL JER
+    NAME Packet.payload AS "payload64"
+    TEXT Mode.busy AS "occupied"
+END
+```
+
+Bare `[BASE64]` remains a XER instruction for compatibility; use
+`[JER:BASE64]` for JER. XER `DECIMAL` applies only to `REAL` and requires
+`GLOBAL-DEFAULTS MODIFIED-ENCODINGS`. JER `NAME` changes JSON keys only; it
+does not rename C fields or XER XML tags. See
+[ENCODING_CONTROL_STATUS.md](ENCODING_CONTROL_STATUS.md) for the support
+matrix and diagnostics.
+
 # Build and Install
 
 If you haven't installed the asn1c yet, read the [INSTALL.md](INSTALL.md) file

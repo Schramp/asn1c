@@ -24,6 +24,7 @@ TESTS += check-SEQUENCE_OF_INTEGER.sh
 TESTS += check-Time.sh
 TESTS += check-JER-open-type.sh
 TESTS += check-JER-enumerated-opentype.sh
+TESTS += check-encoding-instructions.sh
 TESTS += check-APER-inline-constrained-ioc.sh
 TESTS += check-fprefix-link.sh
 TESTS += check-fprefix-anon-typedef.sh

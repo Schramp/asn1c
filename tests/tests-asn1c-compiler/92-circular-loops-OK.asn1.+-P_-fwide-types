@@ -1393,20 +1393,6 @@ extern asn_TYPE_member_t asn_MBR_Alpha_1[2];
 
 #include "Beta.h"
 
-/*** <<< CODE [Alpha] >>> ***/
-
-#ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
-#if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_b __attribute__((weak, alias("asn_DEF_b_3")));
-#else
-static asn_TYPE_descriptor_t asn_DEF_b_3;
-static asn_TYPE_descriptor_t asn_DEF_b;
-__attribute__((constructor)) static void asn_DEF_b_3_alias_init(void) {
-	asn_DEF_b = asn_DEF_b_3;
-}
-#endif
-#endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
-
 /*** <<< STAT-DEFS [Alpha] >>> ***/
 
 static asn_TYPE_member_t asn_MBR_Alpha__b_3[] = {

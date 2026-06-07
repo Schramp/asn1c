@@ -80,7 +80,8 @@ asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_
 	 * Apply encoding controls to types before code generation
 	 */
 	TQ_FOR(mod, &(asn->modules), mod_next) {
-		asn1c_apply_encoding_controls(asn, mod);
+		if(asn1c_apply_encoding_controls(asn, mod) < 0)
+			return -1;
 	}
 
 	/*
@@ -652,4 +653,3 @@ asn1c_mark_pdu_dependencies(arg_t *arg) {
 		}
 	}
 }
-

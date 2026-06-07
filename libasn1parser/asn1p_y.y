@@ -63,6 +63,8 @@ static struct AssignedIdentifier *saved_aid;
 
 static asn1p_value_t *_convert_bitstring2binary(char *str, int base);
 static void _fixup_anonymous_identifier(asn1p_expr_t *expr);
+static char *_encoding_control_join(char *a, char *b);
+static char *_encoding_control_cstring(char *buf, int len);
 
 static asn1p_module_t *currentModule;
 #define	NEW_EXPR()	(asn1p_expr_new(yylineno, currentModule))
@@ -144,6 +146,16 @@ static asn1p_module_t *currentModule;
 		char *name;
 		struct asn1p_type_tag_s tag;
 	} tv_nametag;
+	/*
+	 * Combined tag + XER encoding instruction prefix.
+	 * Used by optTagOrEncoding to carry both in one production,
+	 * avoiding the shift/reduce conflict that arises when both
+	 * optTag and an explicit [BASE64] alternative start with '['.
+	 */
+	struct {
+		struct asn1p_type_tag_s tag;
+		int enc;	/* enum asn1p_encoding_control_type_e */
+	} tv_tag_enc;
 };
 
 %destructor { asn1p_delete($$); } <a_grammar>
@@ -301,6 +313,10 @@ static asn1p_module_t *currentModule;
 %type	<a_module>		EncodingControlBody
 %type	<a_module>		EncodingInstructionList
 %type	<a_expr>		EncodingInstruction
+%type	<tv_str>		EncodingControlTarget
+%type	<tv_str>		EncodingControlTargetAtom
+%type	<tv_str>		EncodingControlOptAs
+%type	<tv_str>		EncodingControlAsValue
 %type	<a_module>		optExports
 %type	<a_module>		ImportsDefinition
 %type	<a_module>		optImportsBundleSet
@@ -379,6 +395,7 @@ static asn1p_module_t *currentModule;
 %type	<a_tag>			Tag 		/* [UNIVERSAL 0] IMPLICIT */
 %type	<a_tag>			TagClass TagTypeValue TagPlicit
 %type	<a_tag>			optTag		/* [UNIVERSAL 0] IMPLICIT */
+%type	<tv_tag_enc>		optTagOrEncoding	/* tag and/or [BASE64] prefix */
 %type	<a_constr>		optConstraint
 %type	<a_constr>		optManyConstraints  /* Only for Type */
 %type	<a_constr>		ManyConstraints
@@ -577,9 +594,11 @@ ModuleDefinitionFlag:
 	| TOK_capitalreference TOK_INSTRUCTIONS {
 		/* X.680Amd1 specifies TAG and XER */
 		if(strcmp($1, "TAG") == 0) {
-		 	$$ = MSF_TAG_INSTRUCTIONS;
+			$$ = MSF_TAG_INSTRUCTIONS;
 		} else if(strcmp($1, "XER") == 0) {
-		 	$$ = MSF_XER_INSTRUCTIONS;
+			$$ = MSF_XER_INSTRUCTIONS;
+		} else if(strcmp($1, "JER") == 0) {
+			$$ = MSF_JER_INSTRUCTIONS;
 		} else {
 			fprintf(stderr,
 				"WARNING: %s INSTRUCTIONS at %s:%d: "
@@ -679,6 +698,8 @@ Assignment:
 				TQ_FOR(instr, &($4->members), next) {
 					asn1p_expr_t *copy = asn1p_expr_clone(instr, 0);
 					if(copy) {
+						free(copy->encoding_control.encoding_reference);
+						copy->encoding_control.encoding_reference = strdup($2);
 						asn1p_module_member_add($$, copy);
 						count++;
 					}
@@ -793,6 +814,102 @@ EncodingInstruction:
 		
 		free($5);
 	}
+	/*
+	 * Standard X.693 §21 form: BASE64 TypeName
+	 * (in the ENCODING-CONTROL XER section, all identifiers return
+	 * TOK_typereference from the encoding_control lexer state)
+	 */
+	| TOK_typereference TOK_typereference
+	{
+		$$ = NULL;
+		if(strcmp($1, "BASE64") == 0) {
+			/* BASE64 TypeName */
+			$$ = NEW_EXPR();
+			checkmem($$);
+			$$->Identifier = $2;
+			$$->meta_type = AMT_TYPE;
+			$$->expr_type = ASN_BASIC_OCTET_STRING;
+			$$->_mark = TM_ENCODING_INSTRUCTION;
+			$$->encoding_control.encoding_type = EC_XER_BASE64;
+			$$->encoding_control.encoding_reference = strdup("XER");
+			free($1);
+		} else if(strcmp($1, "DECIMAL") == 0) {
+			$$ = NEW_EXPR();
+			checkmem($$);
+			$$->Identifier = $2;
+			$$->meta_type = AMT_TYPE;
+			$$->expr_type = ASN_BASIC_REAL;
+			$$->_mark = TM_ENCODING_INSTRUCTION;
+			$$->encoding_control.encoding_type = EC_XER_DECIMAL;
+			$$->encoding_control.encoding_reference = strdup("XER");
+			free($1);
+		} else if(strcmp($1, "TEXT") == 0) {
+			$$ = NEW_EXPR();
+			checkmem($$);
+			$$->Identifier = $2;
+			$$->meta_type = AMT_TYPE;
+			$$->expr_type = A1TC_REFERENCE;
+			$$->_mark = TM_ENCODING_INSTRUCTION;
+			$$->encoding_control.encoding_type = EC_XER_TEXT;
+			$$->encoding_control.encoding_reference = strdup("XER");
+			free($1);
+		} else if(strcmp($1, "GLOBAL-DEFAULTS") == 0
+		       && strcmp($2, "MODIFIED-ENCODINGS") == 0) {
+			$$ = NEW_EXPR();
+			checkmem($$);
+			$$->Identifier = strdup("__GLOBAL_DEFAULTS_MODIFIED_ENCODINGS__");
+			checkmem($$->Identifier);
+			$$->meta_type = AMT_TYPE;
+			$$->expr_type = A1TC_REFERENCE;
+			$$->_mark = TM_ENCODING_INSTRUCTION;
+			$$->encoding_control.encoding_type =
+				EC_XER_GLOBAL_DEFAULTS_MODIFIED_ENCODINGS;
+			$$->encoding_control.encoding_reference = strdup("XER");
+			free($1);
+			free($2);
+		} else {
+			fprintf(stderr,
+				"WARNING: Unknown ENCODING-CONTROL directive '%s %s' at %s:%d\n",
+				$1, $2, ASN_FILENAME, yylineno);
+			free($1);
+			free($2);
+		}
+	}
+	| TOK_typereference EncodingControlTarget EncodingControlOptAs
+	{
+		$$ = NULL;
+		if(strcmp($1, "BASE64") == 0
+		|| strcmp($1, "DECIMAL") == 0
+		|| strcmp($1, "TEXT") == 0
+		|| strcmp($1, "NAME") == 0) {
+			$$ = NEW_EXPR();
+			checkmem($$);
+			$$->Identifier = strdup($2);
+			checkmem($$->Identifier);
+			$$->meta_type = AMT_TYPE;
+			$$->expr_type = A1TC_REFERENCE;
+			$$->_mark = TM_ENCODING_INSTRUCTION;
+			$$->encoding_control.target_path = $2;
+			if($3) $$->encoding_control.replacement = $3;
+			if(strcmp($1, "BASE64") == 0) {
+				$$->encoding_control.encoding_type = EC_XER_BASE64;
+			} else if(strcmp($1, "DECIMAL") == 0) {
+				$$->encoding_control.encoding_type = EC_XER_DECIMAL;
+			} else if(strcmp($1, "TEXT") == 0) {
+				$$->encoding_control.encoding_type = EC_XER_TEXT;
+			} else {
+				$$->encoding_control.encoding_type = EC_JER_NAME;
+			}
+			free($1);
+		} else {
+			fprintf(stderr,
+				"WARNING: Unknown ENCODING-CONTROL directive '%s %s' at %s:%d\n",
+				$1, $2, ASN_FILENAME, yylineno);
+			free($1);
+			free($2);
+			free($3);
+		}
+	}
 	| error
 	{
 		/* Error recovery - skip malformed instruction */
@@ -801,6 +918,55 @@ EncodingInstruction:
 			ASN_FILENAME, yylineno);
 		$$ = NULL;
 	}
+	;
+
+EncodingControlTarget:
+	EncodingControlTargetAtom
+	| EncodingControlTarget '.' EncodingControlTargetAtom {
+		$$ = _encoding_control_join($1, $3);
+		checkmem($$);
+	}
+	;
+
+EncodingControlTargetAtom:
+	TOK_typereference { $$ = $1; }
+	| TOK_identifier { $$ = $1; }
+	| TOK_capitalreference { $$ = $1; }
+	;
+
+EncodingControlOptAs:
+	{ $$ = NULL; }
+	| TOK_identifier EncodingControlAsValue {
+		if(strcmp($1, "AS") == 0) {
+			$$ = $2;
+		} else {
+			fprintf(stderr,
+				"WARNING: Unknown ENCODING-CONTROL token '%s' at %s:%d\n",
+				$1, ASN_FILENAME, yylineno);
+			free($2);
+			$$ = NULL;
+		}
+		free($1);
+	}
+	| TOK_typereference EncodingControlAsValue {
+		if(strcmp($1, "AS") == 0) {
+			$$ = $2;
+		} else {
+			fprintf(stderr,
+				"WARNING: Unknown ENCODING-CONTROL token '%s' at %s:%d\n",
+				$1, ASN_FILENAME, yylineno);
+			free($2);
+			$$ = NULL;
+		}
+		free($1);
+	}
+	;
+
+EncodingControlAsValue:
+	TOK_typereference { $$ = $1; }
+	| TOK_identifier { $$ = $1; }
+	| TOK_capitalreference { $$ = $1; }
+	| TOK_cstring { $$ = _encoding_control_cstring($1.buf, $1.len); checkmem($$); }
 	;
 
 	/*
@@ -1470,9 +1636,16 @@ ExtensionAndException:
 Type: TaggedType;
 
 TaggedType:
-    optTag UntaggedType {
+    optTagOrEncoding UntaggedType {
         $$ = $2;
-        $$->tag = $1;
+        $$->tag = $1.tag;
+        if($1.enc != EC_NONE) {
+            $$->encoding_control.encoding_type =
+                (enum asn1p_encoding_control_type_e)$1.enc;
+            if(!$$->encoding_control.encoding_reference)
+                $$->encoding_control.encoding_reference =
+                    strdup($1.enc == EC_JER_BASE64 ? "JER" : "XER");
+        }
     }
     ;
 
@@ -1523,9 +1696,16 @@ UntaggedType:
 	;
 
 MaybeIndirectTaggedType:
-    optTag MaybeIndirectTypeDeclaration optManyConstraints {
+    optTagOrEncoding MaybeIndirectTypeDeclaration optManyConstraints {
 		$$ = $2;
-		$$->tag = $1;
+		$$->tag = $1.tag;
+		if($1.enc != EC_NONE) {
+			$$->encoding_control.encoding_type =
+				(enum asn1p_encoding_control_type_e)$1.enc;
+			if(!$$->encoding_control.encoding_reference)
+				$$->encoding_control.encoding_reference =
+					strdup($1.enc == EC_JER_BASE64 ? "JER" : "XER");
+		}
 		/*
 		 * Outer constraint for SEQUENCE OF and SET OF applies
 		 * to the inner type.
@@ -1536,8 +1716,7 @@ MaybeIndirectTaggedType:
 			TQ_FIRST(&($$->members))->constraints = $3;
 		} else {
 			if($$->constraints) {
-				assert(!$2);
-				/* Check this : optManyConstraints is not used ?! */
+				assert(!$3);
 				asn1p_constraint_free($3);
 			} else {
 				$$->constraints = $3;
@@ -2620,6 +2799,69 @@ optTag:
 	| Tag { $$ = $1; }
 	;
 
+/*
+ * Combined tag + XER encoding instruction prefix for use in TaggedType and
+ * MaybeIndirectTaggedType.  Replaces the separate optTag in those two rules
+ * to avoid the shift/reduce conflict that would arise if both optTag and an
+ * explicit '[' capitalreference ']' alternative compete for the '[' token.
+ *
+ * Disambiguation after '[' is 1-token-lookahead-safe:
+ *   TOK_number or TOK_UNIVERSAL/APPLICATION/PRIVATE -> tag
+ *   TOK_capitalreference                            -> XER encoding prefix
+ * since capitalreferences never appear inside tag productions (tags need a
+ * TOK_number; the class keywords UNIVERSAL/APPLICATION/PRIVATE are separate
+ * keyword tokens, not capitalreferences).
+ */
+optTagOrEncoding:
+	{
+		memset(&$$, 0, sizeof($$));
+		$$.enc = EC_NONE;
+	}
+	| Tag {
+		$$.tag = $1;
+		$$.enc = EC_NONE;
+	}
+	| '[' TOK_capitalreference ']' {
+		/* Bare instruction prefixes use the XER encoding reference. */
+		memset(&$$, 0, sizeof($$));
+		if(strcmp($2, "BASE64") == 0) {
+			$$.enc = EC_XER_BASE64;
+		} else if(strcmp($2, "TEXT") == 0) {
+			$$.enc = EC_XER_TEXT;
+		} else if(strcmp($2, "DECIMAL") == 0) {
+			$$.enc = EC_XER_DECIMAL;
+		} else {
+			fprintf(stderr,
+				"WARNING: Unknown XER encoding instruction [%s]"
+				" at %s:%d, ignored\n",
+				$2, ASN_FILENAME, yylineno);
+			$$.enc = EC_NONE;
+		}
+		free($2);
+	}
+	| '[' TOK_capitalreference ':' TOK_capitalreference ']' {
+		/* Qualified encoding instruction prefix. */
+		memset(&$$, 0, sizeof($$));
+		if(strcmp($2, "XER") == 0 && strcmp($4, "BASE64") == 0) {
+			$$.enc = EC_XER_BASE64;
+		} else if(strcmp($2, "XER") == 0 && strcmp($4, "TEXT") == 0) {
+			$$.enc = EC_XER_TEXT;
+		} else if(strcmp($2, "XER") == 0 && strcmp($4, "DECIMAL") == 0) {
+			$$.enc = EC_XER_DECIMAL;
+		} else if(strcmp($2, "JER") == 0 && strcmp($4, "BASE64") == 0) {
+			$$.enc = EC_JER_BASE64;
+		} else {
+			fprintf(stderr,
+				"WARNING: Unknown XER encoding instruction"
+				" [%s:%s] at %s:%d, ignored\n",
+				$2, $4, ASN_FILENAME, yylineno);
+			$$.enc = EC_NONE;
+		}
+		free($2);
+		free($4);
+	}
+	;
+
 Tag:
 	TagTypeValue TagPlicit {
 		$$ = $1;
@@ -2824,6 +3066,32 @@ _fixup_anonymous_identifier(asn1p_expr_t *expr) {
 		expr->Identifier);
 }
 
+static char *
+_encoding_control_join(char *a, char *b) {
+	size_t alen = strlen(a);
+	size_t blen = strlen(b);
+	char *r = malloc(alen + blen + 2);
+	if(r) {
+		memcpy(r, a, alen);
+		r[alen] = '.';
+		memcpy(r + alen + 1, b, blen + 1);
+	}
+	free(a);
+	free(b);
+	return r;
+}
+
+static char *
+_encoding_control_cstring(char *buf, int len) {
+	char *r = malloc((size_t)len + 1);
+	if(r) {
+		memcpy(r, buf, (size_t)len);
+		r[len] = '\0';
+	}
+	free(buf);
+	return r;
+}
+
 int
 yyerror(void **param, const char *msg) {
 	(void)param;
@@ -2834,4 +3102,3 @@ yyerror(void **param, const char *msg) {
 		ASN_FILENAME, yylineno, asn1p_text, msg);
 	return -1;
 }
-

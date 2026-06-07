@@ -277,6 +277,53 @@ CANONICAL-XER  xer_encode         *-XER         xer_decode()
 
 *) Asterisk means both BASIC and CANONICAL variants.
 
+# XER AND JER ENCODING INSTRUCTIONS
+
+asn1c supports a selected set of schema-level encoding instructions for XER
+and JER. Instructions may be written as bracketed type prefixes or in
+`ENCODING-CONTROL` sections.
+
+```asn1
+Flag ::= [TEXT] BOOLEAN
+Mode ::= [XER:TEXT] ENUMERATED { idle(0), busy(1) }
+Blob ::= [JER:BASE64] OCTET STRING
+
+ENCODING-CONTROL XER
+    GLOBAL-DEFAULTS MODIFIED-ENCODINGS
+    DECIMAL Ratio
+    TEXT Count.one AS "uno"
+END
+
+ENCODING-CONTROL JER
+    BASE64 Blob
+    TEXT Mode.busy AS "occupied"
+    NAME Packet.payload AS "payload64"
+END
+```
+
+Supported XER instructions:
+
+- `BASE64` for `OCTET STRING`; bare `[BASE64]` remains XER for compatibility.
+- legacy `Type OCTET STRING ::= hexadecimal`, `base64`, and `utf8` forms.
+- `TEXT` for `BOOLEAN`, `ENUMERATED`, named-number `INTEGER`, and named-bit
+  `BIT STRING`.
+- `DECIMAL` for `REAL`, only when `GLOBAL-DEFAULTS MODIFIED-ENCODINGS` is
+  present in the XER control section.
+- `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`.
+
+Supported JER instructions:
+
+- `BASE64` for `OCTET STRING`; use `[JER:BASE64]` for type prefixes.
+- `TEXT Type.value AS "json-string"` for named values of `ENUMERATED`.
+- `NAME Type.member AS "json-key"` for members of `SEQUENCE`, `SET`, and
+  `CHOICE`.
+
+The compiler rejects incompatible targets, unknown targets, missing `AS`
+values where required, XER `DECIMAL` without
+`GLOBAL-DEFAULTS MODIFIED-ENCODINGS`, and duplicate JER wire names within the
+same constructed type. JER `NAME` affects JSON keys only; it does not rename
+generated C fields or XER XML tags.
+
 # CBOR TAGS
 
 CBOR (RFC 8949) supports *tags* (major type 6) as optional semantic
