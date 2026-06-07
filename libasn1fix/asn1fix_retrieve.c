@@ -222,12 +222,14 @@ asn1f_lookup_module(arg_t *arg, const char *module_name, const asn1p_oid_t *oid,
 				} else if(oid_option == XPT_WITH_NEWER) {
 					if(strcmp(module_name, mod->ModuleName) == 0) {
 						int vcmp = oid_version_compare(oid, mod->module_oid);
-						if(vcmp == 2) {
+						if(vcmp == 0) {
+							r = 0;  /* exact match — silent accept */
+						} else if(vcmp == 2) {
 							WARNING("Module \"%s\": imported OID is a base prefix of "
 								"available OID; accepting (-fallow-newer-modules)",
 								module_name);
 							r = 0;
-						} else if(vcmp <= 0 && vcmp != INT_MIN) {
+						} else if(vcmp == -1) {
 							WARNING("Module \"%s\": available OID is newer than "
 								"imported OID; accepting (-fallow-newer-modules)",
 								module_name);
