@@ -36,6 +36,44 @@ export abs_builddir
 MAKE="${MAKE:-make}"
 FUZZ_TIME="${FUZZ_TIME:-10}"
 
+#
+# Bound AddressSanitizer's runtime memory footprint.
+#
+# The large randomized SEQUENCE OF / SET OF bundles (e.g. RMAX=70000 and
+# unbounded SIZE(1..MAX) cases) build and round-trip very large values 100x
+# across every encoding.  Under a stacked sanitizer build on a memory-limited
+# CI runner this can exhaust host memory and trip the kernel OOM killer, which
+# shows up as spurious "Killed: 9" SIGKILLs -- sometimes on unrelated commands
+# such as mkdir or grep -- and fails otherwise-correct bundles (notably the
+# SEQUENCE-OF and SET-OF ones, which are the heaviest).
+#
+# These options only tune the AddressSanitizer runtime; they do not change what
+# the tests exercise, and they are silently ignored by non-instrumented
+# binaries (so this is a no-op when ASan is disabled, e.g. -m32 builds):
+#   quarantine_size_mb / malloc_context_size
+#       cap the delayed-free quarantine and per-allocation stack depth, the two
+#       largest sources of ASan bookkeeping memory under high allocation churn.
+#   allocator_may_return_null + max_allocation_size_mb
+#       turn a single runaway allocation into a handled NULL (the codec checks
+#       its allocations) instead of a host-wide OOM that SIGKILLs the runner.
+# Any detect_leaks setting passed in via ASAN_ENV_FLAGS is preserved.
+#
+ASAN_MEM_OPTS="quarantine_size_mb=64:malloc_context_size=5:allocator_may_return_null=1:max_allocation_size_mb=2048"
+case "${ASAN_ENV_FLAGS}" in
+    *quarantine_size_mb=*)
+        # Already applied (e.g. re-entrant invocation); leave as-is.
+        ;;
+    *ASAN_OPTIONS=*)
+        # Merge our bounds into the existing ASAN_OPTIONS value.
+        ASAN_ENV_FLAGS=`echo "${ASAN_ENV_FLAGS}" \
+            | sed -e "s#\(ASAN_OPTIONS=[^ ]*\)#\1:${ASAN_MEM_OPTS}#"`
+        ;;
+    *)
+        ASAN_ENV_FLAGS="${ASAN_ENV_FLAGS} ASAN_OPTIONS=${ASAN_MEM_OPTS}"
+        ;;
+esac
+export ASAN_ENV_FLAGS
+
 tests_succeeded=0
 tests_failed=0
 stop_after_failed=1  # We stop after 3 failures.
@@ -390,7 +428,7 @@ while :; do
             continue
             ;;
         -e) encodings="${encodings} -e $2"; shift 2; continue;;
-        -j) parallelism="$1"; shift 2; continue;;
+        -j) parallelism="$2"; shift 2; continue;;
         -t)
             test_drive verify_asn_type "full" "$2" "(command line)" || exit 1 ;;
         "")

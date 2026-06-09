@@ -1121,6 +1121,8 @@ asn1c_lang_C_type_SEx_OF(arg_t *arg) {
 	    * its own descriptor (carrying field_width specifics). */
 	   || (memb->expr_type == ASN_BASIC_INTEGER
 	       && asn1c_int_native_specifics(arg, memb, &_ofw, &_ofu))
+	   || type_needs_custom_xer_encoder(arg, memb)
+	   || type_needs_custom_jer_encoder(arg, memb)
 	   || ((memb->expr_type == ASN_BASIC_INTEGER || memb->expr_type == A1TC_REFERENCE)
 	       && !strcmp(asn1c_type_name(arg, memb, TNF_CTYPE), "unsigned long"))
 	   || (memb_ioc.ioct && is_open_type(arg, memb, &memb_ioc))
@@ -1881,7 +1883,9 @@ asn1c_lang_C_type_SIMPLE_TYPE(arg_t *arg) {
 	 * If this type just blindly refers the other type, alias it.
 	 * 	Type1 ::= Type2
 	 */
-	if(arg->embed && etd_spec == ETD_NO_SPECIFICS) {
+	if(arg->embed && etd_spec == ETD_NO_SPECIFICS
+	&& !type_needs_custom_xer_encoder(arg, expr)
+	&& !type_needs_custom_jer_encoder(arg, expr)) {
 		REDIR(saved_target);
 		return 0;
 	}
@@ -4390,6 +4394,8 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 
 	complex_contents =
 		is_open_type(arg, expr, opt_ioc)
+		|| type_needs_custom_xer_encoder(arg, expr)
+		|| type_needs_custom_jer_encoder(arg, expr)
 		|| (expr->expr_type & ASN_CONSTR_MASK)
 		|| expr->expr_type == ASN_BASIC_ENUMERATED
 		|| (0 /* -- prohibited by X.693:8.3.4 */
@@ -4420,6 +4426,8 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 		 */
 		if(is_open_type(arg, expr, opt_ioc)
 		   || (arg->flags & A1C_ALL_DEFS_GLOBAL)
+		   || type_needs_custom_xer_encoder(arg, expr)
+		   || type_needs_custom_jer_encoder(arg, expr)
 		   || (expr->parent_expr
 		       && ((expr->expr_type & ASN_CONSTR_MASK)
 		           || expr->expr_type == ASN_BASIC_ENUMERATED))
@@ -4586,6 +4594,58 @@ identifier_collides_with_ancestor(asn1p_expr_t *expr) {
 	}
 
 	return 0;  /* No collision */
+}
+
+/*
+ * Count, in the subtree rooted at `node`, the named (non-anonymous) types
+ * carrying the given identifier.
+ */
+static void
+identifier_count_in_subtree(asn1p_expr_t *node, const char *ident, int *count) {
+	asn1p_expr_t *child;
+
+	if(!node) return;
+
+	if(node->Identifier && !node->_anonymous_type
+	    && strcmp(node->Identifier, ident) == 0) {
+		(*count)++;
+	}
+
+	TQ_FOR(child, &(node->members), next) {
+		identifier_count_in_subtree(child, ident, count);
+	}
+}
+
+/*
+ * Check if an expression's identifier is ambiguous within its compilation
+ * unit, i.e. the subtree rooted at its top-level type, which all ends up
+ * in a single generated .c file.  With -fcompound-names two SIBLING (or
+ * cousin) inner types may carry the same name (e.g. one-name.another-name
+ * and two-name.another-name): the suffixed descriptors are unique, but
+ * emitting an unsuffixed convenience alias for each would define the same
+ * alias symbol twice in one translation unit.  GCC happens to tolerate the
+ * duplicate weak alias; clang rejects it with "error: redefinition", and
+ * the non-ELF fallback would silently pick whichever constructor ran last.
+ * In such ambiguous cases the unsuffixed alias must not be emitted at all.
+ */
+static int
+identifier_ambiguous_in_unit(asn1p_expr_t *expr) {
+	asn1p_expr_t *root;
+	int count = 0;
+
+	if(!expr || !expr->Identifier) {
+		return 0;
+	}
+
+	/* Find the top-level type this expression belongs to. */
+	root = expr;
+	while(root->parent_expr) {
+		root = root->parent_expr;
+	}
+
+	identifier_count_in_subtree(root, expr->Identifier, &count);
+
+	return count > 1;  /* Ambiguous if the name occurs more than once */
 }
 
 /*
@@ -4856,10 +4916,15 @@ emit_type_DEF(arg_t *arg, asn1p_expr_t *expr, enum tvm_compat tv_mode, int tags_
 	 * Only for named (non-anonymous) types.
 	 * 
 	 * Skip generating the weak alias if the identifier collides with an ancestor's
-	 * identifier, as this would create multiple weak aliases to the same name,
-	 * causing runtime issues where the wrong type descriptor is selected.
+	 * identifier, or occurs more than once anywhere in this compilation unit
+	 * (e.g. same-named siblings/cousins under -fcompound-names), as this would
+	 * create multiple definitions of the same alias symbol: clang rejects that
+	 * outright, and the fallback path would select the wrong type descriptor
+	 * at runtime.
 	 */
-	if(!expr->_anonymous_type && HIDE_INNER_DEFS && !identifier_collides_with_ancestor(expr)) {
+	if(!expr->_anonymous_type && HIDE_INNER_DEFS
+	    && !identifier_collides_with_ancestor(expr)
+	    && !identifier_ambiguous_in_unit(expr)) {
 		int saved_target2 = arg->target->target;
 		REDIR(OT_CODE);
 

@@ -219,18 +219,42 @@ AS_IF([test "x$disable_test_asan" != xno], [
 Check out https://clang.llvm.org/docs/AddressSanitizer.html#how-to-build])])
       ])
 
+    dnl Bound the AddressSanitizer runtime memory footprint.  The large
+    dnl randomized SEQUENCE OF / SET OF bundles (e.g. RMAX=70000 and unbounded
+    dnl SIZE(1..MAX) cases) build and round-trip very large values 100x across
+    dnl every encoding; under a stacked sanitizer build on a memory-limited CI
+    dnl runner this can exhaust host memory and trip the kernel OOM killer,
+    dnl observed as spurious "Killed: 9" SIGKILLs (sometimes on unrelated
+    dnl commands such as mkdir/grep) that fail otherwise-correct bundles.
+    dnl These options tune only the sanitizer runtime; they do not change what
+    dnl the tests exercise:
+    dnl   quarantine_size_mb / malloc_context_size cap the two largest sources
+    dnl     of ASan bookkeeping memory under high allocation churn;
+    dnl   allocator_may_return_null + max_allocation_size_mb turn a single
+    dnl     runaway allocation into a handled NULL (the codec checks its
+    dnl     allocations) instead of a host-wide OOM that SIGKILLs the runner.
+    dnl The same defaults are applied idempotently in
+    dnl tests/tests-randomized/check-bundles.sh for trees that are run without
+    dnl re-running configure.
+    ASAN_RUNTIME_OPTS="quarantine_size_mb=64:malloc_context_size=5:allocator_may_return_null=1:max_allocation_size_mb=2048"
+
     dnl Address sanitizer sometimes is equipped with the leak sanitizer.
     dnl If address sanitizer is not equipped with a leak sanitizer,
-    dnl invoking programs with ASAN_OPTIONS=detect_leaks=1 will break them.
+    dnl invoking programs with ASAN_OPTIONS=detect_leaks=1 will break them,
+    dnl so only enable leak detection when a trivial program runs successfully.
     ASAN_OPTIONS="detect_leaks=1"
     export ASAN_OPTIONS
     save_cflags="${CFLAGS}"
     CFLAGS="${CFLAGS} ${SANITIZER_CFLAGS}"
     AC_RUN_IFELSE([AC_LANG_PROGRAM()], [
-        ASAN_ENV_FLAGS="${ASAN_ENV_FLAGS} ASAN_OPTIONS=detect_leaks=1"
+        ASAN_RUNTIME_OPTS="detect_leaks=1:${ASAN_RUNTIME_OPTS}"
     ])
     CFLAGS="${save_cflags}"
     unset ASAN_OPTIONS
+
+    dnl Emit a single ASAN_OPTIONS token (a later assignment would otherwise
+    dnl override an earlier one at runtime).
+    ASAN_ENV_FLAGS="${ASAN_ENV_FLAGS} ASAN_OPTIONS=${ASAN_RUNTIME_OPTS}"
 
     dnl Keep error messages nice. Also consider:
     dnl export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
