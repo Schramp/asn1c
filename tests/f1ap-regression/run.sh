@@ -28,9 +28,12 @@ ${ASN1C_EXE} -S "${SKELETONS_DIR}" \
   -findirect-choice \
   F1AP-16.7.0.asn
 
-# Test compilation of everything
-echo "Attempt to build converter-example"
-make -f converter-example.mk
+# Test compilation of everything.
+# F1AP generates a very large number of C files; build them in parallel
+# (portable CPU count detection: Linux nproc, BSD/macOS sysctl, fallback 1).
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+echo "Attempt to build converter-example (with -j${NPROC})"
+make -j"${NPROC}" -f converter-example.mk
 
 echo "F1AP test PASSED: Code generated and compiled successfully"
 

@@ -91,9 +91,17 @@ test_jer_decode_large_json(void) {
 
 static void
 test_jer_decode_with_file(void) {
-    /* Test the file-based decoding by creating a temporary file */
-    const char *temp_filename = "/tmp/test_large_jer.json";
+    /*
+     * Test the file-based decoding by creating a temporary file.
+     * The name is made unique per process so that concurrent test runs
+     * (e.g. parallel `make check` and `make distcheck` CI jobs sharing
+     * one host) do not race on the same /tmp file.
+     */
+    char temp_filename[64];
     FILE *temp_file;
+
+    snprintf(temp_filename, sizeof(temp_filename),
+             "/tmp/test_large_jer.%ld.json", (long)getpid());
     
     /* Create a large JSON file */
     temp_file = fopen(temp_filename, "w");

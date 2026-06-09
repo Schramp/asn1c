@@ -24,7 +24,9 @@ ${ASN1C_EXE} -S "${SKELETONS_DIR}" -fall-defs-global -fcompound-names -fincludes
   -fline-refs -fwide-types \
   -pdu=EndApplicationMessage C2X.asn
 
-CFLAGS="-g -DASN_EMIT_DEBUG" make -f converter-example.mk CC="${CC:-cc}" >/dev/null
+# Parallel build (portable CPU count detection; fallback 1).
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+CFLAGS="-g -DASN_EMIT_DEBUG" make -j"${NPROC}" -f converter-example.mk CC="${CC:-cc}" >/dev/null
 
 ./converter-example -p EndApplicationMessage -ixer s4.xer >/dev/null
 
