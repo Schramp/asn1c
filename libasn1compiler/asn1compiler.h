@@ -8,7 +8,7 @@
  * INTEGER values.  Controlled by the -finteger-native-type=<mode> option.
  */
 typedef enum asn_integer_native_type_e {
-	AINT_NATIVE_AUTO = 0,	/* Smallest safe fixed-width type, then INTEGER_t */
+	AINT_NATIVE_AUTO = 0,	/* Preserve traditional long/INTEGER_t policy */
 	AINT_NATIVE_INT32,	/* Permit int32_t storage */
 	AINT_NATIVE_UINT32,	/* Permit uint32_t storage */
 	AINT_NATIVE_INT64,	/* Permit int64_t storage */
@@ -21,6 +21,19 @@ typedef enum asn_integer_native_type_e {
  * before asn1_compile() is invoked, and consulted by the code generator.
  */
 extern asn_integer_native_type_e asn1c_integer_native_type;
+
+/*
+ * Target C "long" model for generated native INTEGER storage.  AUTO keeps the
+ * historical portable assumption that generated code must fit a 32-bit long;
+ * explicit 32/64 modes are for reproducible cross-generation.
+ */
+typedef enum asn_target_long_size_e {
+	ASN_TARGET_LONG_AUTO = 0,
+	ASN_TARGET_LONG_32 = 32,
+	ASN_TARGET_LONG_64 = 64
+} asn_target_long_size_e;
+
+extern asn_target_long_size_e asn1c_target_long_size;
 
 enum asn1c_flags {
 	A1C_NOFLAGS,

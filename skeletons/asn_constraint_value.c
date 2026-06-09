@@ -150,11 +150,19 @@ acv_to_INTEGER(const asn_cval_t *v, INTEGER_t *tmp, int *materialized) {
         if(acv_uint_to_INTEGER(v->value.u, tmp) != 0) return -1;
         *materialized = 1;
         return 0;
-    case ACV_INTEGER_BYTES:
-        /* alias the static bytes; do not free */
-        tmp->buf = (uint8_t *)v->value.b.buf;
-        tmp->size = v->value.b.size;
+    case ACV_INTEGER_BYTES: {
+        /* Copy the read-only bytes into an owned buffer.
+         * Aliasing v->value.b.buf (const uint8_t *) directly into tmp->buf
+         * (uint8_t *) would drop const.  A copy is correct and lets the
+         * existing materialized=1 cleanup path (FREEMEM) handle it. */
+        size_t sz = v->value.b.size;
+        tmp->buf = (uint8_t *)MALLOC(sz ? sz : 1);
+        if(!tmp->buf) return -1;
+        memcpy(tmp->buf, v->value.b.buf, sz);
+        tmp->size = sz;
+        *materialized = 1;
         return 0;
+    }
     case ACV_ABSENT:
     default:
         return -1;

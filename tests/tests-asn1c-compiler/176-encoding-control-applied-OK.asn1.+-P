@@ -122,8 +122,6 @@ asn_struct_print_f BinaryData_print;
 asn_constr_check_f BinaryData_constraint;
 ber_type_decoder_f BinaryData_decode_ber;
 der_type_encoder_f BinaryData_encode_der;
-xer_type_decoder_f BinaryData_decode_xer;
-xer_type_encoder_f BinaryData_encode_xer;
 cbor_type_decoder_f BinaryData_decode_cbor;
 cbor_type_encoder_f BinaryData_encode_cbor;
 
@@ -145,38 +143,10 @@ static asn_enc_rval_t
 BinaryData_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
 	int ilevel, enum xer_encoder_flags_e flags,
 	asn_app_consume_bytes_f *cb, void *app_key) {
-	const OCTET_STRING_t *st = (const OCTET_STRING_t *)sptr;
-	asn_enc_rval_t er = {0,0,0};
-	
-	(void)td;  /* Unused parameter */
-	(void)ilevel;  /* Unused in this implementation */
-	(void)flags;  /* Unused in this implementation */
-	
-	if(!st || (!st->buf && st->size)) {
-		ASN__ENCODE_FAILED;
-	}
-	
-	/* Hexadecimal encoding per ENCODING-CONTROL */
-	{
-		const char * const h2c = "0123456789ABCDEF";
-		char *hexbuf;
-		size_t i;
-		
-		hexbuf = (char *)MALLOC(st->size * 2 + 1);
-		if(!hexbuf) ASN__ENCODE_FAILED;
-		
-		for(i = 0; i < st->size; i++) {
-			hexbuf[i*2] = h2c[(st->buf[i] >> 4) & 0x0F];
-			hexbuf[i*2 + 1] = h2c[st->buf[i] & 0x0F];
-		}
-		hexbuf[st->size * 2] = 0;
-		
-		er.encoded = cb(hexbuf, st->size * 2, app_key);
-		FREEMEM(hexbuf);
-		if(er.encoded < 0) ASN__ENCODE_FAILED;
-	}
-	
-	return er;
+	/* Hexadecimal encoding per ENCODING-CONTROL; XER_F_BASE64 masked */
+	return OCTET_STRING_encode_xer(td, sptr, ilevel,
+		(enum xer_encoder_flags_e)(flags & ~XER_F_BASE64),
+		cb, app_key);
 }
 
 
@@ -196,6 +166,7 @@ BinaryData_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
  * Reference: XER
  */
 asn_TYPE_operation_t asn_OP_BinaryData = {
+	.kind = ASN_KIND_PRIMITIVE,
 	OCTET_STRING_free,
 #if !defined(ASN_DISABLE_PRINT_SUPPORT)
 	OCTET_STRING_print,
@@ -220,7 +191,9 @@ asn_TYPE_operation_t asn_OP_BinaryData = {
 #endif  /* !defined(ASN_DISABLE_XER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 	0,
+	0,
 #else
+	0,
 	0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -302,8 +275,6 @@ asn_struct_print_f TextData_print;
 asn_constr_check_f TextData_constraint;
 ber_type_decoder_f TextData_decode_ber;
 der_type_encoder_f TextData_encode_der;
-xer_type_decoder_f TextData_decode_xer;
-xer_type_encoder_f TextData_encode_xer;
 cbor_type_decoder_f TextData_decode_cbor;
 cbor_type_encoder_f TextData_encode_cbor;
 
@@ -325,21 +296,8 @@ static asn_enc_rval_t
 TextData_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
 	int ilevel, enum xer_encoder_flags_e flags,
 	asn_app_consume_bytes_f *cb, void *app_key) {
-	const OCTET_STRING_t *st = (const OCTET_STRING_t *)sptr;
-	asn_enc_rval_t er = {0,0,0};
-	
-	(void)td;  /* Unused parameter */
-	(void)ilevel;  /* Unused in this implementation */
-	(void)flags;  /* Unused in this implementation */
-	
-	if(!st || (!st->buf && st->size)) {
-		ASN__ENCODE_FAILED;
-	}
-	
 	/* UTF-8 text encoding per ENCODING-CONTROL */
 	return OCTET_STRING_encode_xer_utf8(td, sptr, ilevel, flags, cb, app_key);
-	
-	return er;
 }
 
 
@@ -359,6 +317,7 @@ TextData_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
  * Reference: XER
  */
 asn_TYPE_operation_t asn_OP_TextData = {
+	.kind = ASN_KIND_PRIMITIVE,
 	OCTET_STRING_free,
 #if !defined(ASN_DISABLE_PRINT_SUPPORT)
 	OCTET_STRING_print,
@@ -383,7 +342,9 @@ asn_TYPE_operation_t asn_OP_TextData = {
 #endif  /* !defined(ASN_DISABLE_XER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 	0,
+	0,
 #else
+	0,
 	0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 #if !defined(ASN_DISABLE_OER_SUPPORT)

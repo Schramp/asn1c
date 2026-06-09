@@ -168,6 +168,16 @@ main(int ac, char **av) {
                 asn1_compiler_flags &= ~A1C_USE_WIDE_TYPES;
             } else if(strcmp(optarg, "wide-types") == 0) {
                 asn1_compiler_flags |= A1C_USE_WIDE_TYPES;
+            } else if(strncmp(optarg, "long-size=", 10) == 0) {
+                char *mode = optarg + 10;
+                if(strcmp(mode, "32") == 0) {
+                    asn1c_target_long_size = ASN_TARGET_LONG_32;
+                } else if(strcmp(mode, "64") == 0) {
+                    asn1c_target_long_size = ASN_TARGET_LONG_64;
+                } else {
+                    fprintf(stderr, "-flong-size expects one of: 32, 64\n");
+                    exit(EX_USAGE);
+                }
             } else if(strcmp(optarg, "line-refs") == 0) {
                 asn1_compiler_flags |= A1C_LINE_REFS;
             } else if(strcmp(optarg, "no-constraints") == 0) {
@@ -672,6 +682,8 @@ usage(const char *av0) {
 "  -fprefer-import-source  Require strict xp_members match for IMPORTS (fixes ambiguous same-name imports)\n"
 "  -funnamed-unions      Enable unnamed unions in structures\n"
 "  -fwide-types          Use INTEGER_t instead of \"long\" by default, etc.\n"
+"  -flong-size=<bits>    Target C long size for native INTEGER storage.\n"
+"                        Values: 32, 64.  Default: auto portable 32-bit.\n"
 "  -finteger-native-type=<mode>  Native C storage policy for constrained INTEGER\n"
 "                        types.  Modes: auto, int32, uint32, int64, uint64.\n"
 "                        Default: auto.  Values not fitting the policy are\n"

@@ -148,15 +148,24 @@ CBOR and other encoding rules.
 :   Use the unbounded size data types (`INTEGER_t`, `ENUMERATED_t`, `REAL_t`)
     by default, instead of using the native machine's data types (long, double).
 
+-flong-size=*bits*
+:   Select the target C `long` model used by the default native INTEGER
+    storage policy.  *bits* is one of `32` or `64`; the default `auto`
+    behavior preserves the historical portable 32-bit assumption.  Use this
+    option when generating code on one platform for a target with a different
+    `long` size.
+
 -finteger-native-type=*mode*
 :   Select the fixed-width native C storage policy for constrained ASN.1
     INTEGER types.  *mode* is one of `auto`, `int32`, `uint32`, `int64`, or
-    `uint64`; the default is `auto`.  `int32`/`uint32` permit `int32_t`/
-    `uint32_t` storage for ranges that fit signed/unsigned 32-bit;
-    `int64`/`uint64` permit `int64_t`/`uint64_t` for ranges that fit
-    signed/unsigned 64-bit; `auto` selects the smallest safe fixed-width type
-    (`int32_t`, then `uint32_t`, `int64_t`, `uint64_t`).  Values that do not
-    fit the selected native policy are generated as `INTEGER_t`.  Unsigned
+    `uint64`; the default is `auto`.  `auto` preserves the traditional storage
+    decision: `long` or `unsigned long` for ranges that fit the target `long`
+    model, and `INTEGER_t` otherwise.  `int32`/`int64` permit signed fixed-width
+    storage for ranges that fit signed 32-bit or 64-bit values; `uint32`/
+    `uint64` permit unsigned fixed-width storage only when the compiler can
+    prove a non-negative bounded range that fits unsigned 32-bit or 64-bit
+    values.  Values that do not fit the selected native policy are generated
+    as `INTEGER_t`.  Unsigned
     upper bounds such as `18446744073709551615` are preserved without signed
     wraparound, and bounds beyond 64 bits are stored as static
     arbitrary-precision constraint values.
@@ -268,6 +277,53 @@ CANONICAL-XER  xer_encode         *-XER         xer_decode()
 -------------------------------------------------------------
 
 *) Asterisk means both BASIC and CANONICAL variants.
+
+# XER AND JER ENCODING INSTRUCTIONS
+
+asn1c supports a selected set of schema-level encoding instructions for XER
+and JER. Instructions may be written as bracketed type prefixes or in
+`ENCODING-CONTROL` sections.
+
+```asn1
+Flag ::= [TEXT] BOOLEAN
+Mode ::= [XER:TEXT] ENUMERATED { idle(0), busy(1) }
+Blob ::= [JER:BASE64] OCTET STRING
+
+ENCODING-CONTROL XER
+    GLOBAL-DEFAULTS MODIFIED-ENCODINGS
+    DECIMAL Ratio
+    TEXT Count.one AS "uno"
+END
+
+ENCODING-CONTROL JER
+    BASE64 Blob
+    TEXT Mode.busy AS "occupied"
+    NAME Packet.payload AS "payload64"
+END
+```
+
+Supported XER instructions:
+
+- `BASE64` for `OCTET STRING`; bare `[BASE64]` remains XER for compatibility.
+- legacy `Type OCTET STRING ::= hexadecimal`, `base64`, and `utf8` forms.
+- `TEXT` for `BOOLEAN`, `ENUMERATED`, named-number `INTEGER`, and named-bit
+  `BIT STRING`.
+- `DECIMAL` for `REAL`, only when `GLOBAL-DEFAULTS MODIFIED-ENCODINGS` is
+  present in the XER control section.
+- `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`.
+
+Supported JER instructions:
+
+- `BASE64` for `OCTET STRING`; use `[JER:BASE64]` for type prefixes.
+- `TEXT Type.value AS "json-string"` for named values of `ENUMERATED`.
+- `NAME Type.member AS "json-key"` for members of `SEQUENCE`, `SET`, and
+  `CHOICE`.
+
+The compiler rejects incompatible targets, unknown targets, missing `AS`
+values where required, XER `DECIMAL` without
+`GLOBAL-DEFAULTS MODIFIED-ENCODINGS`, and duplicate JER wire names within the
+same constructed type. JER `NAME` affects JSON keys only; it does not rename
+generated C fields or XER XML tags.
 
 # CBOR TAGS
 

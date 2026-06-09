@@ -1,200 +1,112 @@
 # ENCODING-CONTROL Support Status
 
-## Current Implementation (All Phases Complete! ✓)
+This document summarizes the ENCODING-CONTROL and encoding instruction support
+implemented by this tree.
 
-The asn1c compiler now provides complete support for ENCODING-CONTROL directives as specified in ASN.1 standards (X.693 Annex G, X.696), including body parsing, type linking, and custom XER encoder generation.
+## Supported Instructions
 
-### What Works Now
+| Encoding | Instruction | Supported targets | Notes |
+|----------|-------------|-------------------|-------|
+| XER | `BASE64` | `OCTET STRING` | Bare `[BASE64]` remains a XER instruction for compatibility. |
+| XER | `hexadecimal` legacy form | `OCTET STRING` | Legacy `Type OCTET STRING ::= hexadecimal` form remains accepted. |
+| XER | `utf8` legacy form | `OCTET STRING` | Legacy `Type OCTET STRING ::= utf8` form remains accepted. |
+| XER | `TEXT` | `BOOLEAN`, `ENUMERATED`, named-number `INTEGER`, named-bit `BIT STRING` | Value remaps use `TEXT Type.value AS "wire-name"`. |
+| XER | `DECIMAL` | `REAL` | Requires `GLOBAL-DEFAULTS MODIFIED-ENCODINGS` in the XER control section. |
+| XER | `GLOBAL-DEFAULTS MODIFIED-ENCODINGS` | module-level XER control | Enables modified XER encodings such as `DECIMAL`. |
+| JER | `BASE64` | `OCTET STRING` | Use `[JER:BASE64]` for bracketed type prefixes. Bare `[BASE64]` is XER. |
+| JER | `TEXT` | `ENUMERATED` named values | Use `TEXT EnumType.value AS "json-string"`. |
+| JER | `NAME` | members of `SEQUENCE`, `SET`, and `CHOICE` | Changes JSON member keys only; C fields and XER XML tags are unchanged. |
 
-1. **Recognition**: The parser recognizes ENCODING-CONTROL sections and reports them without errors
-   ```asn1
-   ENCODING-CONTROL XER
-   END
-   ```
+The implementation intentionally does not add unrelated XER or JER
+instructions such as XER `ATTRIBUTE`, `UNTAGGED`, `USE-NIL`, or JER `ARRAY`,
+`OBJECT`, and `UNWRAPPED`.
 
-2. **Data Structure**: The ASN.1 expression structure (`asn1p_expr.h`) includes fields for storing encoding control information:
-   - `encoding_type`: Type of encoding (hexadecimal, base64, utf8, etc.)
-   - `encoding_reference`: Reference name (e.g., "XER")
+## Accepted Syntax
 
-3. **Error Reporting**: Recognition messages include filename and line number for debugging
-
-4. **Test Coverage**: Comprehensive tests verify all phases of ENCODING-CONTROL support
-
-5. **Phase 4: Body Parsing** ✓ - Parse individual encoding instructions within the ENCODING-CONTROL body:
-   ```asn1
-   ENCODING-CONTROL XER
-       fieldName OCTET STRING ::= hexadecimal
-       otherField OCTET STRING ::= utf8
-   END
-   ```
-
-6. **Phase 5: Type Linking** ✓ - Encoding controls are automatically linked to type definitions:
-   - `libasn1compiler/asn1c_encoding.c` - Full implementation
-   - `libasn1compiler/asn1c_encoding.h` - API definition
-   - `asn1c_apply_encoding_controls()` matches directives to types by name
-
-7. **Phase 6: Custom Encoder Generation** ✓ - Generate custom XER encoders based on encoding controls:
-   - Custom `TypeName_encode_xer()` functions
-   - Custom `TypeName_decode_xer()` functions
-   - Custom `asn_OP_TypeName` operation structures
-   - Support for hexadecimal, utf8, and base64 (default) encoding formats
-
-## Example Usage
-
-### Input ASN.1 Module
+Bracketed type prefixes:
 
 ```asn1
-TestModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+Flag  ::= [TEXT] BOOLEAN
+Mode  ::= [XER:TEXT] ENUMERATED { idle(0), busy(1) }
+Ratio ::= [DECIMAL] REAL
+Blob  ::= [JER:BASE64] OCTET STRING
+```
 
-Message ::= SEQUENCE {
-    binaryData BinaryData,
-    textData   TextData
-}
+`ENCODING-CONTROL` sections:
 
-BinaryData ::= OCTET STRING
-TextData   ::= OCTET STRING
+```asn1
+ENCODING-CONTROL XER
+    GLOBAL-DEFAULTS MODIFIED-ENCODINGS
+    DECIMAL Ratio
+    TEXT Count.one AS "uno"
+END
 
+ENCODING-CONTROL JER
+    BASE64 Blob
+    TEXT Mode.busy AS "occupied"
+    NAME Packet.payload AS "payload64"
+END
+```
+
+Legacy XER OCTET STRING controls are still accepted:
+
+```asn1
 ENCODING-CONTROL XER
     BinaryData OCTET STRING ::= hexadecimal
     TextData   OCTET STRING ::= utf8
 END
-
-END
 ```
 
-### Compilation
+## Semantics And Diagnostics
 
-```bash
-asn1c -no-gen-example TestModule.asn1
+The compiler applies encoding controls before C generation and rejects
+incompatible or ambiguous instructions.
+
+- XER `DECIMAL` is valid only for `REAL` and requires
+  `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`.
+- XER `TEXT` is valid for `BOOLEAN`, `ENUMERATED`, `INTEGER` with named
+  numbers, and `BIT STRING` with named bits.
+- JER `BASE64` is valid only for `OCTET STRING`.
+- JER `TEXT` is valid only for named values of `ENUMERATED`.
+- JER `NAME` is valid only for members of `SEQUENCE`, `SET`, and `CHOICE`.
+- Duplicate final JER member names in the same constructed type are rejected.
+- Unknown type, member, or named-value targets are rejected.
+
+Schema-level instructions are authoritative. For example, an XER
+`hexadecimal` instruction masks a runtime `XER_F_BASE64` flag for that type,
+and JER `BASE64` is pinned by generated type operations.
+
+## Runtime Behavior
+
+Custom operation tables are generated for instructed types. The generated
+wrappers call skeleton support for shared codecs and emit type-local code when
+the descriptor layout requires it.
+
+- XER text booleans encode as `true` or `false` text, not empty XML elements.
+- XER text enumerations and JER text enumerations use the instructed wire
+  string for matching named values.
+- XER named-number `INTEGER` and named-bit `BIT STRING` text encodings emit and
+  accept the configured names.
+- JER `BASE64` OCTET STRING values encode as JSON strings using Base64 and
+  reject malformed Base64 during decoding.
+- JER `NAME` member keys are used by `SEQUENCE`, `SET`, and `CHOICE` JER
+  encoders and decoders through per-member JER constraints.
+
+## Tests
+
+Coverage was added in:
+
+- `tests/tests-asn1c-compiler/210-encoding-instructions-OK.asn1`
+- `tests/tests-asn1c-compiler/210-encoding-instructions-OK.asn1.+-P_-gen-JER`
+- `tests/tests-asn1c-smoke/check-encoding-instructions.sh`
+
+Run the targeted checks:
+
+```sh
+tests/tests-asn1c-smoke/check-encoding-instructions.sh
+cd tests/tests-asn1c-compiler && ./check-parsing.sh
 ```
 
-Output:
-```
-NOTE: ENCODING-CONTROL XER at TestModule.asn1:12 with 2 directive(s)
-NOTE: Applied 2 encoding control directive(s) in module TestModule
-```
-
-### Generated Code Highlights
-
-For `BinaryData` (hexadecimal encoding):
-```c
-/* Custom XER encoder per ENCODING-CONTROL directive */
-static asn_enc_rval_t
-BinaryData_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
-    int ilevel, enum xer_encoder_flags_e flags,
-    asn_app_consume_bytes_f *cb, void *app_key) {
-    /* Hexadecimal encoding per ENCODING-CONTROL */
-    const char * const h2c = "0123456789ABCDEF";
-    char *hexbuf = (char *)MALLOC(st->size * 2 + 1);
-    for(i = 0; i < st->size; i++) {
-        hexbuf[i*2] = h2c[(st->buf[i] >> 4) & 0x0F];
-        hexbuf[i*2 + 1] = h2c[st->buf[i] & 0x0F];
-    }
-    ...
-}
-
-/*
- * Custom operation structure per ENCODING-CONTROL directive:
- * Format: hexadecimal
- * Reference: XER
- */
-asn_TYPE_operation_t asn_OP_BinaryData = {
-    OCTET_STRING_free,
-    OCTET_STRING_print,
-    OCTET_STRING_compare,
-    OCTET_STRING_copy,
-    OCTET_STRING_decode_ber,
-    OCTET_STRING_encode_der,
-    BinaryData_decode_xer,  /* Custom per ENCODING-CONTROL */
-    BinaryData_encode_xer,  /* Custom per ENCODING-CONTROL */
-    ...
-};
-```
-
-For `TextData` (UTF-8 encoding):
-```c
-/* Custom XER encoder per ENCODING-CONTROL directive */
-static asn_enc_rval_t
-TextData_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
-    int ilevel, enum xer_encoder_flags_e flags,
-    asn_app_consume_bytes_f *cb, void *app_key) {
-    /* UTF-8 text encoding per ENCODING-CONTROL */
-    return OCTET_STRING_encode_xer_utf8(td, sptr, ilevel, flags, cb, app_key);
-}
-```
-
-### Runtime Behavior
-
-When encoding data with XER:
-- `BinaryData` containing `{0xDE, 0xAD, 0xBE, 0xEF}` encodes as `<binaryData>DEADBEEF</binaryData>`
-- `TextData` containing "Hello World" encodes as `<textData>Hello World</textData>`
-- Types without encoding controls use default Base64 encoding
-
-## Implementation Details
-
-### Code Generation Strategy
-
-1. **Detection**: `type_needs_custom_xer_encoder()` checks if a type has encoding controls
-2. **Emission**: `emit_custom_xer_encoder()` and `emit_custom_xer_decoder()` generate custom functions
-3. **Operation Structure**: `emit_custom_operation_structure()` creates custom `asn_TYPE_operation_t`
-4. **Integration**: `emit_type_DEF()` references custom operations for types with controls
-
-### Encoding Formats
-
-| Format      | XER Output Example       | Use Case                    |
-|-------------|--------------------------|------------------------------|
-| hexadecimal | `<data>DEADBEEF</data>` | Binary data, hashes, keys    |
-| utf8        | `<data>Hello</data>`     | Text strings, human-readable |
-| base64      | `<data>3q2+7w==</data>` | Default, compact binary      |
-
-### Files Modified
-
-**Code Generation:**
-- `libasn1compiler/asn1c_C.c` - Custom encoder/decoder generation
-
-**Runtime Support:**
-- Existing skeleton functions in `skeletons/OCTET_STRING_xer.c`:
-  - `OCTET_STRING_encode_xer_utf8()` - UTF-8 encoding
-  - `OCTET_STRING_decode_xer_hex()` - Hexadecimal decoding
-  - `OCTET_STRING_decode_xer_utf8()` - UTF-8 decoding
-
-**Tests:**
-- `tests/tests-asn1c-compiler/174-encoding-control-OK.asn1` - Basic recognition
-- `tests/tests-asn1c-compiler/175-encoding-control-body-OK.asn1` - Body with comments
-- `tests/tests-asn1c-compiler/176-encoding-control-applied-OK.asn1` - Type linking
-- `tests/tests-asn1c-compiler/177-encoding-control-codegen-OK.asn1` - Code generation
-
-## Testing
-
-Run the compiler test suite:
-```bash
-cd tests/tests-asn1c-compiler
-./check-parsing.sh
-```
-
-All ENCODING-CONTROL tests should pass:
-- ✅ 174: Basic ENCODING-CONTROL recognition
-- ✅ 175: ENCODING-CONTROL with body directives
-- ✅ 176: Encoding controls linked to types
-- ✅ 177: Custom XER encoders generated
-
-## Limitations and Future Work
-
-### Current Limitations
-
-1. **OCTET STRING Only**: Custom encoders are currently only generated for OCTET STRING types
-2. **XER Only**: Only XER encoding is customizable (BER, PER, OER, JER use defaults)
-3. **Three Formats**: Only hexadecimal, utf8, and base64 formats are supported
-
-### Future Enhancements
-
-1. **Additional Types**: Extend to BIT STRING and other string types
-2. **More Formats**: Support binary, decimal, and other X.693 formats
-3. **Other Encodings**: Apply controls to PER, OER, and JER encodings
-4. **Validation**: Add constraint checking for encoding format compatibility
-
-## References
-
-- X.693: ASN.1 encoding rules: XML Encoding Rules (XER)
-- X.693 Annex G: ENCODING-CONTROL notation
-- X.696: ASN.1 encoding rules: OER specification
+The smoke test generates instructed schemas, compiles the generated C, checks
+exact XER/JER output strings, performs JER round trips, and verifies bad-value
+and bad-applicability failures.

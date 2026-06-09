@@ -61,7 +61,9 @@ if ! ${CC:-cc} $CFLAGS -c ContributedExtensionBlock.c -o ContributedExtensionBlo
 fi
 
 # Super-test to ensure everything here compiles and links
-make ASN_MODULE_CFLAGS="-I. -I${SKELETONS_DIR} -Wno-parentheses-equality" -f converter-example.mk
+# (in parallel; portable CPU count detection with fallback 1)
+NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+make -j"${NPROC}" ASN_MODULE_CFLAGS="-I. -I${SKELETONS_DIR} -Wno-parentheses-equality" -f converter-example.mk
 echo ""
 
 echo "OK: IEEE 1609.2 IOC test passed"

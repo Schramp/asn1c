@@ -70,17 +70,6 @@ extern asn_TYPE_descriptor_t asn_DEF_CodebookConfig_r18;
 
 /*** <<< CODE [CodebookConfig-r18] >>> ***/
 
-#ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
-#if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_restrictedCMR_Selection_r18 __attribute__((weak, alias("asn_DEF_restrictedCMR_Selection_r18_6")));
-#else
-static asn_TYPE_descriptor_t asn_DEF_restrictedCMR_Selection_r18_6;
-static asn_TYPE_descriptor_t asn_DEF_restrictedCMR_Selection_r18;
-__attribute__((constructor)) static void asn_DEF_restrictedCMR_Selection_r18_6_alias_init(void) {
-	asn_DEF_restrictedCMR_Selection_r18 = asn_DEF_restrictedCMR_Selection_r18_6;
-}
-#endif
-#endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 /*
  * This type is implemented using NativeEnumerated,
  * so here we adjust the DEF accordingly.
@@ -118,17 +107,6 @@ static asn_TYPE_descriptor_t asn_DEF_typeII_CJT_r18_4;
 static asn_TYPE_descriptor_t asn_DEF_typeII_CJT_r18;
 __attribute__((constructor)) static void asn_DEF_typeII_CJT_r18_4_alias_init(void) {
 	asn_DEF_typeII_CJT_r18 = asn_DEF_typeII_CJT_r18_4;
-}
-#endif
-#endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
-#ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
-#if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_restrictedCMR_Selection_r18 __attribute__((weak, alias("asn_DEF_restrictedCMR_Selection_r18_10")));
-#else
-static asn_TYPE_descriptor_t asn_DEF_restrictedCMR_Selection_r18_10;
-static asn_TYPE_descriptor_t asn_DEF_restrictedCMR_Selection_r18;
-__attribute__((constructor)) static void asn_DEF_restrictedCMR_Selection_r18_10_alias_init(void) {
-	asn_DEF_restrictedCMR_Selection_r18 = asn_DEF_restrictedCMR_Selection_r18_10;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */

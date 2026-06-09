@@ -25,12 +25,21 @@ $(ASN_PROGRAM): $(ASN_LIBRARY) $(ASN_PROGRAM_SRCS:.c=.o)
 $(ASN_LIBRARY): $(ASN_MODULE_SRCS:.c=.o)
 	$(AR) rcs $@ $(ASN_MODULE_SRCS:.c=.o)
 
+# Track header dependencies so that objects are rebuilt when any
+# included header (e.g. a skeleton header) changes. Without this,
+# stale objects compiled against an older header layout may be
+# linked together, causing hard-to-debug memory corruption.
+DEPFLAGS = -MMD -MP
+
 %.o: %.c
-	$(CC) $(CFLAGS) -o $@ -c $<
+	$(CC) $(CFLAGS) $(DEPFLAGS) -o $@ -c $<
+
+-include $(ASN_MODULE_SRCS:.c=.d) $(ASN_PROGRAM_SRCS:.c=.d)
 
 clean:
 	rm -f $(ASN_PROGRAM) $(ASN_LIBRARY)
 	rm -f $(ASN_MODULE_SRCS:.c=.o) $(ASN_PROGRAM_SRCS:.c=.o)
+	rm -f $(ASN_MODULE_SRCS:.c=.d) $(ASN_PROGRAM_SRCS:.c=.d)
 
 regen: regenerate-from-asn1-source
 

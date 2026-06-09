@@ -16,7 +16,7 @@ The asn1c is arguably the most evolved open source ASN.1 compiler.
 
 ## Latest release
 
-Current release: **1.4.3**
+Current release: **1.5.0**
 
 This release adds the `-fprefer-import-source` flag, which fixes incorrect type
 binding when two modules export identically-named types and a consumer imports
@@ -64,6 +64,37 @@ JER            | jer_encode()               | JER           | jer_decode()
 
 *) Asterisk means both BASIC and CANONICAL variants.
 </details>
+
+# XER and JER Encoding Instructions
+
+asn1c supports schema-level XER and JER encoding instructions for selected
+standard-style encodings. Supported instructions include XER `BASE64`, `TEXT`,
+`DECIMAL`, `GLOBAL-DEFAULTS MODIFIED-ENCODINGS`, and the legacy XER OCTET
+STRING controls `hexadecimal` and `utf8`; JER supports `BASE64`, enumerated
+value `TEXT`, and member `NAME`.
+
+```asn1
+Flag ::= [TEXT] BOOLEAN
+Blob ::= [JER:BASE64] OCTET STRING
+
+ENCODING-CONTROL XER
+    GLOBAL-DEFAULTS MODIFIED-ENCODINGS
+    DECIMAL Ratio
+    TEXT Count.one AS "uno"
+END
+
+ENCODING-CONTROL JER
+    NAME Packet.payload AS "payload64"
+    TEXT Mode.busy AS "occupied"
+END
+```
+
+Bare `[BASE64]` remains a XER instruction for compatibility; use
+`[JER:BASE64]` for JER. XER `DECIMAL` applies only to `REAL` and requires
+`GLOBAL-DEFAULTS MODIFIED-ENCODINGS`. JER `NAME` changes JSON keys only; it
+does not rename C fields or XER XML tags. See
+[ENCODING_CONTROL_STATUS.md](ENCODING_CONTROL_STATUS.md) for the support
+matrix and diagnostics.
 
 # Build and Install
 
@@ -195,5 +226,5 @@ For more details, see [PARTIAL_DECODING.md](PARTIAL_DECODING.md).
 
 
 -- 
-Lev Walkin
-vlm@lionet.info
+Mouse and Lev Walkin
+<none>    vlm@lionet.info

@@ -9,7 +9,7 @@ TESTS = $(dist_check_SCRIPTS)
 
 EXTRA_DIST = F1AP-16.7.0.asn
 
-CLEANFILES = *.[choa] converter-example converter-example.mk Makefile.am.* asn_constant.h \
+CLEANFILES = *.[choa] *.d converter-example converter-example.mk Makefile.am.* asn_constant.h \
   test-jer-opentype.jer
 
 # Remove files copied from srcdir during out-of-tree builds (distcheck)

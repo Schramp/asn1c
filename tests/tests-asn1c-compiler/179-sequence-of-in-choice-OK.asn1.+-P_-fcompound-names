@@ -717,17 +717,6 @@ extern asn_TYPE_descriptor_t asn_DEF_DeepNesting;
 
 /*** <<< CODE [DeepNesting] >>> ***/
 
-#ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
-#if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_items __attribute__((weak, alias("asn_DEF_items_4")));
-#else
-static asn_TYPE_descriptor_t asn_DEF_items_4;
-static asn_TYPE_descriptor_t asn_DEF_items;
-__attribute__((constructor)) static void asn_DEF_items_4_alias_init(void) {
-	asn_DEF_items = asn_DEF_items_4;
-}
-#endif
-#endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 static int
 memb_items_constraint_3(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
@@ -762,17 +751,6 @@ static asn_TYPE_descriptor_t asn_DEF_branch1_3;
 static asn_TYPE_descriptor_t asn_DEF_branch1;
 __attribute__((constructor)) static void asn_DEF_branch1_3_alias_init(void) {
 	asn_DEF_branch1 = asn_DEF_branch1_3;
-}
-#endif
-#endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
-#ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
-#if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_items __attribute__((weak, alias("asn_DEF_items_9")));
-#else
-static asn_TYPE_descriptor_t asn_DEF_items_9;
-static asn_TYPE_descriptor_t asn_DEF_items;
-__attribute__((constructor)) static void asn_DEF_items_9_alias_init(void) {
-	asn_DEF_items = asn_DEF_items_9;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
