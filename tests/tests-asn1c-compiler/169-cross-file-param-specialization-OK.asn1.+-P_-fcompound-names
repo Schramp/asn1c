@@ -434,6 +434,13 @@ select_SampleIEs_criticality_type(const asn_TYPE_descriptor_t *parent_type, cons
 	        continue;
 	
 	    presence_index++;
+	    if(constraining_cell->cell_kind == aioc__undefined
+	       || !constraining_cell->type_descriptor
+	       || !constraining_cell->type_descriptor->op
+	       || !constraining_cell->type_descriptor->op->compare_struct
+	       || !constraining_cell->value_sptr
+	       || !type_cell->type_descriptor)
+	        continue;
 	    if(constraining_cell->type_descriptor->op->compare_struct(constraining_cell->type_descriptor, constraining_value, constraining_cell->value_sptr) == 0) {
 	        result.type_descriptor = type_cell->type_descriptor;
 	        result.presence_index = presence_index;
@@ -480,6 +487,13 @@ select_SampleIEs_value_type(const asn_TYPE_descriptor_t *parent_type, const void
 	        continue;
 	
 	    presence_index++;
+	    if(constraining_cell->cell_kind == aioc__undefined
+	       || !constraining_cell->type_descriptor
+	       || !constraining_cell->type_descriptor->op
+	       || !constraining_cell->type_descriptor->op->compare_struct
+	       || !constraining_cell->value_sptr
+	       || !type_cell->type_descriptor)
+	        continue;
 	    if(constraining_cell->type_descriptor->op->compare_struct(constraining_cell->type_descriptor, constraining_value, constraining_cell->value_sptr) == 0) {
 	        result.type_descriptor = type_cell->type_descriptor;
 	        result.presence_index = presence_index;
@@ -551,6 +565,13 @@ select_AnotherIEs_criticality_type(const asn_TYPE_descriptor_t *parent_type, con
 	        continue;
 	
 	    presence_index++;
+	    if(constraining_cell->cell_kind == aioc__undefined
+	       || !constraining_cell->type_descriptor
+	       || !constraining_cell->type_descriptor->op
+	       || !constraining_cell->type_descriptor->op->compare_struct
+	       || !constraining_cell->value_sptr
+	       || !type_cell->type_descriptor)
+	        continue;
 	    if(constraining_cell->type_descriptor->op->compare_struct(constraining_cell->type_descriptor, constraining_value, constraining_cell->value_sptr) == 0) {
 	        result.type_descriptor = type_cell->type_descriptor;
 	        result.presence_index = presence_index;
@@ -597,6 +618,13 @@ select_AnotherIEs_value_type(const asn_TYPE_descriptor_t *parent_type, const voi
 	        continue;
 	
 	    presence_index++;
+	    if(constraining_cell->cell_kind == aioc__undefined
+	       || !constraining_cell->type_descriptor
+	       || !constraining_cell->type_descriptor->op
+	       || !constraining_cell->type_descriptor->op->compare_struct
+	       || !constraining_cell->value_sptr
+	       || !type_cell->type_descriptor)
+	        continue;
 	    if(constraining_cell->type_descriptor->op->compare_struct(constraining_cell->type_descriptor, constraining_value, constraining_cell->value_sptr) == 0) {
 	        result.type_descriptor = type_cell->type_descriptor;
 	        result.presence_index = presence_index;

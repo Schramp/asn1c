@@ -4284,6 +4284,13 @@ emit_member_type_selector(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_ob
     OUT("        continue;\n");
     OUT("\n");
     OUT("    presence_index++;\n");
+    OUT("    if(constraining_cell->cell_kind == aioc__undefined\n");
+    OUT("       || !constraining_cell->type_descriptor\n");
+    OUT("       || !constraining_cell->type_descriptor->op\n");
+    OUT("       || !constraining_cell->type_descriptor->op->compare_struct\n");
+    OUT("       || !constraining_cell->value_sptr\n");
+    OUT("       || !type_cell->type_descriptor)\n");
+    OUT("        continue;\n");
     OUT("    if(constraining_cell->type_descriptor->op->compare_struct(constraining_cell->type_descriptor, constraining_value, constraining_cell->value_sptr) == 0) {\n");
     OUT("        result.type_descriptor = type_cell->type_descriptor;\n");
     OUT("        result.presence_index = presence_index;\n");

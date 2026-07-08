@@ -74,8 +74,10 @@ xer_next_token(int *stateContext, const void *buffer, size_t size, pxer_chunk_ty
         *ch_type = PXER_WMORE;
 		return 0;		/* Try again with more data */
 	} else {
-		assert(arg.chunk_size);
-		assert(arg.chunk_buf == buffer);
+		if(arg.chunk_size == 0
+		|| arg.chunk_size > size
+		|| arg.chunk_buf != buffer)
+			return -1;
 	}
 
 	/*

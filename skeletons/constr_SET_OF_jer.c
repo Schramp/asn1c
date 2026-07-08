@@ -93,6 +93,11 @@ SET_OF_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
                                                      buf_ptr, size);
             if(tmprval.code == RC_OK) {
                 asn_anonymous_set_ *list = _A_SET_FROM_VOID(st);
+                if(tmprval.consumed == 0) {
+                    ASN_STRUCT_FREE(*element->type, ctx->ptr);
+                    ctx->ptr = 0;
+                    RETURN(RC_FAIL);
+                }
                 if(ASN_SET_ADD(list, ctx->ptr) != 0)
                     RETURN(RC_FAIL);
                 ctx->ptr = 0;

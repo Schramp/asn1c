@@ -388,6 +388,15 @@ main(int ac, char **av) {
         }
     }
 
+    if((asn1_compiler_flags & A1C_NO_CONSTRAINTS)
+       && (asn1_compiler_flags
+           & (A1C_GEN_OER | A1C_GEN_UPER | A1C_GEN_APER))) {
+        fprintf(stderr,
+                "Error: -fno-constraints is incompatible with -gen-OER, "
+                "-gen-UPER, or -gen-APER\n");
+        exit(EX_USAGE);
+    }
+
     /*
      * Ensure that there are some input files present.
      */

@@ -36,7 +36,7 @@ OPEN_TYPE_oer_get(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     selected = elm->type_selector(td, sptr);
-    if(!selected.presence_index) {
+    if(!selected.presence_index || !selected.type_descriptor) {
         ASN__DECODE_FAILED;
     }
 
@@ -174,11 +174,14 @@ OPEN_TYPE_oer_get(const asn_codec_ctx_t *opt_codec_ctx,
 
     if(*memb_ptr2) {
         const asn_CHOICE_specifics_t *specs =
-            selected.type_descriptor->specifics;
+            (const asn_CHOICE_specifics_t *)elm->type->specifics;
         if(elm->flags & ATF_POINTER) {
             ASN_STRUCT_FREE(*selected.type_descriptor, inner_value);
             *memb_ptr2 = NULL;
         } else {
+            if(!specs) {
+                ASN__DECODE_FAILED;
+            }
             ASN_STRUCT_FREE_CONTENTS_ONLY(*selected.type_descriptor,
                                           inner_value);
             memset(*memb_ptr2, 0, specs->struct_size);
@@ -280,6 +283,18 @@ OPEN_TYPE_oer_put(const asn_TYPE_descriptor_t *td, const void *sptr,
 
     selected = elm->type_selector(td, sptr);
     if(!selected.presence_index) {
+        ASN__ENCODE_FAILED;
+    }
+    if(!selected.type_descriptor) {
+        ASN_DEBUG("Open Type %s->%s: type_selector returned NULL type descriptor",
+                  td->name, elm->name);
+        ASN__ENCODE_FAILED;
+    }
+    if(!selected.type_descriptor->op
+       || (!elm->type->elements_count
+           && !selected.type_descriptor->op->oer_encoder)) {
+        ASN_DEBUG("Open Type %s->%s: selected type %s has no OER encoder",
+                  td->name, elm->name, selected.type_descriptor->name);
         ASN__ENCODE_FAILED;
     }
 

@@ -72,6 +72,10 @@ SET_OF_encode_aper(const asn_TYPE_descriptor_t *td,
      * according to their encodings. Build an array of the encoded elements.
      */
     encoded_els = SET_OF__encode_sorted(elm, list, SOES_CAPER);
+    if(!encoded_els && list->count) {
+        APER_ENCODER_RECURSION_DEPTH_DEC();
+        ASN__ENCODE_FAILED;
+    }
 
     for(seq = 0; seq < list->count;) {
         ssize_t may_encode;
@@ -89,20 +93,26 @@ SET_OF_encode_aper(const asn_TYPE_descriptor_t *td,
 
         while(may_encode--) {
             const struct _el_buffer *el = &encoded_els[seq++];
-            if(asn_put_many_bits(po, el->buf,
-                                 (8 * el->length) - el->bits_unused) < 0) {
-                break;
+            er = elm->type->op->aper_encoder(
+                elm->type, elm->encoding_constraints.per_constraints,
+                el->memb_ptr, po);
+            if(er.encoded == -1) {
+                SET_OF__encode_sorted_free(encoded_els, list->count);
+                APER_ENCODER_RECURSION_DEPTH_DEC();
+                ASN__ENCODE_FAILED;
             }
         }
         if(need_eom && (aper_put_length(po, -1, -1, 0, NULL) < 0)) {
+            SET_OF__encode_sorted_free(encoded_els, list->count);
             APER_ENCODER_RECURSION_DEPTH_DEC();
             ASN__ENCODE_FAILED;  /* End of Message length */
         }
     }
 
-    /* If element's count is zero, we still need to output size 0 */
-    if (!list->count)
+    /* If an unconstrained element count is zero, still output size 0. */
+    if(!list->count && !(ct && ct->effective_bits >= 0))
         if(aper_put_length(po, -1, -1, 0, NULL) < 0) {
+            SET_OF__encode_sorted_free(encoded_els, list->count);
             APER_ENCODER_RECURSION_DEPTH_DEC();
             ASN__ENCODE_FAILED;
         }

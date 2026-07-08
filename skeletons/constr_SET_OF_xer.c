@@ -87,6 +87,7 @@ xer_token_name_equals_normalized(const void *buf, ssize_t len, const char *name)
         i++;
         /* Continue - we DO want to match closing tags */
     }
+    if(i >= len) return 0;
 
     /* Compare character-by-character, treating space in name as hyphen in token */
     for(; i < len && *q; i++, q++) {
@@ -194,6 +195,11 @@ SET_OF_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
                                                      buf_ptr, size);
             if(tmprval.code == RC_OK) {
                 asn_anonymous_set_ *list = _A_SET_FROM_VOID(st);
+                if(tmprval.consumed == 0) {
+                    ASN_STRUCT_FREE(*element->type, ctx->ptr);
+                    ctx->ptr = 0;
+                    RETURN(RC_FAIL);
+                }
                 if(ASN_SET_ADD(list, ctx->ptr) != 0)
                     RETURN(RC_FAIL);
                 ctx->ptr = 0;
@@ -247,33 +253,36 @@ SET_OF_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
         {
             static const char *keywords[] = {"SEQUENCE OF", "SET OF", NULL};
             xer_check_tag_e keyword_tcv = xer_check_tag(buf_ptr, ch_size, NULL);
+            int skipped_keyword = 0;
             if(keyword_tcv == XCT_OPENING || keyword_tcv == XCT_BOTH) {
                 /* Check if this is an ASN.1 keyword opening tag */
-                const char *p = (const char *)buf_ptr;
-                if(ch_size > 2 && p[0] == '<') {
+                if(ch_size > 2 && ((const char *)buf_ptr)[0] == '<') {
                     int i;
                     for(i = 0; keywords[i]; i++) {
                         if(xer_token_name_equals_normalized(buf_ptr, ch_size, keywords[i])) {
                             ASN_DEBUG("XER/SET OF: Skipping ASN.1 keyword opening tag <%s>", keywords[i]);
                             XER_ADVANCE(ch_size);
-                            continue; /* Skip this tag and continue parsing */
+                            skipped_keyword = 1;
+                            break;
                         }
                     }
                 }
             } else if(keyword_tcv == XCT_CLOSING && ctx->phase < 3) {
                 /* Check if this is an ASN.1 keyword closing tag */
-                const char *p = (const char *)buf_ptr;
-                if(ch_size > 2 && p[0] == '<' && p[1] == '/') {
+                if(ch_size > 2 && ((const char *)buf_ptr)[0] == '<'
+                   && ((const char *)buf_ptr)[1] == '/') {
                     int i;
                     for(i = 0; keywords[i]; i++) {
                         if(xer_token_name_equals_normalized(buf_ptr, ch_size, keywords[i])) {
                             ASN_DEBUG("XER/SET OF: Skipping ASN.1 keyword closing tag </%s>", keywords[i]);
                             XER_ADVANCE(ch_size);
-                            continue; /* Skip this tag and continue parsing */
+                            skipped_keyword = 1;
+                            break;
                         }
                     }
                 }
             }
+            if(skipped_keyword) continue;
         }
 		
         tcv = xer_check_tag(buf_ptr, ch_size, xml_tag);

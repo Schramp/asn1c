@@ -28,7 +28,7 @@ struct test_case {
 };
 
 struct test_case_signed {
-    long value;
+    intmax_t value;
     const uint8_t *expected;
     size_t expected_len;
 };
@@ -126,7 +126,7 @@ check_x691_constrained_range_signed(const char *label, int lineno,
 
     encoded_len = (size_t)(po.buffer - po.tmpspace) + ((po.nboff + 7) / 8);
 
-    printf("%s:%d value=%ld expected_len=%zu got_len=%zu\n", label, lineno,
+    printf("%s:%d value=%" ASN_PRIdMAX " expected_len=%zu got_len=%zu\n", label, lineno,
            tc->value, tc->expected_len, encoded_len);
 
     assert(encoded_len == tc->expected_len);
@@ -153,13 +153,13 @@ check_x691_constrained_range_signed(const char *label, int lineno,
 
 static void
 test_range_bits_36(void) {
-    static const uint8_t exp_0[] = {0x01, 0x00};
-    static const uint8_t exp_1[] = {0x01, 0x01};
-    static const uint8_t exp_255[] = {0x01, 0xFF};
-    static const uint8_t exp_256[] = {0x02, 0x01, 0x00};
-    static const uint8_t exp_65535[] = {0x02, 0xFF, 0xFF};
-    static const uint8_t exp_65536[] = {0x03, 0x01, 0x00, 0x00};
-    static const uint8_t exp_max[] = {0x05, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF};
+    static const uint8_t exp_0[] = {0x00, 0x00};
+    static const uint8_t exp_1[] = {0x00, 0x01};
+    static const uint8_t exp_255[] = {0x00, 0xFF};
+    static const uint8_t exp_256[] = {0x20, 0x01, 0x00};
+    static const uint8_t exp_65535[] = {0x20, 0xFF, 0xFF};
+    static const uint8_t exp_65536[] = {0x40, 0x01, 0x00, 0x00};
+    static const uint8_t exp_max[] = {0x80, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF};
 
     static const struct test_case cases[] = {
         {0, exp_0, sizeof(exp_0)},
@@ -192,13 +192,13 @@ test_range_bits_36(void) {
  */
 static void
 test_range_bits_17(void) {
-    static const uint8_t exp_0[] = {0x01, 0x00};
-    static const uint8_t exp_1[] = {0x01, 0x01};
-    static const uint8_t exp_255[] = {0x01, 0xFF};
-    static const uint8_t exp_256[] = {0x02, 0x01, 0x00};
-    static const uint8_t exp_65535[] = {0x02, 0xFF, 0xFF};
+    static const uint8_t exp_0[] = {0x00, 0x00};
+    static const uint8_t exp_1[] = {0x00, 0x01};
+    static const uint8_t exp_255[] = {0x00, 0xFF};
+    static const uint8_t exp_256[] = {0x40, 0x01, 0x00};
+    static const uint8_t exp_65535[] = {0x40, 0xFF, 0xFF};
     /* 131071 = 0x01FFFF, 3 value bytes */
-    static const uint8_t exp_max[] = {0x03, 0x01, 0xFF, 0xFF};
+    static const uint8_t exp_max[] = {0x80, 0x01, 0xFF, 0xFF};
 
     static const struct test_case cases[] = {
         {0, exp_0, sizeof(exp_0)},
@@ -232,15 +232,15 @@ test_range_bits_17(void) {
 static void
 test_range_bits_17_offset(void) {
     /* offset 0 */
-    static const uint8_t exp_lo[] = {0x01, 0x00};
+    static const uint8_t exp_lo[] = {0x00, 0x00};
     /* offset 1 */
-    static const uint8_t exp_lo1[] = {0x01, 0x01};
+    static const uint8_t exp_lo1[] = {0x00, 0x01};
     /* offset 255 */
-    static const uint8_t exp_255[] = {0x01, 0xFF};
+    static const uint8_t exp_255[] = {0x00, 0xFF};
     /* offset 256: 2 value bytes */
-    static const uint8_t exp_256[] = {0x02, 0x01, 0x00};
+    static const uint8_t exp_256[] = {0x40, 0x01, 0x00};
     /* offset 99000 = 0x0182B8: 3 value bytes */
-    static const uint8_t exp_hi[] = {0x03, 0x01, 0x82, 0xB8};
+    static const uint8_t exp_hi[] = {0x80, 0x01, 0x82, 0xB8};
 
     static const struct test_case cases[] = {
         {1000, exp_lo, sizeof(exp_lo)},   {1001, exp_lo1, sizeof(exp_lo1)},
@@ -271,13 +271,13 @@ test_range_bits_17_offset(void) {
 static void
 test_range_bits_17_signed(void) {
     /* offset 0 */
-    static const uint8_t exp_lo[] = {0x01, 0x00};
+    static const uint8_t exp_lo[] = {0x00, 0x00};
     /* offset 1 */
-    static const uint8_t exp_lo1[] = {0x01, 0x01};
+    static const uint8_t exp_lo1[] = {0x00, 0x01};
     /* offset 50000 = 0xC350: 2 value bytes */
-    static const uint8_t exp_mid[] = {0x02, 0xC3, 0x50};
+    static const uint8_t exp_mid[] = {0x40, 0xC3, 0x50};
     /* offset 100000 = 0x0186A0: 3 value bytes */
-    static const uint8_t exp_hi[] = {0x03, 0x01, 0x86, 0xA0};
+    static const uint8_t exp_hi[] = {0x80, 0x01, 0x86, 0xA0};
 
     static const struct test_case_signed cases[] = {
         {-50000, exp_lo, sizeof(exp_lo)},
@@ -302,11 +302,199 @@ test_range_bits_17_signed(void) {
     }
 }
 
+static void
+test_x691_note_example(void) {
+    static const uint8_t exp_zero_offset[] = {0x00, 0x00};
+    static const struct test_case tc = {
+        256, exp_zero_offset, sizeof(exp_zero_offset)
+    };
+    asn_per_constraints_t cts;
+
+    memset(&cts, 0, sizeof(cts));
+    cts.value.flags = APC_CONSTRAINED;
+    cts.value.range_bits = 21;
+    cts.value.effective_bits = 21;
+    cts.value.lower_bound = 256;
+    cts.value.upper_bound = 1234567;
+
+    check_x691_constrained_range("x691-note", __LINE__, &cts, &tc);
+}
+
+static void
+test_65535_65536_boundary(void) {
+    static const uint8_t exp_65535[] = {0xFF, 0xFF};
+    static const uint8_t exp_65536[] = {0x80, 0x01, 0x00, 0x00};
+    static const struct test_case tc16 = {
+        65535, exp_65535, sizeof(exp_65535)
+    };
+    static const struct test_case tc17 = {
+        65536, exp_65536, sizeof(exp_65536)
+    };
+    asn_per_constraints_t cts;
+
+    memset(&cts, 0, sizeof(cts));
+    cts.value.flags = APC_CONSTRAINED;
+    cts.value.range_bits = 16;
+    cts.value.effective_bits = 16;
+    cts.value.lower_bound = 0;
+    cts.value.upper_bound = 65535;
+    check_x691_constrained_range("range16-boundary", __LINE__, &cts, &tc16);
+
+    memset(&cts, 0, sizeof(cts));
+    cts.value.flags = APC_CONSTRAINED;
+    cts.value.range_bits = 17;
+    cts.value.effective_bits = 17;
+    cts.value.lower_bound = 0;
+    cts.value.upper_bound = 65536;
+    check_x691_constrained_range("range17-boundary", __LINE__, &cts, &tc17);
+}
+
+static void
+test_unaligned_length_field(void) {
+    static const uint8_t expected[] = {0xA8, 0x01, 0x00};
+    INTEGER_t st;
+    INTEGER_t *decoded_st = 0;
+    struct asn_INTEGER_specifics_s specs;
+    asn_per_constraints_t cts;
+    asn_enc_rval_t enc_rval;
+    asn_dec_rval_t dec_rval;
+    asn_per_outp_t po;
+    asn_per_data_t pd;
+    size_t encoded_len;
+    uint64_t decoded_value = 0;
+
+    memset(&st, 0, sizeof(st));
+    memset(&specs, 0, sizeof(specs));
+    memset(&cts, 0, sizeof(cts));
+    memset(&po, 0, sizeof(po));
+    memset(&pd, 0, sizeof(pd));
+
+    asn_uint642INTEGER(&st, 256);
+
+    po.buffer = po.tmpspace;
+    po.nboff = 0;
+    po.nbits = 8 * sizeof(po.tmpspace);
+    po.output = FailOut;
+
+    assert(per_put_few_bits(&po, 0x5, 3) == 0);
+
+    specs.field_width = sizeof(uint64_t);
+    specs.field_unsigned = 1;
+    asn_DEF_INTEGER.specifics = &specs;
+
+    cts.value.flags = APC_CONSTRAINED;
+    cts.value.range_bits = 32;
+    cts.value.effective_bits = 32;
+    cts.value.lower_bound = 0;
+    cts.value.upper_bound = UINT64_C(4294967295);
+
+    enc_rval = INTEGER_encode_aper(&asn_DEF_INTEGER, &cts, &st, &po);
+    assert(enc_rval.encoded >= 0);
+
+    encoded_len = (size_t)(po.buffer - po.tmpspace) + ((po.nboff + 7) / 8);
+    assert(encoded_len == sizeof(expected));
+    assert(memcmp(po.tmpspace, expected, sizeof(expected)) == 0);
+
+    pd.buffer = po.tmpspace;
+    pd.nboff = 0;
+    pd.nbits = 8 * encoded_len;
+    pd.moved = 0;
+
+    assert(per_get_few_bits(&pd, 3) == 0x5);
+    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
+                                   (void **)&decoded_st, &pd);
+    assert(dec_rval.code == RC_OK);
+    asn_INTEGER2uint64(decoded_st, &decoded_value);
+    assert(decoded_value == 256);
+
+    ASN_STRUCT_RESET(asn_DEF_INTEGER, &st);
+    ASN_STRUCT_FREE(asn_DEF_INTEGER, decoded_st);
+}
+
+static void
+test_extensible_root_value(void) {
+    static const uint8_t exp_32[] = {0x00, 0x20};
+    static const struct test_case tc = {32, exp_32, sizeof(exp_32)};
+    asn_per_constraints_t cts;
+
+    memset(&cts, 0, sizeof(cts));
+    cts.value.flags = APC_CONSTRAINED | APC_EXTENSIBLE;
+    cts.value.range_bits = 32;
+    cts.value.effective_bits = 32;
+    cts.value.lower_bound = 0;
+    cts.value.upper_bound = UINT64_C(4294967295);
+
+    check_x691_constrained_range("extensible-root", __LINE__, &cts, &tc);
+}
+
+static void
+test_range_bits_64_signed_offsets(void) {
+    static const uint8_t enc_min[] = {0x00, 0x00};
+    static const uint8_t enc_minus_one[] = {
+        0xE0, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+    };
+    static const uint8_t enc_max[] = {
+        0xE0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+    };
+    struct decode_case {
+        const uint8_t *encoded;
+        size_t encoded_len;
+        intmax_t expected;
+    };
+    static const struct decode_case cases[] = {
+        {enc_min, sizeof(enc_min), INTMAX_MIN},
+        {enc_minus_one, sizeof(enc_minus_one), -1},
+        {enc_max, sizeof(enc_max), INTMAX_MAX},
+    };
+    size_t i;
+
+    for(i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        INTEGER_t *decoded_st = 0;
+        struct asn_INTEGER_specifics_s specs;
+        asn_per_constraints_t cts;
+        asn_dec_rval_t dec_rval;
+        asn_per_data_t pd;
+        intmax_t decoded_value = 0;
+
+        memset(&specs, 0, sizeof(specs));
+        memset(&cts, 0, sizeof(cts));
+        memset(&pd, 0, sizeof(pd));
+
+        specs.field_width = sizeof(intmax_t);
+        specs.field_unsigned = 0;
+        asn_DEF_INTEGER.specifics = &specs;
+
+        cts.value.flags = APC_CONSTRAINED;
+        cts.value.range_bits = 64;
+        cts.value.effective_bits = 64;
+        cts.value.lower_bound = INTMAX_MIN;
+        cts.value.upper_bound = INTMAX_MAX;
+
+        pd.buffer = cases[i].encoded;
+        pd.nboff = 0;
+        pd.nbits = 8 * cases[i].encoded_len;
+        pd.moved = 0;
+
+        dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
+                                       (void **)&decoded_st, &pd);
+        assert(dec_rval.code == RC_OK);
+        asn_INTEGER2imax(decoded_st, &decoded_value);
+        assert(decoded_value == cases[i].expected);
+
+        ASN_STRUCT_FREE(asn_DEF_INTEGER, decoded_st);
+    }
+}
+
 int
 main(void) {
     test_range_bits_17();
     test_range_bits_17_offset();
     test_range_bits_17_signed();
     test_range_bits_36();
+    test_x691_note_example();
+    test_65535_65536_boundary();
+    test_unaligned_length_field();
+    test_extensible_root_value();
+    test_range_bits_64_signed_offsets();
     return 0;
 }

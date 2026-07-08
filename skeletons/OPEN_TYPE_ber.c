@@ -36,7 +36,7 @@ OPEN_TYPE_ber_get(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     selected = elm->type_selector(td, sptr);
-    if(!selected.presence_index) {
+    if(!selected.presence_index || !selected.type_descriptor) {
         ASN__DECODE_FAILED;
     }
 
@@ -212,6 +212,14 @@ OPEN_TYPE_ber_put(const asn_TYPE_descriptor_t *parent_type,
     selector_result = element->type_selector(parent_type, parent_structure);
     if(!selector_result.type_descriptor || !selector_result.presence_index) {
         ASN_DEBUG("OPEN_TYPE_ber_put: type selector failed");
+        er.encoded = -1;
+        er.failed_type = parent_type;
+        er.structure_ptr = parent_structure;
+        return er;
+    }
+    if(!selector_result.type_descriptor->op
+       || !selector_result.type_descriptor->op->der_encoder) {
+        ASN_DEBUG("OPEN_TYPE_ber_put: selected type has no DER encoder");
         er.encoded = -1;
         er.failed_type = parent_type;
         er.structure_ptr = parent_structure;

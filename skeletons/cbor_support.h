@@ -147,7 +147,15 @@ ssize_t cbor_decode_float64(const uint8_t *buf, size_t size, double *value_out);
  * Skip a complete CBOR data item starting at buf[0].
  * Handles all major types recursively (arrays, maps, tags, integers,
  * byte/text strings, floats, simple values).
- * Returns total bytes consumed, or -1 on error/truncation.
+ * Returns total bytes consumed, or -1 on error/truncation/stack limit.
+ */
+ssize_t cbor_skip_item_with_ctx(const asn_codec_ctx_t *opt_codec_ctx,
+                                const uint8_t *buf, size_t size);
+
+/*
+ * Compatibility wrapper for callers that do not have decoder context.
+ * ASN.1 decoders should call cbor_skip_item_with_ctx() so recursive
+ * skipping is covered by the same stack limit as normal decoding.
  */
 ssize_t cbor_skip_item(const uint8_t *buf, size_t size);
 

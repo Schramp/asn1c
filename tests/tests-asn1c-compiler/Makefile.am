@@ -1,7 +1,14 @@
 
-dist_check_SCRIPTS = check-parsing.sh check-version-string.sh
+dist_check_SCRIPTS = check-parsing.sh check-version-string.sh check-options.sh
 TESTS_ENVIRONMENT= top_srcdir=${top_srcdir} top_builddir=${top_builddir}
 TESTS = $(dist_check_SCRIPTS)
 CLEANFILES = .check-parsing.*.tmp
+
+ASN1C = $(top_builddir)/asn1c/asn1c
+
+$(ASN1C):
+	$(MAKE) -C $(top_builddir)/asn1c asn1c
+
+check-parsing.sh.log check-version-string.sh.log check-options.sh.log: $(ASN1C)
 
 EXTRA_DIST = README $(srcdir)/*asn1*

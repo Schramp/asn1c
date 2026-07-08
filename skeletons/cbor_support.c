@@ -227,7 +227,8 @@ cbor_decode_float64(const uint8_t *buf, size_t size, double *value_out) {
  * Returns total bytes consumed, or -1 on error/truncation.
  */
 ssize_t
-cbor_skip_item(const uint8_t *buf, size_t size) {
+cbor_skip_item_with_ctx(const asn_codec_ctx_t *opt_codec_ctx,
+                        const uint8_t *buf, size_t size) {
     uint8_t major;
     uint64_t arg;
     ssize_t hlen;
@@ -235,6 +236,7 @@ cbor_skip_item(const uint8_t *buf, size_t size) {
     uint64_t i;
 
     if(size < 1) return -1;
+    if(ASN__STACK_OVERFLOW_CHECK(opt_codec_ctx)) return -1;
 
     hlen = cbor_decode_head(buf, size, &major, &arg);
     if(hlen < 0) return -1;
@@ -255,7 +257,8 @@ cbor_skip_item(const uint8_t *buf, size_t size) {
         for(i = 0; i < arg; i++) {
             ssize_t n;
             if((size_t)total >= size) return -1;
-            n = cbor_skip_item(buf + total, size - (size_t)total);
+            n = cbor_skip_item_with_ctx(opt_codec_ctx, buf + total,
+                                        size - (size_t)total);
             if(n < 0) return -1;
             total += n;
         }
@@ -266,12 +269,14 @@ cbor_skip_item(const uint8_t *buf, size_t size) {
             ssize_t n;
             /* key */
             if((size_t)total >= size) return -1;
-            n = cbor_skip_item(buf + total, size - (size_t)total);
+            n = cbor_skip_item_with_ctx(opt_codec_ctx, buf + total,
+                                        size - (size_t)total);
             if(n < 0) return -1;
             total += n;
             /* value */
             if((size_t)total >= size) return -1;
-            n = cbor_skip_item(buf + total, size - (size_t)total);
+            n = cbor_skip_item_with_ctx(opt_codec_ctx, buf + total,
+                                        size - (size_t)total);
             if(n < 0) return -1;
             total += n;
         }
@@ -281,7 +286,8 @@ cbor_skip_item(const uint8_t *buf, size_t size) {
         {
             ssize_t n;
             if((size_t)total >= size) return -1;
-            n = cbor_skip_item(buf + total, size - (size_t)total);
+            n = cbor_skip_item_with_ctx(opt_codec_ctx, buf + total,
+                                        size - (size_t)total);
             if(n < 0) return -1;
             total += n;
         }
@@ -300,4 +306,9 @@ cbor_skip_item(const uint8_t *buf, size_t size) {
     }
 
     return total;
+}
+
+ssize_t
+cbor_skip_item(const uint8_t *buf, size_t size) {
+    return cbor_skip_item_with_ctx(NULL, buf, size);
 }

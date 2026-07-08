@@ -200,7 +200,7 @@ SEQUENCE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
                 RETURN(RC_FAIL);
             }
         case JCK_COMMA:
-            ADVANCE(ch_size);
+            JER_ADVANCE(ch_size);
             continue;
             /* Fall through */
         case JCK_OSTART: /* '{' */
@@ -242,7 +242,7 @@ SEQUENCE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
                             ctx->step = edx = n;
                             ctx->phase = 2;
 
-                            ADVANCE(ch_size); /* skip key */
+                            JER_ADVANCE(ch_size); /* skip key */
                             /* skip colon */
                             ch_size = jer_next_token(&ctx->context, ptr, size,
                                     &ch_type);

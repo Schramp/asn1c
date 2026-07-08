@@ -1,6 +1,13 @@
 #include <asn_internal.h>
 
-#if ASN_EMIT_DEBUG == 1 && __STDC_VERSION__ >= 199901L && !defined(ASN_THREAD_SAFE)
+#ifdef ASN__DEBUG_INDENT_NEEDS_DEFINITION
+/*
+ * The single definition of the debugging indentation level, shared by all
+ * units which refer to it via "extern" in asn_internal.h.  The macro is set
+ * by asn_internal.h under exactly the same configuration which declares the
+ * variable (ASN_EMIT_DEBUG=1, C99, !ASN_THREAD_SAFE, no ASN_DEBUG override),
+ * so the definition can never go out of sync with the declaration.
+ */
 int asn_debug_indent = 0;
 #endif
 

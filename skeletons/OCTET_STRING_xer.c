@@ -511,31 +511,37 @@ BIT_STRING__convert_binary_or_hex(void *sptr, const void *chunk_buf,
 static int
 OS__strtoent(int base, const char *buf, const char *end, int32_t *ret_value) {
 	const int32_t last_unicode_codepoint = 0x10ffff;
-	int32_t val = 0;
+	int64_t val = 0;
+    int seen_digit = 0;
 	const char *p;
 
 	for(p = buf; p < end; p++) {
 		int ch = *p;
+        int digit = -1;
 
-        switch(ch) {
-        case 0x30: case 0x31: case 0x32: case 0x33: case 0x34:  /*01234*/
-        case 0x35: case 0x36: case 0x37: case 0x38: case 0x39:  /*56789*/
-            val = val * base + (ch - 0x30);
-            break;
-        case 0x41: case 0x42: case 0x43:  /* ABC */
-        case 0x44: case 0x45: case 0x46:  /* DEF */
-            val = val * base + (ch - 0x41 + 10);
-            break;
-        case 0x61: case 0x62: case 0x63:  /* abc */
-        case 0x64: case 0x65: case 0x66:  /* def */
-            val = val * base + (ch - 0x61 + 10);
-            break;
-        case 0x3b:  /* ';' */
-            *ret_value = val;
+        if(ch >= 0x30 && ch <= 0x39) {
+            digit = ch - 0x30;
+        } else if(base == 16 && ch >= 0x41 && ch <= 0x46) {
+            digit = ch - 0x41 + 10;
+        } else if(base == 16 && ch >= 0x61 && ch <= 0x66) {
+            digit = ch - 0x61 + 10;
+        } else if(ch == 0x3b /* ';' */) {
+            if(!seen_digit) return -1;
+            if(val > last_unicode_codepoint) return -1;
+            if(val >= 0xd800 && val <= 0xdfff) return -1;
+            *ret_value = (int32_t)val;
             return (p - buf) + 1;
-        default:
-            return -1;  /* Character set error */
+        } else {
+            if(!seen_digit) return -1;
+            if(val > last_unicode_codepoint) return -1;
+            if(val >= 0xd800 && val <= 0xdfff) return -1;
+            *ret_value = (int32_t)val;
+            return p - buf;
         }
+
+        if(digit >= base) return -1;
+        seen_digit = 1;
+        val = val * base + digit;
 
         /* Value exceeds the Unicode range. */
         if(val > last_unicode_codepoint) {
@@ -544,7 +550,7 @@ OS__strtoent(int base, const char *buf, const char *end, int32_t *ret_value) {
     }
 
     *ret_value = -1;
-    return (p - buf);
+    return 0;
 }
 
 /*
@@ -594,12 +600,14 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
                 pval = p + 2, base = 10;
             len = OS__strtoent(base, pval, p + len, &val);
             if(len == -1) {
-                /* Invalid charset. Just copy verbatim. */
-                *buf++ = ch;
-                continue;
+                ASN_DEBUG("XER OCTET STRING: invalid numeric character reference rejected");
+                st->buf[st->size] = 0;
+                return -1;
             }
-            if(!len || pval[len-1] != 0x3b) goto want_more;
-            assert(val > 0);
+            if(!len) goto want_more;
+            if(pval[len-1] != 0x3b) {
+                ASN_DEBUG("XER OCTET STRING: numeric character reference without semicolon accepted");
+            }
             p += (pval - p) + len - 1;  /* Advance past entref */
 
             if(val < 0x80) {
@@ -651,11 +659,13 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
                     *buf = 0x3e;  /* '>' */
                 } else {
                     /* Unsupported entity reference */
+                    ASN_DEBUG("XER OCTET STRING: unsupported entity reference copied verbatim");
                     *buf++ = ch;
                     continue;
                 }
                 if(p[2] != 0x74) {
                     /* Unsupported entity reference */
+                    ASN_DEBUG("XER OCTET STRING: unsupported entity reference copied verbatim");
                     *buf++ = ch;
                     continue;
                 }
@@ -664,6 +674,7 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
                 continue;
             }
             /* Unsupported entity reference */
+            ASN_DEBUG("XER OCTET STRING: unsupported entity reference copied verbatim");
             *buf++ = ch;
         }
 

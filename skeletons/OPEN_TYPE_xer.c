@@ -44,7 +44,7 @@ OPEN_TYPE_xer_get(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     selected = elm->type_selector(td, sptr);
-    if(!selected.presence_index) {
+    if(!selected.presence_index || !selected.type_descriptor) {
         ASN__DECODE_FAILED;
     }
 
@@ -347,6 +347,18 @@ OPEN_TYPE_xer_put(const asn_TYPE_descriptor_t *td, const void *sptr,
 
     selected = elm->type_selector(td, sptr);
     if(!selected.presence_index) {
+        ASN__ENCODE_FAILED;
+    }
+    if(!selected.type_descriptor) {
+        ASN_DEBUG("Open Type %s->%s: type_selector returned NULL type descriptor",
+                  td->name, elm->name);
+        ASN__ENCODE_FAILED;
+    }
+    if(!selected.type_descriptor->op
+       || (!elm->type->elements_count
+           && !selected.type_descriptor->op->xer_encoder)) {
+        ASN_DEBUG("Open Type %s->%s: selected type %s has no XER encoder",
+                  td->name, elm->name, selected.type_descriptor->name);
         ASN__ENCODE_FAILED;
     }
 

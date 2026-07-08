@@ -336,6 +336,15 @@ CHOICE_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
                     ADVANCE(2);
                     ctx->left++;
                     continue;
+                } else {
+                    /*
+                     * Malformed end-of-contents: <0> followed by
+                     * a non-zero byte. Fail instead of spinning
+                     * forever on the same input (CWE-835).
+                     */
+                    ASN_DEBUG("Unexpected continuation in %s",
+                              td->name);
+                    RETURN(RC_FAIL);
                 }
             } else {
                 ASN_DEBUG("Unexpected continuation in %s",
