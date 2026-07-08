@@ -7,6 +7,16 @@ top_builddir=${top_builddir:-../..}
 top_srcdir=${top_srcdir:-../..}
 srcdir=$(cd "$(dirname "$0")" && pwd)
 
+path_from_testdir() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '../%s\n' "$1" ;;
+    esac
+}
+
+ASN1C="$(path_from_testdir "${top_builddir}")/asn1c/asn1c"
+SKELETONS_DIR="$(path_from_testdir "${top_srcdir}")/skeletons"
+
 testdir=test-fprefix-anon-typedef
 cleanup() {
     rm -rf "$testdir"
@@ -22,7 +32,7 @@ cp "${srcdir}/data/fprefix-anon-typedef.asn" test.asn
 prefix=S1AP_
 mkdir "$prefix"
 
-../"${top_builddir}"/asn1c/asn1c -S ../"${top_srcdir}"/skeletons -flink-skeletons \
+"${ASN1C}" -S "${SKELETONS_DIR}" -flink-skeletons \
     -fprefix="$prefix" -D "$prefix" test.asn
 
 # The anonymous typedef alias in FWD-DEFS must carry the -fprefix.
@@ -31,7 +41,7 @@ mkdir "$prefix"
 grep -F "${prefix}InitiatingMessage__value" "${prefix}/${prefix}InitiatingMessage.h"
 grep -F "} value;" "${prefix}/${prefix}InitiatingMessage.h" && exit 1
 
-"${CC:-cc}" -c -I"${prefix}" -I../"${top_srcdir}"/skeletons \
+"${CC:-cc}" -c -I"${prefix}" -I"${SKELETONS_DIR}" \
     "${prefix}/${prefix}InitiatingMessage.c" -o "${prefix}.o"
 
 test -f "${prefix}.o"

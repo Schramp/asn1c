@@ -63,10 +63,11 @@ check_impl(int lineno, enum encoding_rules rules, enum encoding_type type, char 
         rc = jer_decoder(0, td, NULL, (void **)stp, xmlbuf, xmllen);
         break;
     }
-	printf("%03d: [%s] => [%s]:%zu vs [%s]:%zu, code %d\n",
+	printf("%03d: [%s] => [%.*s]:%zu vs [%s]:%zu, code %d\n",
 		lineno, xmlbuf,
-		st ? (const char *)st->buf : "", st ? st->size : 0,
-		verify ? verify : "", verlen, rc.code);
+		st && st->buf ? (int)st->size : 0,
+		st && st->buf ? (const char *)st->buf : "",
+		st ? st->size : 0, verify ? verify : "", verlen, rc.code);
 
 	if(verify) {
 		assert(rc.code == RC_OK);
@@ -156,18 +157,23 @@ main() {
 	check_xer(UTF8, "z", "<z z z>a&sdfsdfsdf;b</z z z>", "a&sdfsdfsdf;b");
 	check_xer(UTF8, "z", "<z z z>a&#x20;b</z z z>", "a b");
 	check_xer(UTF8, "z", "<z z z>a&#32;b</z z z>", "a b");
+	check_xer(UTF8, "z", "<z>a&#x20here</z>", "a here");
 	check_xer(UTF8, "z", "<z>a&#32323;b</z>", "a\347\271\203b");
 	check_xer(UTF8, "z", "<z>a&#x4fc4;|</z>", "a\xe4\xbf\x84|");
     /* Last unicode point */
 	check_xer(UTF8, "z", "<z>a&#x10ffff;|</z>", "a\xf4\x8f\xbf\xbf|");
 	check_xer(UTF8, "z", "<z>a&#1114111;|</z>", "a\xf4\x8f\xbf\xbf|");
-    /* One past the last unicode point */
-	check_xer(UTF8, "z", "<z>a&#x110000;|</z>", "a&#x110000;|");
-	check_xer(UTF8, "z", "<z>a&#1114112;|</z>", "a&#1114112;|");
-	check_xer(UTF8, "z", "<z>a&#3000000000;b</z>", "a&#3000000000;b");
-	check_xer(UTF8, "z", "<z>a&#5000000000;b</z>", "a&#5000000000;b");
+    /* Invalid or unsafe numeric character references */
+	check_xer(UTF8, "z", "<z>a&#x110000;|</z>", 0);
+	check_xer(UTF8, "z", "<z>a&#1114112;|</z>", 0);
+	check_xer(UTF8, "z", "<z>a&#3000000000;b</z>", 0);
+	check_xer(UTF8, "z", "<z>a&#5000000000;b</z>", 0);
 	check_xer(UTF8, "z", "<z>a&#300</z>", "a&#300");
-	check_xer(UTF8, "z", "<z>a&#-300;</z>", "a&#-300;");
+	check_xer(UTF8, "z", "<z>a&#-300;</z>", 0);
+	check_xer_bin(UTF8, "z", "<z>a&#0;b</z>", "a\0b", 3);
+	check_xer_bin(UTF8, "z", "<z>a&#x0;b</z>", "a\0b", 3);
+	check_xer(UTF8, "z", "<z>a&#;b</z>", 0);
+	check_xer(UTF8, "z", "<z>a&#x;b</z>", 0);
 	check_xer(UTF8, "z", "<z>a<ff/>b</z>", "a\014b");
 	check_xer(UTF8, "z", "<z>a<soh/>b</z>", "a\001b");
 	check_xer(UTF8, "z", "<z>a<bel/></z>", "a\007");
@@ -205,4 +211,3 @@ main() {
 
 	return 0;
 }
-

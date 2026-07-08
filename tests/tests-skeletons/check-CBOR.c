@@ -23,6 +23,17 @@
 #include <cbor_decoder.h>
 #include <cbor_support.h>
 
+#if defined(__SANITIZE_ADDRESS__)
+#define TEST_ASN_STACK_CHECK_DISABLED 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TEST_ASN_STACK_CHECK_DISABLED 1
+#endif
+#endif
+#if defined(ASN_DISABLE_STACK_OVERFLOW_CHECK)
+#define TEST_ASN_STACK_CHECK_DISABLED 1
+#endif
+
 /* ------------------------------------------------------------------ */
 /* Buffer accumulator for encoding output                               */
 /* ------------------------------------------------------------------ */
@@ -749,6 +760,47 @@ test_cbor_skip_tags(void) {
     printf("PASSED: test_cbor_skip_tags\n\n");
 }
 
+static void
+test_cbor_skip_item_stack_limit(void) {
+    enum { tag_depth = 512 };
+    uint8_t nested_tags[tag_depth + 1];
+    ssize_t n;
+    int i;
+
+    printf("test_cbor_skip_item_stack_limit\n");
+
+    /*
+     * Build tag(0) wrappers around integer 0:
+     *   C0 C0 ... C0 00
+     * cbor_skip_item() recurses through every tag wrapper.
+     */
+    for(i = 0; i < tag_depth; i++) {
+        nested_tags[i] = 0xC0;
+    }
+    nested_tags[tag_depth] = 0x00;
+
+    n = cbor_skip_item(nested_tags, sizeof(nested_tags));
+    assert(n == (ssize_t)sizeof(nested_tags));
+    printf("  ✓ compatibility cbor_skip_item skips nested tags\n");
+
+#if !defined(TEST_ASN_STACK_CHECK_DISABLED)
+    {
+        asn_codec_ctx_t ctx;
+
+        memset(&ctx, 0, sizeof(ctx));
+        ctx.max_stack_size = 4096;
+
+        n = cbor_skip_item_with_ctx(&ctx, nested_tags, sizeof(nested_tags));
+        assert(n == -1);
+        printf("  ✓ cbor_skip_item_with_ctx rejects deep nesting at stack limit\n");
+    }
+#else
+    printf("  - stack-limit assertion skipped for sanitizer/no-stack-check build\n");
+#endif
+
+    printf("PASSED: test_cbor_skip_item_stack_limit\n\n");
+}
+
 /* Helper: prepend a tag header to an existing encoded buffer and decode */
 static void
 test_tag_transparent_integer(uint64_t tag, intmax_t val, const char *label) {
@@ -1018,6 +1070,260 @@ test_cbor_nested_tags(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/* C509 draft CBOR sequence fixture tests                               */
+/* ------------------------------------------------------------------ */
+
+struct c509_draft_vector {
+    const char *label;
+    const char *section;
+    const char *hex;
+    size_t expected_len;
+    size_t expected_items;
+    uint8_t expected_first_major;
+    uint64_t expected_first_arg;
+};
+
+static int
+is_hex_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+static int
+hex_nibble(char c) {
+    if(c >= '0' && c <= '9') return c - '0';
+    if(c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if(c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static int
+decode_hex_fixture(const char *hex, uint8_t *out, size_t out_cap,
+                   size_t *out_len) {
+    size_t len = 0;
+    int high = -1;
+
+    if(!hex || !out || !out_len)
+        return -1;
+
+    for(; *hex; hex++) {
+        int n;
+
+        if(is_hex_space(*hex))
+            continue;
+
+        n = hex_nibble(*hex);
+        if(n < 0)
+            return -1;
+
+        if(high < 0) {
+            high = n;
+        } else {
+            if(len >= out_cap)
+                return -1;
+            out[len++] = (uint8_t)((high << 4) | n);
+            high = -1;
+        }
+    }
+
+    if(high >= 0)
+        return -1;
+
+    *out_len = len;
+    return 0;
+}
+
+static int
+count_cbor_sequence_items(const uint8_t *buf, size_t len, size_t *item_count) {
+    size_t offset = 0;
+    size_t count = 0;
+
+    if(!buf || !item_count)
+        return -1;
+
+    while(offset < len) {
+        ssize_t n = cbor_skip_item(buf + offset, len - offset);
+        if(n <= 0 || (size_t)n > len - offset)
+            return -1;
+        offset += (size_t)n;
+        count++;
+    }
+
+    *item_count = count;
+    return 0;
+}
+
+static void
+check_c509_draft_vector(const struct c509_draft_vector *vector) {
+    uint8_t buf[512];
+    size_t len = 0;
+    size_t item_count = 0;
+    uint8_t major = 0;
+    uint64_t arg = 0;
+    ssize_t hlen;
+
+    assert(vector);
+    assert(vector->expected_len <= sizeof(buf));
+
+    if(decode_hex_fixture(vector->hex, buf, sizeof(buf), &len) != 0) {
+        fprintf(stderr, "FAIL: parse %s (%s)\n",
+                vector->label, vector->section);
+        exit(1);
+    }
+
+    if(len != vector->expected_len) {
+        fprintf(stderr, "FAIL: %s length=%zu want=%zu\n",
+                vector->label, len, vector->expected_len);
+        exit(1);
+    }
+
+    hlen = cbor_decode_head(buf, len, &major, &arg);
+    if(hlen <= 0 || major != vector->expected_first_major
+       || arg != vector->expected_first_arg) {
+        fprintf(stderr,
+                "FAIL: %s first item major=%u arg=%llu want major=%u arg=%llu\n",
+                vector->label,
+                (unsigned)major, (unsigned long long)arg,
+                (unsigned)vector->expected_first_major,
+                (unsigned long long)vector->expected_first_arg);
+        exit(1);
+    }
+
+    if(count_cbor_sequence_items(buf, len, &item_count) != 0) {
+        fprintf(stderr, "FAIL: %s is not a complete CBOR sequence\n",
+                vector->label);
+        exit(1);
+    }
+
+    if(item_count != vector->expected_items) {
+        fprintf(stderr, "FAIL: %s item_count=%zu want=%zu\n",
+                vector->label, item_count, vector->expected_items);
+        exit(1);
+    }
+
+    printf("  ✓ %s (%s): %zu bytes, %zu CBOR sequence items\n",
+           vector->label, vector->section, len, item_count);
+}
+
+static void
+test_c509_draft_hex_fixture_validation(void) {
+    uint8_t buf[2];
+    size_t len = 0;
+
+    assert(decode_hex_fixture(NULL, buf, sizeof(buf), &len) < 0);
+    assert(decode_hex_fixture("0G", buf, sizeof(buf), &len) < 0);
+    assert(decode_hex_fixture("0", buf, sizeof(buf), &len) < 0);
+    assert(decode_hex_fixture("0001", buf, 1, &len) < 0);
+    assert(decode_hex_fixture("00 01\n", buf, sizeof(buf), &len) == 0);
+    assert(len == 2 && buf[0] == 0x00 && buf[1] == 0x01);
+
+    printf("  ✓ C509 draft hex fixture parser rejects malformed input\n");
+}
+
+static void
+test_c509_draft_negative_vectors(void) {
+    uint8_t buf[128];
+    size_t len = 0;
+    size_t item_count = 0;
+
+    /*
+     * The positive C509 CA certificate fixture ends with an empty byte
+     * string.  Requiring one payload byte turns that final item into a
+     * truncated byte string, which cbor_skip_item() must reject.
+     */
+    static const char *ca_type2_hex =
+        "02410105F61A677485801A6B36EC7F67746573742063610C58205A9414AC56D1B6AF"
+        "0C966FC53B9476B5C95D0EEAAEF764D9EFE86DB7320C36E18801540369D71F96FE12"
+        "58A746AC2B208E756E6D1D3ED921186003676162632E636F6D232040";
+
+    assert(decode_hex_fixture(ca_type2_hex, buf, sizeof(buf), &len) == 0);
+    assert(len > 0);
+    buf[len - 1] = 0x41;
+    assert(count_cbor_sequence_items(buf, len, &item_count) < 0);
+
+    /*
+     * The one-element template fixture has its extensions field as the
+     * final CBOR array.  Inflating that final array count makes the
+     * sequence structurally incomplete.
+     */
+    assert(decode_hex_fixture("008102810084010101F78101F78303F4F7",
+                              buf, sizeof(buf), &len) == 0);
+    assert(len == 17);
+    buf[13] = 0x84;
+    assert(count_cbor_sequence_items(buf, len, &item_count) < 0);
+
+    printf("  ✓ C509 draft malformed/truncated vectors are rejected\n");
+}
+
+static void
+test_c509_draft_vectors(void) {
+    static const struct c509_draft_vector vectors[] = {
+        {
+            "C509 CA certificate type 3",
+            "draft-ietf-cose-c509-test-vectors-01 section 2.3",
+            "03410105F61A677485801A6B36EC7F67746573742063610C58205A9414AC56D1B6AF"
+            "0C966FC53B9476B5C95D0EEAAEF764D9EFE86DB7320C36E18801547FCDB82D04952E"
+            "1A36B90AF37A3CF166D15EF92121186003676162632E636F6D232040",
+            96, 11, CBOR_MAJOR_UINT, 3
+        },
+        {
+            "C509 CA certificate type 2",
+            "draft-ietf-cose-c509-test-vectors-01 section 2.4",
+            "02410105F61A677485801A6B36EC7F67746573742063610C58205A9414AC56D1B6AF"
+            "0C966FC53B9476B5C95D0EEAAEF764D9EFE86DB7320C36E18801540369D71F96FE12"
+            "58A746AC2B208E756E6D1D3ED921186003676162632E636F6D232040",
+            96, 11, CBOR_MAJOR_UINT, 2
+        },
+        {
+            "C509 unsigned X25519 certification request type 3",
+            "draft-ietf-cose-c509-test-vectors-01 section 8.6.3",
+            "0305667832353531390858208AFF516FAC71244150E70F9277F4ADF7FB29F41A7A4A"
+            "8828BD476722FC1B7F088202836B64656D6F206973737565724102F640",
+            63, 7, CBOR_MAJOR_UINT, 3
+        },
+        {
+            "C509 unsigned X25519 certification request type 2",
+            "draft-ietf-cose-c509-test-vectors-01 section 8.6.4",
+            "0205667832353531390858208AFF516FAC71244150E70F9277F4ADF7FB29F41A7A4A"
+            "8828BD476722FC1B7F088202836B64656D6F206973737565724102F640",
+            63, 7, CBOR_MAJOR_UINT, 2
+        },
+        {
+            "C509 request template undefined fields",
+            "draft-ietf-cose-c509-test-vectors-01 section 10.1",
+            "00F7F7F7F7F7F7",
+            7, 7, CBOR_MAJOR_UINT, 0
+        },
+        {
+            "C509 request template one element per field",
+            "draft-ietf-cose-c509-test-vectors-01 section 10.2",
+            "008102810084010101F78101F78303F4F7",
+            17, 7, CBOR_MAJOR_UINT, 0
+        },
+        {
+            "C509 request template complex choices",
+            "draft-ietf-cose-c509-test-vectors-01 section 10.3",
+            "008202038301492B0601040181FD590982492B0601040181FD590A42050090010101"
+            "F7040101624445492B0601040181FD590B0101F7492B0601040181FD590C01014D0C"
+            "0B636F6E73742D76616C75658301492B0601040181FD590982492B0601040181FD59"
+            "0A420500F78C08F4F702F51860492B0601040181FD590DF4F7492B0601040181FD59"
+            "0EF44D0C0B636F6E73742D76616C7565",
+            152, 7, CBOR_MAJOR_UINT, 0
+        }
+    };
+    size_t i;
+
+    printf("test_c509_draft_vectors\n");
+    test_c509_draft_hex_fixture_validation();
+
+    for(i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++) {
+        check_c509_draft_vector(&vectors[i]);
+    }
+
+    test_c509_draft_negative_vectors();
+    printf("PASSED: test_c509_draft_vectors\n\n");
+}
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 int
@@ -1032,8 +1338,10 @@ main(void) {
     test_oid_cbor_roundtrip();
     test_cbor_tag_encoding();
     test_cbor_skip_tags();
+    test_cbor_skip_item_stack_limit();
     test_cbor_tag_transparent_decode();
     test_cbor_nested_tags();
+    test_c509_draft_vectors();
 
     printf("=== ALL CBOR TESTS PASSED ===\n");
     return 0;

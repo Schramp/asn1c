@@ -178,8 +178,10 @@ SEQUENCE_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
         if(!epres) ASN__DECODE_STARVED;
 
         /* Get the extensions map */
-        if(per_get_many_bits(pd, epres, 0, bmlength))
+        if(per_get_many_bits(pd, epres, 0, bmlength)) {
+            FREEMEM(epres);
             ASN__DECODE_STARVED;
+        }
 
         memset(&epmd, 0, sizeof(epmd));
         epmd.buffer = epres;
@@ -188,8 +190,10 @@ SEQUENCE_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
                   td->name, bmlength, *epres);
 
         /* Deal with padding */
-        if (aper_get_align(pd) < 0)
+        if (aper_get_align(pd) < 0) {
+            FREEMEM(epres);
             ASN__DECODE_STARVED;
+        }
 
         /* Go over extensions and read them in */
         for(edx = specs->first_extension; edx < td->elements_count; edx++) {

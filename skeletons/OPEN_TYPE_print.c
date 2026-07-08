@@ -60,7 +60,9 @@ OPEN_TYPE_print_member(const asn_TYPE_descriptor_t *td, const void *sptr,
         }
 
         selected = elm->type_selector(td, sptr);
-        if(!selected.presence_index || !selected.type_descriptor) {
+        if(!selected.presence_index || !selected.type_descriptor
+           || !selected.type_descriptor->op
+           || !selected.type_descriptor->op->print_struct) {
             return (cb("<absent>", 8, app_key) < 0) ? -1 : 0;
         }
 

@@ -15,6 +15,8 @@ TESTS_ENVIRONMENT= \
 				   CXXFLAGS="${CXXFLAGS} ${DEFS}" \
 				   LDFLAGS="${LDFLAGS}" \
 				   LIBFUZZER_CFLAGS="${LIBFUZZER_CFLAGS}" \
+				   FUZZ_TIME="${FUZZ_TIME}" \
+				   FUZZ_ASAN_OPTIONS="${FUZZ_ASAN_OPTIONS}" \
 				   ASAN_ENV_FLAGS="@ASAN_ENV_FLAGS@"       \
 				   srcdir=${srcdir} \
 				   abs_top_srcdir=${abs_top_srcdir} \
@@ -68,6 +70,10 @@ TESTS += check-src/check-184.c
 TESTS += check-src/check-185.c
 TESTS += check-src/check-201.c
 TESTS += check-src/check-202.-gen-CBOR.c
+TESTS += check-src/check-203.c
+TESTS += check-src/check-204.c
+TESTS += check-src/check-211.c
+TESTS += check-src/check-212.-fcompound-names.c
 
 if TEST_64BIT
 TESTS += check-src/check64-134.-gen-UPER.c
@@ -82,6 +88,7 @@ EXTRA_DIST =    \
     data-119    \
     data-126    \
     data-202    \
+    data-203    \
     check-src/check64-134.-gen-UPER.c    \
     check-src/check64-136.-gen-OER.c
 

@@ -61,6 +61,7 @@ CANONICAL-APER | aper_encode()              | *-APER        | aper_decode()
 BASIC-XER      | xer_encode(XER_F_BASIC)    | *-XER         | xer_decode()
 CANONICAL-XER  | xer_encode(XER_F_CANONICAL)| *-XER         | xer_decode()
 JER            | jer_encode()               | JER           | jer_decode()
+CBOR           | cbor_encode()              | CBOR          | cbor_decode()
 
 *) Asterisk means both BASIC and CANONICAL variants.
 </details>

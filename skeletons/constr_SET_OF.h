@@ -86,6 +86,7 @@ extern asn_TYPE_descriptor_t asn_DEF_SET_OF;
  * Internally visible buffer holding a single encoded element.
  */
 struct _el_buffer {
+    const void *memb_ptr;
     uint8_t *buf;
     size_t length;
     size_t allocated_size;

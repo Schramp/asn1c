@@ -35,6 +35,8 @@ abs_builddir="${abs_builddir:-`pwd`}"
 export abs_builddir
 MAKE="${MAKE:-make}"
 FUZZ_TIME="${FUZZ_TIME:-10}"
+FUZZ_TARGETS="${FUZZ_TARGETS:-all}"
+FUZZ_MAX_CORPUS_BYTES="${FUZZ_MAX_CORPUS_BYTES:-0}"
 
 #
 # Bound AddressSanitizer's runtime memory footprint.
@@ -73,6 +75,24 @@ case "${ASAN_ENV_FLAGS}" in
         ;;
 esac
 export ASAN_ENV_FLAGS
+
+FUZZ_ASAN_ENV_FLAGS="${ASAN_ENV_FLAGS}"
+if [ "x${FUZZ_ASAN_OPTIONS:-}" != "x" ]; then
+    case "${FUZZ_ASAN_OPTIONS}" in
+        *quarantine_size_mb=*) ;;
+        *) FUZZ_ASAN_OPTIONS="${FUZZ_ASAN_OPTIONS}:${ASAN_MEM_OPTS}" ;;
+    esac
+
+    case "${FUZZ_ASAN_ENV_FLAGS}" in
+        *ASAN_OPTIONS=*)
+            FUZZ_ASAN_ENV_FLAGS=`echo "${FUZZ_ASAN_ENV_FLAGS}" \
+                | sed -e "s#ASAN_OPTIONS=[^ ]*#ASAN_OPTIONS=${FUZZ_ASAN_OPTIONS}#"`
+            ;;
+        *)
+            FUZZ_ASAN_ENV_FLAGS="${FUZZ_ASAN_ENV_FLAGS} ASAN_OPTIONS=${FUZZ_ASAN_OPTIONS}"
+            ;;
+    esac
+fi
 
 tests_succeeded=0
 tests_failed=0
@@ -248,23 +268,84 @@ compile_and_test() {
     fi
 
     # Do a LibFuzzer based testing
-    fuzz_cmd="${ASAN_ENV_FLAGS} UBSAN_OPTIONS=print_stacktrace=1"
+    fuzz_cmd="${FUZZ_ASAN_ENV_FLAGS} UBSAN_OPTIONS=print_stacktrace=1"
     fuzz_cmd="${fuzz_cmd} ./random-test-driver"
     fuzz_cmd="${fuzz_cmd} -timeout=3 -max_total_time=${FUZZ_TIME} -max_len=${rmax}"
 
+    have_fuzz_targets=0
     if grep "^fuzz:" Makefile >/dev/null ; then
-        echo "No fuzzer defined, skipping fuzzing"
+        echo "Fuzzer target already defined"
+        have_fuzz_targets=1
     else
-        fuzz_targets=`echo random-data/* | sed -e 's/random-data./fuzz-/g'`
-        {
-        echo "fuzz: $fuzz_targets"
-        echo "fuzz-%: random-data/% random-test-driver"
-        echo "	ASN1_DATA_DIR=\$< ${fuzz_cmd} \$<"
-        } >> Makefile
+        case "${FUZZ_MAX_CORPUS_BYTES}" in
+            ''|*[!0-9]*)
+                echo "FUZZ_MAX_CORPUS_BYTES must be numeric"
+                return 4
+                ;;
+        esac
+
+        selected_corpora=""
+        fuzz_data_dir="random-data"
+        if [ "${FUZZ_MAX_CORPUS_BYTES}" != "0" ]; then
+            fuzz_data_dir=".tmp.fuzz-data"
+            rm -rf "${fuzz_data_dir}"
+            mkdir -p "${fuzz_data_dir}"
+        fi
+
+        if [ "x${FUZZ_TARGETS}" = "x" ] || [ "x${FUZZ_TARGETS}" = "xall" ]; then
+            for corpus in random-data/*; do
+                test -d "$corpus" || continue
+                selected_corpora="${selected_corpora} `basename "$corpus"`"
+            done
+        else
+            selected_corpora="${FUZZ_TARGETS}"
+        fi
+
+        fuzz_targets=""
+        for corpus_name in ${selected_corpora}; do
+            test -d "random-data/${corpus_name}" || continue
+
+            if [ "${FUZZ_MAX_CORPUS_BYTES}" != "0" ]; then
+                copied=0
+                mkdir -p "${fuzz_data_dir}/${corpus_name}"
+                for seed in random-data/${corpus_name}/*; do
+                    test -f "$seed" || continue
+                    seed_size=`wc -c < "$seed" | tr -d '[:space:]'`
+                    if [ "${seed_size}" -le "${FUZZ_MAX_CORPUS_BYTES}" ]; then
+                        cp -p "$seed" "${fuzz_data_dir}/${corpus_name}/"
+                        copied=`expr ${copied} + 1`
+                    fi
+                done
+                if [ "${copied}" = "0" ]; then
+                    echo "No ${corpus_name} fuzzer corpus files under ${FUZZ_MAX_CORPUS_BYTES} bytes, skipping"
+                    continue
+                fi
+            fi
+
+            if [ -d "${fuzz_data_dir}/${corpus_name}" ]; then
+                fuzz_targets="${fuzz_targets} fuzz-${corpus_name}"
+            fi
+        done
+
+        if [ "x${fuzz_targets}" = "x" ]; then
+            echo "No requested fuzzer corpus found, skipping fuzzing"
+        else
+            echo "Fuzzer corpora:${fuzz_targets}"
+            {
+            echo "fuzz:${fuzz_targets}"
+            echo "fuzz-%: ${fuzz_data_dir}/% random-test-driver"
+            echo "	ASN1_DATA_DIR=\$< ${fuzz_cmd} \$<"
+            } >> Makefile
+            have_fuzz_targets=1
+        fi
     fi
 
     # If LIBFUZZER_CFLAGS are properly defined, do the fuzz test as well
     if echo "${LIBFUZZER_CFLAGS}" | grep -i "[a-z]" > /dev/null; then
+        if [ "${have_fuzz_targets}" != "1" ]; then
+            echo "No fuzzer corpus selected, skipping fuzzing"
+            return 0
+        fi
 
         echo "Recompiling for fuzzing..."
         rm -f random-test-driver.o
@@ -328,7 +409,15 @@ asn_compile() {
     fi
 
     rm -f converter-example.c
-    ln -sf "../${srcdir}/random-test-driver.c" || cp "../${srcdir}/random-test-driver.c" .
+    case "${srcdir}" in
+        /*) random_driver="${srcdir}/random-test-driver.c" ;;
+        *) random_driver="../${srcdir}/random-test-driver.c" ;;
+    esac
+    if [ ! -f "${random_driver}" ]; then
+        echo "Cannot find ${random_driver}"
+        return 1
+    fi
+    ln -sf "${random_driver}" random-test-driver.c || cp "${random_driver}" .
     {
     echo "CFLAGS+= -DASN1_TEXT='$short_asn'";
     echo "ASN_PROGRAM = random-test-driver"

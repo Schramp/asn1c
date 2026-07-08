@@ -166,7 +166,8 @@ SEQUENCE_decode_cbor(const asn_codec_ctx_t *opt_codec_ctx,
             /* Unknown key: skip the value completely using recursive skip */
             ssize_t skip_len;
             if(consumed >= size) ASN__DECODE_FAILED;
-            skip_len = cbor_skip_item(buf + consumed, size - consumed);
+            skip_len = cbor_skip_item_with_ctx(opt_codec_ctx, buf + consumed,
+                                               size - consumed);
             if(skip_len < 0) ASN__DECODE_FAILED;
             consumed += (size_t)skip_len;
         }

@@ -37,10 +37,7 @@ OPEN_TYPE_aper_get(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     selected = elm->type_selector(td, sptr);
-    if(!selected.presence_index) {
-        ASN__DECODE_FAILED;
-    }
-    if(!selected.type_descriptor) {
+    if(!selected.presence_index || !selected.type_descriptor) {
         ASN_DEBUG("Open Type %s->%s: selected type descriptor is NULL",
                   td->name, elm->name);
         ASN__DECODE_FAILED;
@@ -309,6 +306,11 @@ OPEN_TYPE_aper_put(const asn_TYPE_descriptor_t *td, const void *sptr,
     if(!selected.presence_index) {
         ASN__ENCODE_FAILED;
     }
+    if(!selected.type_descriptor) {
+        ASN_DEBUG("Open Type %s->%s: type_selector returned NULL type descriptor",
+                  td->name, elm->name);
+        ASN__ENCODE_FAILED;
+    }
 
     ASN_DEBUG("OPEN_TYPE_aper_put: elm->type=%s, elements=%p, elements_count=%u, selected.presence_index=%u, selected.type=%s",
               elm->type->name, (void*)elm->type->elements, elm->type->elements_count,
@@ -365,7 +367,7 @@ int OPEN_TYPE_aper_is_unknown_type(const asn_TYPE_descriptor_t *td, void *sptr, 
     }
     else {
         selected = elm->type_selector(td, sptr);
-        if(!selected.presence_index) {
+        if(!selected.presence_index || !selected.type_descriptor) {
             return 1;
         }
     }

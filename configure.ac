@@ -41,6 +41,27 @@ dnl   readdir() and other related functions used in some
 dnl   test cases will return a null pointer and fail
 AC_SYS_LARGEFILE
 
+AC_CANONICAL_HOST
+
+dnl Newer Darwin hosts may deny `sysctl -n kern.argmax` in restricted
+dnl environments.  The libtool Darwin probe does not fall back after an empty
+dnl sysctl result, which leaves max_cmd_len empty and produces noisy
+dnl "integer expression expected" diagnostics while linking archives.
+case "$build_os" in
+darwin*)
+	AS_IF([test -z "$lt_cv_sys_max_cmd_len"], [
+		lt_cv_sys_max_cmd_len=`(getconf ARG_MAX) 2>/dev/null`
+		AS_IF([test -n "$lt_cv_sys_max_cmd_len" \
+		       && test "x$lt_cv_sys_max_cmd_len" != xundefined], [
+			lt_cv_sys_max_cmd_len=`expr "$lt_cv_sys_max_cmd_len" / 4`
+			lt_cv_sys_max_cmd_len=`expr "$lt_cv_sys_max_cmd_len" \* 3`
+		], [
+			lt_cv_sys_max_cmd_len=786432
+		])
+	])
+	;;
+esac
+
 LT_INIT
 
 dnl If you need to see the details, just run make V=1.
@@ -248,6 +269,8 @@ Check out https://clang.llvm.org/docs/AddressSanitizer.html#how-to-build])])
     CFLAGS="${CFLAGS} ${SANITIZER_CFLAGS}"
     AC_RUN_IFELSE([AC_LANG_PROGRAM()], [
         ASAN_RUNTIME_OPTS="detect_leaks=1:${ASAN_RUNTIME_OPTS}"
+    ], [], [
+        AC_MSG_WARN([cannot determine ASan leak-detection support while cross-compiling; assuming detect_leaks=1 is unsupported])
     ])
     CFLAGS="${save_cflags}"
     unset ASAN_OPTIONS
@@ -359,4 +382,3 @@ doc/Makefile                                \
 Makefile                                    \
 ])
 AC_OUTPUT
-

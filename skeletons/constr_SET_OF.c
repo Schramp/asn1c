@@ -183,6 +183,7 @@ SET_OF__encode_sorted(const asn_TYPE_member_t *elm,
         asn_enc_rval_t erval = {0,0,0};
 
         if(!memb_ptr) break;
+        encoding_el->memb_ptr = memb_ptr;
 
         /*
 		 * Encode the member into the prepared space.

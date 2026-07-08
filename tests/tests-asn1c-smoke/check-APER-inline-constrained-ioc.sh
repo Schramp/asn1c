@@ -17,6 +17,16 @@ set -o pipefail
 top_builddir=${top_builddir:-../..}
 top_srcdir=${top_srcdir:-../..}
 
+path_from_testdir() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '../%s\n' "$1" ;;
+    esac
+}
+
+ASN1C="$(path_from_testdir "${top_builddir}")/asn1c/asn1c"
+SKELETONS_DIR="$(path_from_testdir "${top_srcdir}")/skeletons"
+
 testdir=test-APER-inline-constrained-ioc
 cleanup() {
     rm -rf "${testdir}"
@@ -47,11 +57,11 @@ TestModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
 END
 EOF
 
-../"${top_builddir}"/asn1c/asn1c \
+"${ASN1C}" \
     -fcompound-names \
     -findirect-choice \
     -flink-skeletons \
-    -S ../"${top_srcdir}"/skeletons \
+    -S "${SKELETONS_DIR}" \
     test-inline-ioc.asn1
 
 # APER encode + decode round-trip; segfaults (exit 139) without the fix.

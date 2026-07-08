@@ -5,7 +5,16 @@ set -e
 top_builddir=${top_builddir:-../..}
 top_srcdir=${top_srcdir:-../..}
 WORKDIR="test-encoding-instructions"
-ASN1C="../${top_builddir}/asn1c/asn1c"
+
+path_from_workdir() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '../%s\n' "$1" ;;
+    esac
+}
+
+ASN1C="$(path_from_workdir "${top_builddir}")/asn1c/asn1c"
+SKELETONS_DIR="$(path_from_workdir "${top_srcdir}")/skeletons"
 
 rm -rf "${WORKDIR}"
 mkdir -p "${WORKDIR}"
@@ -42,7 +51,7 @@ END
 END
 ENDOFASN1
 
-"${ASN1C}" -fcompound-names -gen-JER -no-gen-OER -no-gen-UPER -no-gen-APER -no-gen-CBOR -S "../${top_srcdir}/skeletons" test.asn1
+"${ASN1C}" -fcompound-names -gen-JER -no-gen-OER -no-gen-UPER -no-gen-APER -no-gen-CBOR -S "${SKELETONS_DIR}" test.asn1
 
 cat > test_program.c << 'ENDOFTEST'
 #include <assert.h>
@@ -191,7 +200,7 @@ expect_fail() {
     name=$1
     body=$2
     printf '%s\n' "${body}" > "${name}.asn1"
-    if "${ASN1C}" -S "../${top_srcdir}/skeletons" -P "${name}.asn1" > "${name}.out" 2> "${name}.err"; then
+    if "${ASN1C}" -S "${SKELETONS_DIR}" -P "${name}.asn1" > "${name}.out" 2> "${name}.err"; then
         echo "ERROR: ${name}.asn1 unexpectedly compiled" >&2
         exit 1
     fi

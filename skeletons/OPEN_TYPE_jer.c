@@ -37,7 +37,7 @@ OPEN_TYPE_jer_get(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     selected = elm->type_selector(td, sptr);
-    if(!selected.presence_index) {
+    if(!selected.presence_index || !selected.type_descriptor) {
         ASN__DECODE_FAILED;
     }
 

@@ -6,6 +6,7 @@
 
 #include <asn_application.h>
 #include <OCTET_STRING.h>
+#include <BOOLEAN.h>
 #include <jer_decoder.h>
 
 /* Forward declaration for OCTET_STRING JER decoders */
@@ -29,6 +30,46 @@ asn_dec_rval_t OCTET_STRING_decode_jer_utf8(
  * The fix ensures that large JSON files are read entirely into memory
  * before parsing, preventing failures due to partial tokens at chunk boundaries.
  */
+
+static void
+test_jer_decode_boolean_literals(void) {
+    static const char *valid[] = {
+        "true", "false",
+        "true\n", "false\n",
+        " true ", "\tfalse\r\n"
+    };
+    static const char *invalid[] = {
+        "", "t", "tr", "tru",
+        "f", "fa", "fal", "fals",
+        "\"true\"", "truex", "falsehood", "true false"
+    };
+    size_t i;
+
+    for(i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
+        BOOLEAN_t *boolean = NULL;
+        asn_dec_rval_t rval = asn_decode(NULL, ATS_JER, &asn_DEF_BOOLEAN,
+                                          (void **)&boolean, valid[i],
+                                          strlen(valid[i]));
+        printf("BOOLEAN JER valid [%s]: code=%d, consumed=%zu\n",
+               valid[i], rval.code, rval.consumed);
+        assert(rval.code == RC_OK);
+        assert(boolean != NULL);
+        ASN_STRUCT_FREE(asn_DEF_BOOLEAN, boolean);
+    }
+
+    for(i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+        BOOLEAN_t *boolean = NULL;
+        asn_dec_rval_t rval = asn_decode(NULL, ATS_JER, &asn_DEF_BOOLEAN,
+                                          (void **)&boolean, invalid[i],
+                                          strlen(invalid[i]));
+        printf("BOOLEAN JER invalid [%s]: code=%d, consumed=%zu\n",
+               invalid[i], rval.code, rval.consumed);
+        assert(rval.code != RC_OK);
+        if(boolean) ASN_STRUCT_FREE(asn_DEF_BOOLEAN, boolean);
+    }
+
+    printf("✓ BOOLEAN JER literal validation test passed\n");
+}
 
 static void
 test_jer_decode_small_json(void) {
@@ -159,7 +200,8 @@ test_jer_decode_with_file(void) {
 int
 main(void) {
     printf("Running JER (JSON Encoding Rules) decoding tests...\n");
-    
+
+    test_jer_decode_boolean_literals();
     test_jer_decode_small_json();
     test_jer_decode_large_json();
     test_jer_decode_with_file();

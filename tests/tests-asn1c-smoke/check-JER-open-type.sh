@@ -9,6 +9,16 @@ set -e
 top_builddir=${top_builddir:-../..}
 top_srcdir=${top_srcdir:-../..}
 
+path_from_workdir() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '../%s\n' "$1" ;;
+    esac
+}
+
+ASN1C="$(path_from_workdir "${top_builddir}")/asn1c/asn1c"
+SKELETONS_DIR="$(path_from_workdir "${top_srcdir}")/skeletons"
+
 WORKDIR="test-JER-open-type"
 
 # Clean up from previous runs
@@ -42,13 +52,12 @@ END
 EOF
 
 # Generate C code from ASN.1 schema
-ASN1C="../${top_builddir}/asn1c/asn1c"
 if [ ! -x "${ASN1C}" ]; then
     echo "ERROR: asn1c executable not found at ${ASN1C}" >&2
     exit 1
 fi
 
-"${ASN1C}" -fcompound-names -findirect-choice -gen-JER -S "../${top_srcdir}/skeletons" test-open-type.asn1 || {
+"${ASN1C}" -fcompound-names -findirect-choice -gen-JER -S "${SKELETONS_DIR}" test-open-type.asn1 || {
     echo "ERROR: Failed to generate C code from ASN.1 schema" >&2
     exit 1
 }

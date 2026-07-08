@@ -1687,6 +1687,24 @@ CBOR buffers directly:
 ssize_t cbor_skip_tags(const uint8_t *buf, size_t size);
 \end{codesample}
 
+Applications that need to skip a complete raw CBOR item can call
+\code{cbor\_skip\_item()}.  Code that runs as part of a decoder and has an
+\code{asn\_codec\_ctx\_t} should call \code{cbor\_skip\_item\_with\_ctx()}
+instead, so recursive arrays, maps, and tags are bounded by the same stack
+limit as normal ASN.1 decoding:
+
+\begin{codesample}
+#include <cbor_support.h>
+
+/*
+ * Returns the number of bytes occupied by a complete CBOR item,
+ * or -1 on error, truncation, or decoder stack limit.
+ */
+ssize_t cbor_skip_item_with_ctx(const asn_codec_ctx_t *opt_codec_ctx,
+                                const uint8_t *buf, size_t size);
+ssize_t cbor_skip_item(const uint8_t *buf, size_t size);
+\end{codesample}
+
 \subsection*{Bignum tags}
 
 CBOR tags~2 and~3 are treated specially by the INTEGER decoder.

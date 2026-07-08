@@ -350,6 +350,11 @@ of leading tag headers are silently consumed before the underlying value
 is decoded.  No application changes are required to accept tagged data.
 The helper `cbor_skip_tags(buf, size)` (in `cbor_support.h`) returns the
 number of bytes occupied by leading tag headers, or -1 on error.
+When decoder code must skip a complete raw CBOR value, it should call
+`cbor_skip_item_with_ctx(opt_codec_ctx, buf, size)` so recursive arrays,
+maps, and tags are bounded by the decoder stack limit.  The compatibility
+wrapper `cbor_skip_item(buf, size)` remains available for callers without
+decoder context.
 
 **Bignum tags:** Tags 2 and 3 are used internally by the INTEGER encoder
 and decoder for values that exceed the 64-bit signed range, per RFC 8949.

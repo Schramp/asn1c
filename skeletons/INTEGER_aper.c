@@ -6,6 +6,20 @@
 #include <asn_internal.h>
 #include <INTEGER.h>
 
+/* Return ceil(log2(v)) for positive v. */
+static unsigned
+aper_log2_ceil_size(size_t v) {
+    unsigned bits = 0;
+    size_t power = 1;
+
+    while(power < v) {
+        power <<= 1;
+        bits++;
+    }
+
+    return bits;
+}
+
 asn_dec_rval_t
 INTEGER_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
                     const asn_TYPE_descriptor_t *td,
@@ -79,21 +93,26 @@ INTEGER_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
             if (ct->range_bits > 16) {
                 /*
                  * X.691 13.2.6: constrained whole number with range > 65536.
-                 * The value is encoded as an APER length determinant followed
-                 * by the minimum number of octets needed for the offset.
+                 * The offset length is encoded as a constrained length
+                 * determinant (len - 1), then the value octets are aligned.
                  */
                 size_t max_range_bytes = ((size_t)ct->range_bits + 7) >> 3;
+                unsigned length_bits = aper_log2_ceil_size(max_range_bytes);
+                int len_minus_one;
                 ssize_t len;
                 uintmax_t offset = 0;
                 intmax_t value;
 
-                len = aper_get_length(pd, -1, -1, -1, &repeat);
-                if(len < 0) ASN__DECODE_STARVED;
-                if(repeat || len <= 0 || (size_t)len > max_range_bytes
+                len_minus_one = per_get_few_bits(pd, length_bits);
+                if(len_minus_one < 0) ASN__DECODE_STARVED;
+                len = (ssize_t)len_minus_one + 1;
+                if(len <= 0 || (size_t)len > max_range_bytes
                    || (size_t)len > sizeof(offset))
                     ASN__DECODE_FAILED;
-                ASN_DEBUG("Constrained INTEGER>16 decode: range_bits=%d max_bytes=%" ASN_PRI_SIZE " len=%" ASN_PRI_SSIZE,
-                          ct->range_bits, max_range_bytes, len);
+                ASN_DEBUG("Constrained INTEGER>16 decode: range_bits=%d max_bytes=%" ASN_PRI_SIZE " len_bits=%u len=%" ASN_PRI_SSIZE,
+                          ct->range_bits, max_range_bytes, length_bits, len);
+
+                if(aper_get_align(pd) < 0) ASN__DECODE_FAILED;
 
                 while(len-- > 0) {
                     int buf = per_get_few_bits(pd, 8);
@@ -352,11 +371,10 @@ INTEGER_encode_aper(const asn_TYPE_descriptor_t *td,
         } else {
             /* X.691 13.2.6: constrained whole number with range > 65536. */
             size_t max_range_bytes = ((size_t)ct->range_bits + 7) >> 3;
+            unsigned length_bits = aper_log2_ceil_size(max_range_bytes);
             size_t num_bytes = 0;
             uint8_t buf[sizeof(v)];
             uintmax_t tmp = v;
-            int need_eom = 0;
-            ssize_t may_encode;
 
             do {
                 num_bytes++;
@@ -365,8 +383,8 @@ INTEGER_encode_aper(const asn_TYPE_descriptor_t *td,
 
             if(num_bytes > max_range_bytes || num_bytes > sizeof(buf))
                 ASN__ENCODE_FAILED;
-            ASN_DEBUG("Constrained INTEGER>16 encode: range_bits=%d max_bytes=%" ASN_PRI_SIZE " len=%" ASN_PRI_SIZE " offset=%" ASN_PRIuMAX,
-                      ct->range_bits, max_range_bytes, num_bytes, v);
+            ASN_DEBUG("Constrained INTEGER>16 encode: range_bits=%d max_bytes=%" ASN_PRI_SIZE " len_bits=%u len=%" ASN_PRI_SIZE " offset=%" ASN_PRIuMAX,
+                      ct->range_bits, max_range_bytes, length_bits, num_bytes, v);
 
             tmp = v;
             {
@@ -377,8 +395,9 @@ INTEGER_encode_aper(const asn_TYPE_descriptor_t *td,
                 }
             }
 
-            may_encode = aper_put_length(po, -1, -1, num_bytes, &need_eom);
-            if(may_encode < 0 || (size_t)may_encode != num_bytes || need_eom)
+            if(per_put_few_bits(po, num_bytes - 1, length_bits))
+                ASN__ENCODE_FAILED;
+            if(aper_put_align(po) < 0)
                 ASN__ENCODE_FAILED;
             if(per_put_many_bits(po, buf, 8 * num_bytes))
                 ASN__ENCODE_FAILED;
