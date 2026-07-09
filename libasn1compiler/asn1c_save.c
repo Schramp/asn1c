@@ -340,10 +340,14 @@ asn1c__save_example_mk_makefile(arg_t *arg, const asn1c_dep_chainset *deps,
 		"\n%%.o: %%.c"
 		"\n\t$(CC) $(CFLAGS) $(DEPFLAGS) -o $@ -c $<\n"
 		"\n-include $(ASN_MODULE_SRCS:.c=.d) $(ASN_PROGRAM_SRCS:.c=.d)\n"
+		"\n# 'clean' removes build artifacts AND regenerated sources/headers, so a"
+		"\n# subsequent 'make' cannot link stale .c/.h against a changed skeleton"
+		"\n# or compiler (a silent ODR mismatch otherwise). Re-run 'make regen' after."
 		"\nclean:"
 		"\n\trm -f $(ASN_PROGRAM) $(ASN_LIBRARY)"
 		"\n\trm -f $(ASN_MODULE_SRCS:.c=.o) $(ASN_PROGRAM_SRCS:.c=.o)"
-		"\n\trm -f $(ASN_MODULE_SRCS:.c=.d) $(ASN_PROGRAM_SRCS:.c=.d)\n"
+		"\n\trm -f $(ASN_MODULE_SRCS:.c=.d) $(ASN_PROGRAM_SRCS:.c=.d)"
+		"\n\trm -f $(ASN_MODULE_SRCS) $(ASN_MODULE_HDRS)\n"
 		"\nregen: regenerate-from-asn1-source\n"
 		"\nregenerate-from-asn1-source:\n\t");
 

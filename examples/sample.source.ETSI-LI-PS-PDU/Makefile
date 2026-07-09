@@ -119,10 +119,10 @@ maybe-wip-pause:
 
 clean: 
 	rm -f *.[oa] $(ASN_PROGRAM)
-
-distclean: clean
 	rm -f $(ASN_MODULE_SRCS)
 	rm -f $(ASN_MODULE_HDRS)
+
+distclean: clean
 	rm -f $(ASN_PROGRAM_SRCS) $(ASN_PROGRAM_HDRS)
 	rm -f Makefile.am.* asn_*.[ch] ASN*.[ch]
 	rm -f converter-example.mk ASN1*.[ch] asn_*.[ch]

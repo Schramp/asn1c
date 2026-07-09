@@ -161,12 +161,19 @@ test -n "$TITLE" && EXTRA_CFLAGS="-DASN_CONVERTER_TITLE=\"$TITLE\" ${EXTRA_CFLAG
 	echo "maybe-wip-pause:"
 	echo "	@if [ -f WIP ]; then cat WIP; sleep 2; fi"
 	echo
+	# 'clean' removes generated sources/headers (ASN_MODULE_SRCS/HDRS) as well as
+	# build artifacts. A plain 'clean' that leaves stale asn1c-generated .c/.h in
+	# place is a footgun: after a skeleton or compiler change, 'make clean && make'
+	# silently relinks old generated code against new skeleton headers/behavior
+	# (ODR mismatch / behavioral regression), because nothing else forces
+	# regeneration. 'distclean' additionally removes the build system itself
+	# (converter-example.mk, this Makefile's inputs) for a full reset.
 	echo "clean: "
 	echo '	rm -f *.[oa] $(ASN_PROGRAM)'
-	echo
-	echo "distclean: clean"
 	echo '	rm -f $(ASN_MODULE_SRCS)'
 	echo '	rm -f $(ASN_MODULE_HDRS)'
+	echo
+	echo "distclean: clean"
 	echo '	rm -f $(ASN_PROGRAM_SRCS) $(ASN_PROGRAM_HDRS)'
 	echo "	rm -f Makefile.am.* asn_*.[ch] ASN*.[ch]"
 	echo "	rm -f converter-example.mk ASN1*.[ch] asn_*.[ch]"
