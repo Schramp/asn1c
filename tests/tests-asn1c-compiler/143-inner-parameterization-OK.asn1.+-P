@@ -159,7 +159,7 @@ memb_id_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	value = *(const long *)sptr;
 	
-	if((value == 13L)) {
+	if(value == 13L) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -184,7 +184,7 @@ memb_id_constraint_3(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	value = *(const long *)sptr;
 	
-	if((value == 42L)) {
+	if(value == 42L) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {

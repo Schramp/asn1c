@@ -391,6 +391,17 @@ asn1c_invoke() {
     fi
 }
 
+# Purpose: Generate the per-case ASN.1 project and its randomized-test Makefile.
+# Original source: The asn1c randomized test driver.
+# Version: 2026-07-17, cache-safe per-program ASN1_TEXT compilation.
+# Parameters:
+#   $1 - ASN.1 declaration text for the generated T type.
+#   $2 - Human-readable bundle location used in generated diagnostics.
+# Returns: Zero after generating the project; non-zero when generation or setup fails.
+# Exceptions: None; filesystem and compiler failures are returned to the caller.
+# Author: asn1c maintainers.
+# History: Updated on 2026-07-17 to keep case-specific flags off shared codec objects.
+# Example: asn_compile "T ::= INTEGER (0..10)" "in integer bundle line 1".
 asn_compile() {
     asn="$1"
     where="$2"
@@ -419,13 +430,19 @@ asn_compile() {
     fi
     ln -sf "${random_driver}" random-test-driver.c || cp "${random_driver}" .
     {
-    echo "CFLAGS+= -DASN1_TEXT='$short_asn'";
+    # Keep case-specific text out of shared codec compile commands so ccache
+    # can reuse sanitizer-instrumented skeleton objects across bundle cases.
+    echo "ASN1_TEXT = $short_asn"
     echo "ASN_PROGRAM = random-test-driver"
     echo "ASN_PROGRAM_SRCS = random-test-driver.c"
     echo
     echo "include converter-example.mk"
     echo
-    echo "all-tests-succeeded: ${abs_top_builddir}/asn1c/asn1c \$(ASN_PROGRAM_SRCS) \$(ASN_MODULE_SRCS) \$(ASN_MODULE_HDRS)"
+    echo "random-test-driver.o: random-test-driver.c"
+    printf "\t\$(CC) \$(CFLAGS) \$(DEPFLAGS) -DASN1_TEXT='\$(ASN1_TEXT)' -o \$@ -c \$<\n"
+    echo
+    echo "all-tests-succeeded: ${abs_top_builddir}/asn1c/asn1c \$(ASN_PROGRAM_SRCS) \\"
+    echo "    \$(ASN_MODULE_SRCS) \$(ASN_MODULE_HDRS)"
     echo "	@rm -f \$@"
     echo "	@echo Previous try did not go correctly. To reproduce:"
     echo "	@cat .test-reproduce"

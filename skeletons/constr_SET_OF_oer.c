@@ -168,6 +168,12 @@ SET_OF_decode_oer(const asn_codec_ctx_t *opt_codec_ctx,
 
         ASN_DEBUG("OER SET OF %s Decoding PHASE 1", td->name);
 
+        if(ctx->left > 0 && !elm->type->op->oer_decoder) {
+            ASN_DEBUG("Element type %s of %s has no OER decoder",
+                      elm->type->name, td->name);
+            RETURN(RC_FAIL);
+        }
+
         for(; ctx->left > 0; ctx->left--) {
             asn_dec_rval_t rv = elm->type->op->oer_decoder(
                 opt_codec_ctx, elm->type,

@@ -401,7 +401,7 @@ memb_common_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	value = *(const long *)sptr;
 	
-	if((value == 0L)) {
+	if(value == 0L) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {

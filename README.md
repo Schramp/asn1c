@@ -27,6 +27,21 @@ include fixes, and multiple code-scanning fixes. It also addresses security
 vulnerabilities, including formatting-related code scanning findings and
 hardening of integer decoder edge cases.
 
+### Upgrade warning: unknown extensions
+
+> **Important:** Decoding behavior for unknown extensions has changed from
+> "fail" to "skip/relay". Evaluate the impact on your application before
+> upgrading; define `ASN_REJECT_UNKNOWN_EXTENSIONS` to restore the previous
+> strict behavior.
+
+This forward-compatible default applies to unknown alternatives of extensible
+UPER/OER `CHOICE` values and unknown additions of extensible UPER/APER
+`ENUMERATED` values. Existing deployments may rely on the old `RC_FAIL` result
+as an implicit input-validation gate or as a protocol error in a state machine.
+Compile all decoder skeleton objects with the macro and perform a clean rebuild;
+defining it only in application code does not change an already-built runtime
+library. Compatibility warning contributed by <shakespark@gmail.com>.
+
 See [ChangeLog](ChangeLog) for the complete release history and
 [release-notes/v1.4.md](release-notes/v1.4.md) for the v1.4 release notes.
 
@@ -109,6 +124,15 @@ for a short installation guide.
 For the list of asn1c command line options, see `asn1c -h` or `man asn1c`.
 
 The comprehensive documentation on this compiler is in [doc/asn1c-usage.pdf](doc/asn1c-usage.pdf).
+
+Extensible UPER and OER types, plus extensible APER `ENUMERATED` types, decode
+unknown extension additions forward-compatibly by default. Unknown CHOICE
+alternatives are skipped and reported with no selected local alternative;
+unknown UPER/APER ENUMERATED values are represented by the reserved
+`LONG_MAX - extension_index` range so they can be relayed with the same PER
+transfer syntax. Applications that require the historical strict rejection
+behavior may compile generated skeletons with `ASN_REJECT_UNKNOWN_EXTENSIONS`;
+this forfeits forward compatibility.
 
 Please also read the [FAQ](FAQ) file.
 
@@ -224,7 +248,6 @@ the error occurred:
     ./converter-example -iper -P truncated-message.uper
 
 For more details, see [PARTIAL_DECODING.md](PARTIAL_DECODING.md).
-
 
 -- 
 Mouse and Lev Walkin

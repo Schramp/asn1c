@@ -56,8 +56,18 @@ CHOICE_decode_uper(const asn_codec_ctx_t *opt_codec_ctx,
         value = uper_get_nsnnwn(pd);
         if(value < 0) ASN__DECODE_STARVED;
         value += specs->ext_start;
-        if((unsigned)value >= td->elements_count)
+        if((unsigned)value >= td->elements_count) {
+#ifdef ASN_REJECT_UNKNOWN_EXTENSIONS
             ASN__DECODE_FAILED;
+#else
+            if(uper_open_type_skip(opt_codec_ctx, pd))
+                ASN__DECODE_STARVED;
+            _set_present_idx(st, specs->pres_offset, specs->pres_size, 0);
+            rv.code = RC_OK;
+            rv.consumed = 0;
+            return rv;
+#endif
+        }
     }
 
     /* Adjust if canonical order is different from natural order */

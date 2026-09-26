@@ -102,7 +102,7 @@ WeirdlyConstrainedREAL_constraint(const asn_TYPE_descriptor_t *td, const void *s
 		return -1;
 	}
 	
-	if((value == 3L)) {
+	if(value == 3L) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {

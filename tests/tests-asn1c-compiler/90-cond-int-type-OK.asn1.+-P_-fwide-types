@@ -802,7 +802,7 @@ NO_IntegerOutValue_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	value = *(const unsigned long *)sptr;
 	
-	if((value == 3000000000UL)) {
+	if(value == 3000000000UL) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {

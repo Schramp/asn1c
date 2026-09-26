@@ -1,5 +1,91 @@
-1.5.0:
+Changes since v1.5.0:
+	* Made the generated-constraint warning regression test compatible with
+	  Automake's standard top_srcdir/top_builddir test environment.
+	* Avoided redundant parentheses around standalone equality comparisons in
+	  generated constraint checks, preventing Clang's -Wparentheses-equality
+	  warning while retaining required grouping for compound expressions.
+	* Hardened APER open-type decoding against undefined NULL-pointer arithmetic
+	  when malformed input begins with a zero-length chunk.  Regression coverage
+	  now exercises the corresponding aligned-PER vector in check-126.
+	  Fix suggested by <shakespark@gmail.com> in <https://github.com/vlm/asn1c/pull/551>.
+	* Generalized generated OER, UPER, and APER descriptor constraint-table
+	  inheritance for typedef aliases by deriving codec slots from the terminal
+	  ASN.1 type. 
+	  Issue #552, reported by @zhouvlia, was already avoided for ENUMERATED aliases
+	  by an earlier enum-specific branch in this fork; the new terminal-type rule
+	  covers the remaining alias classes and the added UPER/APER regression locks
+	  in the reported behavior and truncation safety.
+	IMPORTANT UPGRADE NOTICE:
+	* Decoding behavior for unknown extensions has changed from "fail" to
+	  "skip/relay". Evaluate the impact on your application before upgrading;
+	  define ASN_REJECT_UNKNOWN_EXTENSIONS when compiling the decoder skeletons
+	  to restore the previous strict behavior. This change can affect input-
+	  validation gates and protocol state machines that treated RC_FAIL as a
+	  protocol error.
+	  Compatibility warning contributed by <shakespark@gmail.com>.
+
+	INTEROPERABILITY FIXES (vlm/asn1c PRs #539-#548 and #550):
+	* Co-authored-by: libo <shakespark@gmail.com>
+	* The original fixes were authored by @shakespark (this notice is placed
+	  here upon his request).
+	* Ported vlm/asn1c PR #550 so generated permitted-alphabet constraint
+	  checks accept a buffer-less empty string without NULL-pointer arithmetic
+	  and deterministically reject malformed values whose buffer is NULL while
+	  their size is non-zero. Runtime regression coverage exercises both empty
+	  representations plus malformed, in-alphabet, and out-of-alphabet values;
+	  generated permitted-alphabet helpers now include complete docblocks.
+	* Corrected UPER known-multiplier character strings with extensible SIZE
+	  constraints to retain their effective permitted-alphabet width outside
+	  the size root, as required by X.691:2021 sections 30.4 and 30.5.2.
+	  Also corrected the section 30.5.4 direct-value boundary, supported
+	  zero-bit single-character alphabets, and rejected length arithmetic
+	  overflow before allocation. Regression test 550 covers exact root and
+	  extension encodings, round trips, malformed alphabet values, forward
+	  decoding, empty strings, and a following-field cursor check.
+	* Corrected UPER/OER forward-compatible handling of unknown CHOICE and
+	  ENUMERATED extensions, including lossless ENUMERATED relay and the
+	  optional ASN_REJECT_UNKNOWN_EXTENSIONS strict compatibility mode.
+	* Corrected UPER normally-small long-form encoding, extensible constraint
+	  construction, DEFAULT extension omission, SET canonical ordering, and
+	  ENUMERATED automatic numbering/map layout.
+	* Corrected OER open-type skipping to consume both its length determinant
+	  and content, and added regression schemas and runtime tests for malformed,
+	  truncated, boundary, cross-version, and canonical-encoding cases.
+	* PR #539's 24-bit open-type skip defect was not present in this fork: its
+	  existing bit-at-a-time skipper already consumed every payload length. The
+	  upstream regression test was retained to lock in that behavior.
+	* Fixed codec-disabled builds of NativeEnumerated by applying the UPER
+	  extension-range consistency check only when the UPER limit constant is
+	  available. This restores the all-codecs-disabled smoke-test variant.
+	* Fixed generated UPER projects to include constr_SET_uper.c, and hardened
+	  non-empty SET OF / SEQUENCE OF decoding against missing element codecs.
+	  Empty collections remain valid because they do not invoke an element
+	  codec.
+	* Corrected PER-visible extensible SIZE roots so named extension additions
+	  are excluded from the root while remaining accepted by runtime constraint
+	  checks. Plain BIT STRING values below an extensible root are encoded as
+	  extensions instead of being padded into a different abstract value.
+	* Routed NamedBitList-specific BIT STRING descriptors through top-level
+	  aliases and inline members, including compound-name output, while plain
+	  BIT STRING values continue to preserve trailing zero bits.
+
 	SECURITY FIXES:
+	* Hardened APER constrained INTEGER decoding for ranges wider than 16 bits.
+	  The decoder now rejects constraint metadata wider than its uintmax_t
+	  accumulator and invalid values from the rounded constrained length
+	  determinant before alignment or payload consumption.  Offset accumulation
+	  remains unsigned and checks for shift overflow, preventing signed-shift
+	  undefined behavior and over-long encodings that could desynchronize later
+	  fields.  Added regression coverage for the reported 33-bit/8-octet input
+	  and the 64-bit boundary path.
+	* Hardened variable-size JER BIT STRING decoding.  The decoder now requires
+	  the X.697 "value" and "length" members exactly once, rejects unknown or
+	  trailing members, and does not assign a first- or last-member winner to
+	  duplicate JSON names.  This prevents duplicate-member parser differentials
+	  from silently changing the decoded bit string across implementations.
+	  X.697 clause 24.3 defines the two required members but does not define a
+	  duplicate-name resolution rule; RFC 8259 section 4 recommends unique names
+	  and documents duplicate-name behavior as unpredictable.
 	* Fixed generated OPEN TYPE selector code for Information Object Sets
 	  whose rows define the selected open type but omit the constraining
 	  key field.  The generated selector now validates both the constraining
@@ -37,6 +123,11 @@
 	  (Severity: high; Security impact: low)
 
 	FIXES:
+	* Reduced randomized sanitizer CI compile time by applying each case's
+	  ASN1_TEXT definition only to random-test-driver.o. Shared generated codec
+	  objects now have stable command lines that ccache can reuse across bundle
+	  cases. Standard CI explicitly disables the opt-in LibFuzzer mode and caps
+	  every ordinary CI job, as well as each make-check step, at 40 minutes.
 	* Restored the X.691 section 13.2.6 constrained length determinant
 	  for APER constrained INTEGER values whose range is greater than
 	  65536.  A previous fix for wide INTEGER constraint handling changed
