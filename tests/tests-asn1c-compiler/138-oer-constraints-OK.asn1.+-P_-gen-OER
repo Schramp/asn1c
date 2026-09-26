@@ -100,7 +100,7 @@ B_0_0_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	value = *(const long *)sptr;
 	
-	if((value == 0L)) {
+	if(value == 0L) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -575,7 +575,7 @@ G_3_3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	value = *(const long *)sptr;
 	
-	if((value == 3L)) {
+	if(value == 3L) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {

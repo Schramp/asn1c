@@ -2101,6 +2101,42 @@ set to 0 (NULL). In this case, the function will do nothing.
 
 \chapter{Advanced Features}
 
+\section{\label{sec:Unknown-Extension-Decoding}Unknown extension decoding}
+
+\textbf{Upgrade warning.} Decoding behavior for unknown extensions has changed
+from ``fail'' to ``skip/relay''. Evaluate the impact on your application before
+upgrading. To restore the previous strict behavior, use the build definition
+shown below.
+
+The forward-compatible default applies when an older schema decodes a value
+produced using a newer version of an extensible ASN.1 type:
+
+\begin{itemize}
+\item An unknown UPER or OER \code{CHOICE} extension alternative is consumed
+and skipped. The decoder returns \code{RC\_OK}, with no local alternative
+selected.
+\item An unknown UPER \code{ENUMERATED} extension addition is represented in
+the reserved \code{LONG\_MAX - extension\_index} range. Re-encoding that value
+with UPER relays the original extension index.
+\end{itemize}
+
+The change does not make truncated or structurally malformed encodings valid.
+It does mean that an unknown, structurally valid extension no longer produces
+\code{RC\_FAIL}. Applications that used that failure as an implicit input-
+validation gate, or whose state machines treat every decode failure as a
+protocol error, should review their behavior before upgrading.
+
+To retain strict rejection, compile the decoder skeleton sources with:
+
+\begin{bash}
+cc -DASN_REJECT_UNKNOWN_EXTENSIONS ...
+\end{bash}
+
+Apply the definition consistently to all generated/runtime skeleton objects and
+perform a clean rebuild. Defining the macro only in application code does not
+change decoder objects in an already-built runtime library. Enabling strict
+rejection forfeits forward compatibility for these extension additions.
+
 \section{\label{sec:ENCODING-CONTROL}ENCODING-CONTROL Directives}
 
 The ENCODING-CONTROL directive allows you to customize how specific types are encoded 

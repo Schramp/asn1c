@@ -33,6 +33,7 @@ check_PROGRAMS =                \
     check-APER-INTEGER-constraint \
     check-APER-INTEGER-semiconstrained \
     check-APER-INTEGER-extensible-semi \
+    check-APER-INTEGER-srbid    \
     check-APER-INTEGER-f1ap     \
     check-APER-INTEGER-x691-range \
     check-UPER-support          \
@@ -40,7 +41,16 @@ check_PROGRAMS =                \
     check-UPER-PrintableString  \
     check-UPER-INTEGER          \
     check-UPER-INTEGER-semiconstrained \
-    check-recursive-overflow
+    check-recursive-overflow     \
+    check-PER-opentype          \
+    check-PER-NativeEnumerated  \
+    check-APER-NativeEnumerated \
+    check-PER-nsnnwn            \
+    check-PER-strict-ext
+
+check_PER_strict_ext_CFLAGS = -DASN_REJECT_UNKNOWN_EXTENSIONS
+check_PER_strict_ext_SOURCES = check-PER-strict-ext.c
+check_PER_strict_ext_LDADD = -lm $(top_builddir)/skeletons/libasn1cskeletons_strict.la
 
 if EXPLICIT_M32
 check_PROGRAMS +=                   \

@@ -564,6 +564,12 @@ static asn_jer_constraints_t asn_JER_type_Bits_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [Bits] >>> ***/
 
+static const asn_OCTET_STRING_specifics_t asn_SPC_Bits_specs_1 = {
+	sizeof(BIT_STRING_t),
+	offsetof(BIT_STRING_t, _asn_ctx),
+	ASN_OSUBV_BIT,
+	1	/* Has NamedBitList: trailing 0 bits are insignificant */
+};
 static const ber_tlv_tag_t asn_DEF_Bits_tags_1[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (3 << 2))
 };
@@ -741,7 +747,7 @@ asn_TYPE_descriptor_t asn_DEF_Bits = {
 		BIT_STRING_constraint
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_BIT_STRING_specs	/* Additional specs */
+	&asn_SPC_Bits_specs_1	/* Additional specs */
 };
 
 

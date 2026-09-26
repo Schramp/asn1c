@@ -45,8 +45,13 @@ asn_TYPE_operation_t asn_OP_SET = {
     0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT)
-    0,  /* SET_decode_uper */
-    0,  /* SET_encode_uper */
+#if !defined(ASN_DISABLE_UPER_SUPPORT)
+    SET_decode_uper,
+    SET_encode_uper,
+#else
+    0,
+    0,
+#endif
 #else
     0,
     0,

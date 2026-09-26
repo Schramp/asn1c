@@ -68,6 +68,14 @@ SET_OF_decode_uper(const asn_codec_ctx_t *opt_codec_ctx,
             if(nelems < 0) ASN__DECODE_STARVED;
         }
 
+        /* Empty collections do not invoke the element codec. Non-empty
+         * collections must reject a missing codec instead of calling NULL. */
+        if(nelems > 0 && !elm->type->op->uper_decoder) {
+            ASN_DEBUG("Element type %s of %s has no UPER decoder",
+                      elm->type->name, td->name);
+            ASN__DECODE_FAILED;
+        }
+
         for(i = 0; i < nelems; i++) {
             void *ptr = 0;
             ASN_DEBUG("SET OF %s decoding", elm->type->name);

@@ -20,10 +20,19 @@ uninstall-local:
 
 check_LTLIBRARIES =             \
     libasn1cskeletons.la        \
-    libasn1cskeletons_c89.la
+    libasn1cskeletons_c89.la    \
+    libasn1cskeletons_strict.la
 
 libasn1cskeletons_c89_la_CFLAGS = $(SKELETONS_CFLAGS)
 libasn1cskeletons_c89_la_SOURCES = $(libasn1cskeletons_la_SOURCES)
+
+# Variant of the skeletons library built with -DASN_REJECT_UNKNOWN_EXTENSIONS
+# (see asn_internal.h), used solely by
+# tests/tests-skeletons/check-PER-strict-ext.c to exercise the strict,
+# clean-reject behavior of the three unknown-extension decode sites without
+# affecting the default library used by every other test.
+libasn1cskeletons_strict_la_CFLAGS = $(TESTSUITE_CFLAGS) -DASN_REJECT_UNKNOWN_EXTENSIONS
+libasn1cskeletons_strict_la_SOURCES = $(libasn1cskeletons_la_SOURCES)
 
 libasn1cskeletons_la_CFLAGS = $(TESTSUITE_CFLAGS)
 libasn1cskeletons_la_SOURCES =                  \
@@ -243,6 +252,7 @@ libasn1cskeletons_la_SOURCES =                  \
     constr_SET_OF_jer.c                         \
     constr_SET_ber.c                            \
     constr_SET_print.c                          \
+    constr_SET_uper.c                           \
     constr_SET_rfill.c                          \
     constr_SET_xer.c                            \
     constr_SET_jer.c                            \

@@ -176,7 +176,7 @@ memb_x_constraint_2(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	size = st->size;
 	
-	if((size == 32UL)) {
+	if(size == 32UL) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -202,7 +202,7 @@ memb_y_constraint_2(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	size = st->size;
 	
-	if((size == 32UL)) {
+	if(size == 32UL) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -428,7 +428,7 @@ memb_x_constraint_2(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	size = st->size;
 	
-	if((size == 48UL)) {
+	if(size == 48UL) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -454,7 +454,7 @@ memb_y_constraint_2(const asn_TYPE_descriptor_t *td, const void *sptr,
 	
 	size = st->size;
 	
-	if((size == 48UL)) {
+	if(size == 48UL) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {

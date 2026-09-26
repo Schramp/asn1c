@@ -7,6 +7,9 @@ assignees: ''
 
 ---
 
+**Note well**
+Only the latest release and the `vlm_master` branch (commits/updates *after* the last release) are supported. 
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
