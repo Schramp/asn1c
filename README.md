@@ -128,6 +128,11 @@ for a short installation guide.
 
 ## Documentation
 
+The proposed first stage of Rust conversion is documented in
+[docs/rust/](docs/rust/README.md): a Rust output backend, a safe Rust runtime,
+and migration of the applicable codec tests, with supervised implementation
+milestones. This is a plan; Rust code generation is not yet implemented.
+
 For the list of asn1c command line options, see `asn1c -h` or `man asn1c`.
 
 The comprehensive documentation on this compiler is in [doc/asn1c-usage.pdf](doc/asn1c-usage.pdf).
