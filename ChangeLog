@@ -1,4 +1,7 @@
 v1.5.3: 2026-10-07
+	* Constraint checks now enforce SIZE bounds on constrained SEQUENCE OF and
+	  SET OF values, including collections nested in other types. The generated
+	  checker still validates each element. Added issue #570 regression coverage.
 	* The contents constraint (BIT STRING (CONTAINING Type), X.682 clause 11)
 	  is no longer ignored. The generated constraint check (-c) rejects
 	  content that does not decode as Type using the selected transfer syntax

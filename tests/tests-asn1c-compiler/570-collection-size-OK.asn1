@@ -1,0 +1,11 @@
+CollectionSize DEFINITIONS ::= BEGIN
+
+Small ::= SEQUENCE (SIZE (1..2)) OF INTEGER
+SmallSet ::= SET (SIZE (1..2)) OF INTEGER
+SmallExact ::= Small (SIZE (1..1))
+Info ::= SEQUENCE { mode [0] IMPLICIT INTEGER (0..3) }
+List ::= SEQUENCE (SIZE (1..63)) OF Info
+AnyLengthList ::= SEQUENCE (SIZE (0..MAX)) OF Info
+Holder ::= SEQUENCE { list [0] IMPLICIT List }
+
+END
