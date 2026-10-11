@@ -67,6 +67,73 @@ static char *_encoding_control_join(char *a, char *b);
 static char *_encoding_control_cstring(char *buf, int len);
 
 static asn1p_module_t *currentModule;
+
+/**
+ * Purpose: Preserve additional constraints on a collection's element type.
+ * Original source: asn1c ASN.1 parser.
+ * Version: 2026-10-11, issue #575 regression fix.
+ * Parameters:
+ *   collection - SEQUENCE OF or SET OF expression receiving the constraint.
+ *   constraints - Constraints to add to the collection's first element.
+ * Returns: Zero on success; -1 if the collection is malformed or allocation fails.
+ * Exceptions: None; failures are returned to the parser action.
+ * Author: asn1c maintainers.
+ * History: Added on 2026-10-11 to merge nested collection constraints safely.
+ * Example: Keeps both SIZE constraints in nested constrained SEQUENCE OF types.
+ */
+static int
+_asn1p_merge_collection_element_constraints(asn1p_expr_t *collection,
+                                            asn1p_constraint_t *constraints) {
+	asn1p_expr_t *element;
+	asn1p_constraint_t *combined;
+	asn1p_constraint_t *existing;
+	asn1p_constraint_t *old_parent;
+
+	if(!collection
+	|| (collection->expr_type != ASN_CONSTR_SEQUENCE_OF
+	    && collection->expr_type != ASN_CONSTR_SET_OF)) {
+		return -1;
+	}
+	element = TQ_FIRST(&collection->members);
+	/*
+	 * Constraints following a nested collection chain belong to its leaf
+	 * element. Keep each collection's own SIZE constraint on that collection.
+	 */
+	while(element
+	&& (element->expr_type == ASN_CONSTR_SEQUENCE_OF
+	    || element->expr_type == ASN_CONSTR_SET_OF)) {
+		element = TQ_FIRST(&element->members);
+	}
+	if(!element) return -1;
+	if(!constraints) return 0;
+
+	existing = element->constraints;
+	if(!existing) {
+		element->constraints = constraints;
+		return 0;
+	}
+	if(existing->type == ACT_CA_SET) {
+		return asn1p_constraint_insert(existing, constraints);
+	}
+
+	combined = asn1p_constraint_new(constraints->_lineno, constraints->module);
+	if(!combined) return -1;
+	combined->type = ACT_CA_SET;
+	old_parent = existing->parent_ct;
+	if(asn1p_constraint_insert(combined, existing)) {
+		asn1p_constraint_free(combined);
+		return -1;
+	}
+	if(asn1p_constraint_insert(combined, constraints)) {
+		existing->parent_ct = old_parent;
+		combined->el_count = 0;
+		asn1p_constraint_free(combined);
+		return -1;
+	}
+	element->constraints = combined;
+	return 0;
+}
+
 #define	NEW_EXPR()	(asn1p_expr_new(yylineno, currentModule))
 
 #define	checkmem(ptr)	do {						\
@@ -1658,8 +1725,7 @@ DefinedUntaggedType:
 		 */
 		if($$->expr_type == ASN_CONSTR_SEQUENCE_OF
 		|| $$->expr_type == ASN_CONSTR_SET_OF) {
-			assert(!TQ_FIRST(&($$->members))->constraints);
-			TQ_FIRST(&($$->members))->constraints = $2;
+			checkmem(_asn1p_merge_collection_element_constraints($$, $2) == 0);
 		} else {
 			if($$->constraints) {
 				assert(!$2);
@@ -1681,8 +1747,7 @@ UntaggedType:
 		 */
 		if($$->expr_type == ASN_CONSTR_SEQUENCE_OF
 		|| $$->expr_type == ASN_CONSTR_SET_OF) {
-			assert(!TQ_FIRST(&($$->members))->constraints);
-			TQ_FIRST(&($$->members))->constraints = $2;
+			checkmem(_asn1p_merge_collection_element_constraints($$, $2) == 0);
 		} else {
 			if($$->constraints) {
 				assert(!$2);
@@ -1712,8 +1777,7 @@ MaybeIndirectTaggedType:
 		 */
 		if($$->expr_type == ASN_CONSTR_SEQUENCE_OF
 		|| $$->expr_type == ASN_CONSTR_SET_OF) {
-			assert(!TQ_FIRST(&($$->members))->constraints);
-			TQ_FIRST(&($$->members))->constraints = $3;
+			checkmem(_asn1p_merge_collection_element_constraints($$, $3) == 0);
 		} else {
 			if($$->constraints) {
 				assert(!$3);

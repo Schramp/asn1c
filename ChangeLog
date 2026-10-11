@@ -1,4 +1,7 @@
 Changes since v1.5.3:
+	* Fixed an assertion when parsing nested constrained SEQUENCE OF and SET OF
+	  types. Element constraints now pass through nested collections while SIZE
+	  constraints remain attached to their collections. Added issue #575 coverage.
 	* Constraint checks now enforce SIZE bounds on constrained SEQUENCE OF and
 	  SET OF values, including collections nested in other types. The generated
 	  checker still validates each element. Added issue #570 regression coverage.
