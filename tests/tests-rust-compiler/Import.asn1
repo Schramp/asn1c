@@ -1,0 +1,13 @@
+ImportReject DEFINITIONS ::= BEGIN
+
+IMPORTS Remote FROM RemoteModule;
+
+Local ::= BOOLEAN
+
+END
+
+RemoteModule DEFINITIONS ::= BEGIN
+
+Remote ::= NULL
+
+END

@@ -1,0 +1,5 @@
+ExtensibleInteger DEFINITIONS ::= BEGIN
+
+Value ::= INTEGER (0..10,...)
+
+END

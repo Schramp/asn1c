@@ -3,11 +3,13 @@
 This directory defines the first stage of converting asn1c to Rust: generate Rust
 types and codecs backed by a Rust implementation of the runtime currently in
 `skeletons/`, and migrate the relevant codec tests. The compiler frontend remains
-in C during this stage. The Rust target is a proposal; this documentation does
-not add a Rust runtime or a working Rust generation option.
+in C during this stage. The first implementation supplies a safe Rust runtime
+for UPER BOOLEAN, NULL, and bounded INTEGER values; the remaining runtime and
+codec coverage is an incremental conversion target.
 
-The user confirmed on 2026-10-11 that this change should commit documentation
-only, cover all current codecs incrementally, and use safe Rust with `std`.
+The user initially requested a documentation commit, then authorized backend
+implementation on 2026-10-11. The selected mode is `--rust`; coverage includes
+all current codecs incrementally, using safe Rust with `std`.
 
 Start with the [architecture decision](architecture.md) and
 [implementation plan](stage-one-plan.md). Supporting designs describe the
@@ -23,3 +25,8 @@ Sol supervises implementation and accepts integration; three Luna agents own
 bounded coding assignments. The plan specifies their dependencies, file
 ownership, handoff requirements, and acceptance gates. No implementation agents
 should treat a proposed interface in these documents as an existing API.
+
+The implemented runtime API is documented in its
+[crate README](../../rust/asn1c-runtime/README.md); see also the
+[first implementation](implementation.md). The broader designs below
+include proposed interfaces and features beyond this first runtime slice.

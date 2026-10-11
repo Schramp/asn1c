@@ -1,8 +1,13 @@
 # Stage-one implementation plan
 
 **Date:** 2026-10-11.
-**Status:** Implementation plan; no Rust code implemented by this change.
+**Status:** Implementation underway; the full stage remains incomplete.
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`.
+
+The [first implementation](implementation.md) begins M1/M2 with a standalone
+Cargo package, safe UPER BOOLEAN/NULL/bounded INTEGER runtime, and generated-code
+tests. It is a subset of M2; ENUMERATED, strings, and constructed types remain
+pending, along with the subsequent codec families and stage-wide qualification.
 
 The deliverable is an opt-in Rust output target in the C compiler, a native safe
 Rust runtime replacing the role of `skeletons/` for that target, and Rust coverage
@@ -64,7 +69,7 @@ validation remain separate features without an implemented C baseline.
 Sol owns architecture, interface acceptance, assignment boundaries, integration,
 review, and release claims. Use three Luna coding agents at a time, with Sol as
 the fourth active participant. Start them only when implementation is requested;
-this documentation commit authorizes no implementation in this turn.
+the maintainer subsequently authorized implementation on 2026-10-11.
 
 Dispatch coding assignments with the `gpt-6-luna` model and isolated assignment
 context (`fork_turns="none"`). Include the required contract and source paths

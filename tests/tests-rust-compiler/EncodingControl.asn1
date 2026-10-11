@@ -1,0 +1,5 @@
+EncodingControl DEFINITIONS ::= BEGIN
+
+Flag ::= [TEXT] BOOLEAN
+
+END

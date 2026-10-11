@@ -12,7 +12,7 @@ asn1c -- the ASN.1 Compiler
 
 # SYNOPSIS
 
-asn1c [**-E** [**-F**] | **-P** | **-R**] \
+asn1c [**--rust** | **-E** [**-F**] | **-P** | **-R**] \
       [**-S** *dir*] [**-D** *dir*] [**-X**] \
       [**-W***debug-*...] [**-f***option*] [**-gen-***option*]
       [**-pdu**={**all**|**auto**|*Type*}] \
@@ -25,9 +25,22 @@ asn1c compiles ASN.1 specifications into a set of
 target language (C/C++) encoders and decoders for BER, DER, PER, XER, OER,
 JER, CBOR and other encoding rules.
 
+The **--rust** mode generates a standalone Cargo project with a safe Rust
+runtime. Its initial supported subset is UPER BOOLEAN, NULL, and finite
+nonextensible INTEGER ranges fitting `i64`; additional types and codec families
+are conversion work. Unsupported Rust combinations produce a diagnostic.
+
 # OPTIONS
 
 ## Stage Selection Options
+
+--rust
+:   Select the complete Rust output mode, including Rust types, UPER methods,
+    Cargo metadata, and a copied native Rust runtime. The default codec set is
+    the currently supported Rust set (initially UPER). Explicit requests for
+    unavailable codecs and C-specific output options fail. The default output
+    directory in this mode is `asn1c-rust`. Build the generated package with
+    `cargo check --offline --manifest-path asn1c-rust/Cargo.toml`.
 
 -E
 :   Run the ASN.1 parsing stage only. Print the reconstructed ASN.1 tree (text).
@@ -50,7 +63,9 @@ JER, CBOR and other encoding rules.
 :   Use the specified directory with ASN.1 skeleton files.
 
 -D *directory*
-:   Destination directory for generated files (default current dir)
+:   Destination directory for generated files (default current directory for
+    C, or `asn1c-rust` for Rust). Rust mode stages output and rejects unrelated
+    existing files or symlinks in the destination.
 
 -X
 :   Generate an XML DTD schema for the specified ASN.1 files.

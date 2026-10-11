@@ -54,6 +54,8 @@ Copyright (c) 2022-2026 Mouse <5923577+mouse07410@users.noreply.github.com> and 
 #include <stdlib.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdint.h>
+#include <sys/stat.h>
 
 /*
  * Parse a string as a decimal integer with validation.
@@ -85,6 +87,64 @@ static void usage(const char *av0); /* Print the Usage screen and exit */
 static int importStandardModules(asn1p_t *asn, const char *skeletons_dir);
 
 /*
+ * Parsed state for one asn1c command-line invocation.
+ * Every member is a state variable owned by main() until cleanup.
+ */
+typedef struct asn1c_cli_options_s {
+    enum asn1p_flags parser_flags; /* ASN.1 parser state variable. */
+    enum asn1f_flags fixer_flags; /* Tree fixer state variable. */
+    enum asn1c_flags compiler_flags; /* C compiler state variable. */
+    enum asn1print_flags printer_flags; /* Printer state variable. */
+    int print_out; /* Parse-and-print state variable. */
+    int fix_n_print; /* Fix-before-print state variable. */
+    int warnings_as_errors; /* Warning policy state variable. */
+    int rust_target; /* Whole-target selection state variable. */
+    int skeletons_explicit; /* -S provenance state variable. */
+    int skeletons_owned; /* Cleanup ownership state variable. */
+    int complex_threshold; /* C compiler threshold state variable. */
+    uint64_t rust_codec_flags; /* Rust codec selection state variable. */
+    const char *rust_incompatible_option; /* Incompatible option state variable. */
+    char *skeletons_dir; /* Support directory state variable. */
+    char *destdir; /* Output directory state variable. */
+    char **debug_type_names; /* Debug-name list state variable. */
+    size_t debug_type_names_count; /* Debug-name count state variable. */
+    char rust_runtime_dir[PATH_MAX]; /* Resolved runtime path state variable. */
+} asn1c_cli_options_t;
+
+static void asn1c_cli_options_init(asn1c_cli_options_t *);
+static int asn1c_extract_rust_switch(int *, char **, int *);
+static int asn1c_short_option_takes_argument(char);
+static int asn1c_parse_options(int *, char **, asn1c_cli_options_t *);
+static int asn1c_handle_option(int, const char *, asn1c_cli_options_t *,
+                               const char *);
+static int asn1c_handle_basic_option(int, const char *, asn1c_cli_options_t *,
+                                     const char *);
+static int asn1c_handle_destination_option(const char *, asn1c_cli_options_t *);
+static int asn1c_handle_skeleton_option(const char *, asn1c_cli_options_t *);
+static int asn1c_handle_debug_option(const char *, asn1c_cli_options_t *);
+static int asn1c_handle_tree_mode_option(int, asn1c_cli_options_t *);
+static int asn1c_handle_f_option(const char *, asn1c_cli_options_t *);
+static int asn1c_handle_codec_option(int, const char *, asn1c_cli_options_t *);
+static int asn1c_handle_print_option(int, const char *, asn1c_cli_options_t *);
+static int asn1c_handle_warning_option(const char *, asn1c_cli_options_t *);
+static void asn1c_mark_rust_incompatible(asn1c_cli_options_t *, const char *);
+static int asn1c_handle_simple_f_option(const char *, asn1c_cli_options_t *);
+static int asn1c_parse_long_size(const char *, asn1c_cli_options_t *);
+static int asn1c_parse_integer_native_type(const char *, asn1c_cli_options_t *);
+static int asn1c_parse_complex_threshold(const char *, asn1c_cli_options_t *);
+static int asn1c_validate_options(const asn1c_cli_options_t *);
+static int asn1c_resolve_skeletons(asn1c_cli_options_t *, const char *);
+static int asn1c_resolve_runtime(asn1c_cli_options_t *);
+static int asn1c_runtime_layout_available(const char *);
+static int asn1c_join_path(char *, size_t, const char *, const char *);
+static int asn1c_parse_inputs(int, char **, enum asn1p_flags, asn1p_t **,
+                              int *);
+static void asn1c_cli_options_destroy(asn1c_cli_options_t *);
+static int asn1c_import_and_fix_tree(asn1c_cli_options_t *, asn1p_t *, int *);
+static int asn1c_run_pipeline(asn1c_cli_options_t *, int, int, char **,
+                              asn1p_t *);
+
+/*
  * Exit status (see asn1c(1), EXIT STATUS):
  *   0            Success. No FATAL diagnostic was reported.
  *   EX_USAGE     (64) Command line usage error.
@@ -101,504 +161,950 @@ static int importStandardModules(asn1p_t *asn, const char *skeletons_dir);
 static int fixer_fatal_count; /* FATAL diagnostics via fixer_error_logger */
 static void fixer_error_logger(int _severity, const char *fmt, ...);
 
+/*
+ * Initialize C's historical defaults and the separate Rust codec selection.
+ * Parameters: options is the command-line state to initialize. Returns no
+ * value and raises no exception. Original source: asn1c CLI defaults.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: extended to isolate Rust from C defaults. Example: called once by
+ * main() before parsing options.
+ */
+static void
+asn1c_cli_options_init(asn1c_cli_options_t *options) {
+    options->parser_flags = A1P_NOFLAGS;
+    options->fixer_flags = A1F_NOFLAGS;
+    options->compiler_flags =
+        A1C_NO_C99 | A1C_GEN_BER | A1C_GEN_XER | A1C_GEN_OER | A1C_GEN_UPER
+        | A1C_GEN_APER | A1C_GEN_PRINT | A1C_GEN_RFILL | A1C_GEN_EXAMPLE
+        | A1C_GEN_JER | A1C_GEN_CBOR;
+    options->printer_flags = APF_NOFLAGS;
+    options->print_out = 0;
+    options->fix_n_print = 0;
+    options->warnings_as_errors = 0;
+    options->rust_target = 0;
+    options->skeletons_explicit = 0;
+    options->skeletons_owned = 0;
+    options->complex_threshold = 4;
+    options->rust_codec_flags = A1C_GEN_UPER;
+    options->rust_incompatible_option = NULL;
+    options->skeletons_dir = NULL;
+    options->destdir = NULL;
+    options->debug_type_names = NULL;
+    options->debug_type_names_count = 0;
+    options->rust_runtime_dir[0] = '\0';
+}
 
+/*
+ * Identify short options whose next character or argv item is their operand.
+ * Parameters: option is one short-option letter. Returns nonzero for D,d,f,g,
+ * n,p,S,W and zero otherwise. Original source: asn1c getopt option string.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: added so target extraction preserves option operands. Example:
+ * `short_option_takes_argument('D')` is true.
+ */
+static int
+asn1c_short_option_takes_argument(char option) {
+    return strchr("DdfgnpSW", option) != NULL;
+}
 
-int
-main(int ac, char **av) {
-    enum asn1p_flags asn1_parser_flags = A1P_NOFLAGS;
-    enum asn1f_flags asn1_fixer_flags = A1F_NOFLAGS;
-    enum asn1c_flags asn1_compiler_flags =
-        A1C_NO_C99 | A1C_GEN_BER | A1C_GEN_XER | A1C_GEN_OER | A1C_GEN_UPER | A1C_GEN_APER | A1C_GEN_PRINT | A1C_GEN_RFILL | A1C_GEN_EXAMPLE | A1C_GEN_JER | A1C_GEN_CBOR;
-    enum asn1print_flags asn1_printer_flags = APF_NOFLAGS;
-    int print_arg__print_out = 0;   /* Don't compile, just print parsed */
-    int print_arg__fix_n_print = 0; /* Fix and print */
-    int warnings_as_errors = 0;     /* Treat warnings as errors */
-    char *skeletons_dir = NULL;     /* Directory with supplementary stuff */
-    char *destdir = NULL;           /* Destination for generated files */
-    char **debug_type_names = 0;    /* Debug stuff */
-    size_t debug_type_names_count = 0;
-    asn1p_t *asn = 0;               /* An ASN.1 parsed tree */
-    int ret;                        /* Return value from misc functions */
-    int ch;                         /* Command line character */
-    int i;                          /* Index in some loops */
-    int exit_code = 0;              /* Exit code */
-    int complex_threshold = 4;      /* Threshold for switching structures to ptrs */
+/*
+ * Remove exact --rust options while preserving getopt's short-option operands.
+ * Parameters: argc is the argument count; argv is compacted in place; selected
+ * receives the target flag. Returns zero or -1; does not throw. Original source:
+ * new asn1c CLI target selection. Version/date: 0.1.0, 2026-10-11. Responsible
+ * party: asn1c maintainers. History: models clustered short options and `--`.
+ * Example: `asn1c --rust schema.asn1` selects the Rust target.
+ */
+static int
+asn1c_extract_rust_switch(int *argc, char **argv, int *selected) {
+    int read_index, write_index = 1, end_options = 0;
+    int found = 0;
 
-    /*
-     * Process command-line options.
-     */
-    while((ch = getopt(ac, av, "D:d:EFf:g:hn:LPp:RS:vW:X")) != -1) switch(ch) {
-        case 'D':
-            if(optarg && *optarg) {
-                size_t optarg_len = strlen(optarg);
-                free(destdir);
-                destdir = calloc(1, optarg_len + 2); /* + "/\0" */
-                assert(destdir);
-                strcpy(destdir, optarg);
-                if(destdir[optarg_len - 1] != '/') {
-                    destdir[optarg_len] = '/';
-                }
-            } else {
-                free(destdir);
-                destdir = NULL;
-            }
-            break;
-        case 'd':
-            if(strncmp(optarg, "ebug-type-naming=", 17) == 0) {
-                char **p = realloc(debug_type_names,
-                                   (debug_type_names_count + 2) * sizeof(*p));
-                assert(p);
-                debug_type_names = p;
-                debug_type_names[debug_type_names_count++] =
-                    strdup(optarg + 17);
-                debug_type_names[debug_type_names_count] = NULL;
-                break;
-            } else if(strcmp(optarg, "ebug-output-origin-lines") == 0) {
-                asn1_compiler_flags |= A1C_DEBUG_OUTPUT_ORIGIN_LINES;
-                break;
-            }
-            usage(av[0]);
-        case 'E':
-            print_arg__print_out = 1;
-            break;
-        case 'F':
-            print_arg__fix_n_print = 1;
-            break;
-        case 'f':
-            if(strcmp(optarg, "all-defs-global") == 0) {
-                asn1_compiler_flags |= A1C_ALL_DEFS_GLOBAL;
-            } else if(strcmp(optarg, "bless-SIZE") == 0) {
-                asn1_fixer_flags |= A1F_EXTENDED_SizeConstraint;
-            } else if(strcmp(optarg, "compound-names") == 0) {
-                asn1_compiler_flags |= A1C_COMPOUND_NAMES;
-                asn1_fixer_flags |= A1F_COMPOUND_NAMES;
-            } else if(strcmp(optarg, "indirect-choice") == 0) {
-                asn1_compiler_flags |= A1C_INDIRECT_CHOICE;
-            } else if(strncmp(optarg, "known-extern-type=", 18) == 0) {
-                char *known_type = optarg + 18;
-                ret = asn1f_make_known_external_type(known_type);
-                assert(ret == 0 || errno == EEXIST);
-            } else if(strcmp(optarg, "prefer-import-source") == 0) {
-                asn1_fixer_flags |= A1F_PREFER_IMPORT_SOURCE;
-            } else if(strcmp(optarg, "native-types") == 0) {
-                fprintf(stderr, "-f%s: Deprecated option\n", optarg);
-                asn1_compiler_flags &= ~A1C_USE_WIDE_TYPES;
-            } else if(strcmp(optarg, "wide-types") == 0) {
-                asn1_compiler_flags |= A1C_USE_WIDE_TYPES;
-            } else if(strncmp(optarg, "long-size=", 10) == 0) {
-                char *mode = optarg + 10;
-                if(strcmp(mode, "32") == 0) {
-                    asn1c_target_long_size = ASN_TARGET_LONG_32;
-                } else if(strcmp(mode, "64") == 0) {
-                    asn1c_target_long_size = ASN_TARGET_LONG_64;
-                } else {
-                    fprintf(stderr, "-flong-size expects one of: 32, 64\n");
-                    exit(EX_USAGE);
-                }
-            } else if(strcmp(optarg, "line-refs") == 0) {
-                asn1_compiler_flags |= A1C_LINE_REFS;
-            } else if(strcmp(optarg, "no-constraints") == 0) {
-                asn1_compiler_flags |= A1C_NO_CONSTRAINTS;
-            } else if(strcmp(optarg, "no-include-deps") == 0) {
-                asn1_compiler_flags |= A1C_NO_INCLUDE_DEPS;
-            } else if(strcmp(optarg, "includes-quoted") == 0) {
-                asn1_compiler_flags |= A1C_INCLUDES_QUOTED;
-            } else if(strcmp(optarg, "unnamed-unions") == 0) {
-                asn1_compiler_flags |= A1C_UNNAMED_UNIONS;
-            } else if(strcmp(optarg, "skeletons-copy") == 0) {
-                fprintf(stderr, "-f%s: Deprecated option\n", optarg);
-                asn1_compiler_flags &= ~A1C_LINK_SKELETONS;
-            } else if(strcmp(optarg, "link-skeletons") == 0) {
-                asn1_compiler_flags |= A1C_LINK_SKELETONS;
-            } else if(strcmp(optarg, "gen-only-pdu-deps") == 0) {
-                asn1_compiler_flags |= A1C_GEN_ONLY_PDU_DEPS;
-            } else if(strcmp(optarg, "list-deps") == 0) {
-                asn1_compiler_flags |= A1C_LIST_DEPS;
-            } else if(strncmp(optarg, "integer-native-type=", 20) == 0) {
-                char *mode = optarg + 20;
-                if(strcmp(mode, "auto") == 0) {
-                    asn1c_integer_native_type = AINT_NATIVE_AUTO;
-                } else if(strcmp(mode, "int32") == 0) {
-                    asn1c_integer_native_type = AINT_NATIVE_INT32;
-                } else if(strcmp(mode, "uint32") == 0) {
-                    asn1c_integer_native_type = AINT_NATIVE_UINT32;
-                } else if(strcmp(mode, "int64") == 0) {
-                    asn1c_integer_native_type = AINT_NATIVE_INT64;
-                } else if(strcmp(mode, "uint64") == 0) {
-                    asn1c_integer_native_type = AINT_NATIVE_UINT64;
-                } else if(strcmp(mode, "long") == 0) {
-                    /* Deprecated, ambiguous alias kept for compatibility. */
-                    asn1c_integer_native_type = AINT_NATIVE_AUTO;
-                } else {
-                    fprintf(stderr,
-                        "-finteger-native-type expects one of: "
-                        "int32, uint32, int64, uint64, auto\n");
-                    exit(EX_USAGE);
-                }
-            } else if(strncmp(optarg, "prefix=", 7) == 0) {
-                char *prefix = optarg + 7;
-                asn1c_prefix_set(prefix);
-            } else if(strncmp(optarg, "complex-threshold=", 18) == 0) {
-                char *threshold = optarg + 18;
-                long thresh_val;
-                if ((is_integer(threshold, &thresh_val) != 1)
-                	|| (thresh_val > 500) /* let's not be stupid here */
-                	|| (thresh_val <= 0)  /* again, stupidity not appreciated */
-                	) {
-                	fprintf(stderr, "-f%s: bad format or value too large\n", optarg);
-	                exit(EX_USAGE);
-	            }
-                complex_threshold = (int)thresh_val;
-            } else {
-                fprintf(stderr, "-f%s: Invalid argument\n", optarg);
-                exit(EX_USAGE);
-            }
-            break;
-        case 'g':
-            if(strcmp(optarg, "en-BER") == 0) {
-                asn1_compiler_flags |= A1C_GEN_BER;
-            } else if(strcmp(optarg, "en-XER") == 0) {
-                asn1_compiler_flags |= A1C_GEN_XER;
-            } else if(strcmp(optarg, "en-JER") == 0) {
-                asn1_compiler_flags |= A1C_GEN_JER;
-            } else if(strcmp(optarg, "en-CBOR") == 0) {
-                asn1_compiler_flags |= A1C_GEN_CBOR;
-            } else if(strcmp(optarg, "en-OER") == 0) {
-                asn1_compiler_flags |= A1C_GEN_OER;
-            } else if(strcmp(optarg, "en-UPER") == 0) {
-                asn1_compiler_flags |= A1C_GEN_UPER;
-            } else if(strcmp(optarg, "en-APER") == 0) {
-                asn1_compiler_flags |= A1C_GEN_APER;
-            } else if(strcmp(optarg, "en-print") == 0) {
-                asn1_compiler_flags |= A1C_GEN_PRINT;
-            } else if(strcmp(optarg, "en-random-fill") == 0) {
-                asn1_compiler_flags |= A1C_GEN_RFILL;
-            } else if(strcmp(optarg, "en-example") == 0) {
-                asn1_compiler_flags |= A1C_GEN_EXAMPLE;
-            } else if(strcmp(optarg, "en-autotools") == 0) {
-                asn1_compiler_flags |= A1C_GEN_AUTOTOOLS_EXAMPLE;
-            } else {
-                fprintf(stderr, "-g%s: Invalid argument\n", optarg);
-                exit(EX_USAGE);
-            }
-            break;
-        case 'h':
-            usage(av[0]);
-        case 'n':
-            if(strcmp(optarg, "o-gen-BER") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_BER;
-            } else if(strcmp(optarg, "o-gen-XER") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_XER;
-            } else if(strcmp(optarg, "o-gen-JER") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_JER;
-            } else if(strcmp(optarg, "o-gen-CBOR") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_CBOR;
-            } else if(strcmp(optarg, "o-gen-OER") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_OER;
-            } else if(strcmp(optarg, "o-gen-UPER") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_UPER;
-            } else if(strcmp(optarg, "o-gen-APER") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_APER;
-            } else if(strcmp(optarg, "o-gen-print") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_PRINT;
-            } else if(strcmp(optarg, "o-gen-random-fill") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_RFILL;
-            } else if(strcmp(optarg, "o-gen-example") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_EXAMPLE;
-            } else if(strcmp(optarg, "o-gen-autotools") == 0) {
-                asn1_compiler_flags &= ~A1C_GEN_AUTOTOOLS_EXAMPLE;
-            } else {
-                fprintf(stderr, "-n%s: Invalid argument\n", optarg);
-                exit(EX_USAGE);
-            }
-            break;
-        case 'P':
-            asn1_compiler_flags |= A1C_PRINT_COMPILED;
-            asn1_compiler_flags &= ~A1C_NO_C99;
-            break;
-        case 'p':
-            if(strncmp(optarg, "du=", 3) == 0) {
-                char *pduname = optarg + 3;
-                if(strcmp(pduname, "all") == 0) {
-                    asn1_compiler_flags |= A1C_PDU_ALL;
-                } else if(strcmp(pduname, "auto") == 0) {
-                    asn1_compiler_flags |= A1C_PDU_AUTO;
-                } else if(pduname[0] >= 'A' && pduname[0] <= 'Z') {
-                    asn1c__add_pdu_type(pduname);
-                    asn1_compiler_flags |= A1C_PDU_TYPE;
-                } else {
-                    fprintf(stderr, "-pdu=%s: expected -pdu={all|auto|Type}\n",
-                            pduname);
-                    exit(EX_USAGE);
-                }
-            } else if(strcmp(optarg, "rint-class-matrix") == 0) {
-                asn1_printer_flags |= APF_PRINT_CLASS_MATRIX;
-            } else if(strcmp(optarg, "rint-constraints") == 0) {
-                asn1_printer_flags |= APF_PRINT_CONSTRAINTS;
-            } else if(strcmp(optarg, "rint-lines") == 0) {
-                asn1_printer_flags |= APF_LINE_COMMENTS;
-            } else {
-                fprintf(stderr, "-p%s: Invalid argument\n", optarg);
-                exit(EX_USAGE);
-            }
-            break;
-        case 'R':
-            asn1_compiler_flags |= A1C_OMIT_SUPPORT_CODE;
-            break;
-        case 'S':
-            skeletons_dir = optarg;
-            break;
-        case 'v':
-            fprintf(stderr, "ASN.1 Compiler, " VERSION " (" PACKAGE_BUGREPORT ")\n" COPYRIGHT);
-            exit(0);
-            break;
-        case 'W':
-            if(strcmp(optarg, "error") == 0) {
-                warnings_as_errors = 1;
-                break;
-            } else if(strcmp(optarg, "debug-lexer") == 0) {
-                asn1_parser_flags |= A1P_DEBUG_LEXER;
-                break;
-            } else if(strcmp(optarg, "debug-parser") == 0) {
-                asn1_parser_flags |= A1P_DEBUG_PARSER;
-                break;
-            } else if(strcmp(optarg, "debug-fixer") == 0) {
-                asn1_fixer_flags |= A1F_DEBUG;
-                break;
-            } else if(strcmp(optarg, "debug-compiler") == 0) {
-                asn1_compiler_flags |= A1C_DEBUG;
-                break;
-            } else {
-                fprintf(stderr, "-W%s: Invalid argument\n", optarg);
-                exit(EX_USAGE);
-            }
-            break;
-        case 'X':
-            print_arg__print_out = 1;   /* Implicit -E */
-            print_arg__fix_n_print = 1; /* Implicit -F */
-            asn1_printer_flags |= APF_PRINT_XML_DTD;
-            break;
-        default:
-            usage(av[0]);
+    for(read_index = 1; read_index < *argc; read_index++) {
+        const char *argument = argv[read_index];
+        if(!end_options && !strcmp(argument, "--")) {
+            end_options = 1;
+            argv[write_index++] = argv[read_index];
+            continue;
         }
-
-    /*
-     * Validate the options combination.
-     */
-    if(print_arg__print_out) {
-        if((asn1_printer_flags & APF_PRINT_CONSTRAINTS)
-           && !print_arg__fix_n_print) {
-            fprintf(stderr,
-                    "Error: -print-constraints argument requires -E -F\n");
-            exit(EX_USAGE);
+        if(!end_options && !strcmp(argument, "--rust")) {
+            if(found) {
+                fprintf(stderr, "asn1c: --rust may be specified only once\n");
+                return -1;
+            }
+            found = 1;
+            *selected = 1;
+            continue;
         }
-    } else {
-        if(print_arg__fix_n_print) {
-            fprintf(stderr, "Error: -F requires -E\n");
-            exit(EX_USAGE);
-        }
-        if(asn1_printer_flags) {
-            fprintf(stderr, "Error: -print-... arguments require -E\n");
-            exit(EX_USAGE);
+        argv[write_index++] = argv[read_index];
+        if(!end_options && argument[0] == '-' && argument[1]
+           && argument[1] != '-') {
+            const char *option = argument + 1;
+            for(; *option; option++) {
+                if(asn1c_short_option_takes_argument(*option)) {
+                    if(!option[1] && read_index + 1 < *argc)
+                        argv[write_index++] = argv[++read_index];
+                    break;
+                }
+            }
         }
     }
+    argv[write_index] = NULL;
+    *argc = write_index;
+    return 0;
+}
 
-    if((asn1_compiler_flags & A1C_NO_CONSTRAINTS)
-       && (asn1_compiler_flags
+/*
+ * Convert one -gen-* or -no-gen-* argument to its compiler flag.
+ * Parameters: name is the suffix without its CLI prefix. Returns the flag or
+ * zero for an unknown name. Original source: asn1c encoding option table.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: added target-independent codec bookkeeping. Example:
+ * `asn1c_codec_flag("UPER")` returns A1C_GEN_UPER.
+ */
+static uint64_t
+asn1c_codec_flag(const char *name) {
+    if(!strcmp(name, "BER")) return A1C_GEN_BER;
+    if(!strcmp(name, "XER")) return A1C_GEN_XER;
+    if(!strcmp(name, "JER")) return A1C_GEN_JER;
+    if(!strcmp(name, "CBOR")) return A1C_GEN_CBOR;
+    if(!strcmp(name, "OER")) return A1C_GEN_OER;
+    if(!strcmp(name, "UPER")) return A1C_GEN_UPER;
+    if(!strcmp(name, "APER")) return A1C_GEN_APER;
+    if(!strcmp(name, "print")) return A1C_GEN_PRINT;
+    if(!strcmp(name, "random-fill")) return A1C_GEN_RFILL;
+    if(!strcmp(name, "example")) return A1C_GEN_EXAMPLE;
+    if(!strcmp(name, "autotools")) return A1C_GEN_AUTOTOOLS_EXAMPLE;
+    return 0;
+}
+
+/*
+ * Parse the full option vector after stripping the target-only long switch.
+ * Parameters: argc is updated for the stripped switch; argv is the command
+ * vector; options receives all parsed settings. Returns zero or -1; no
+ * exception is raised. Original source: asn1c main option loop. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: split from
+ * main to keep each callable unit bounded. Example: `parse_options(&argc, argv)`.
+ */
+static int
+asn1c_parse_options(int *argc, char **argv, asn1c_cli_options_t *options) {
+    int ch;
+    if(asn1c_extract_rust_switch(argc, argv, &options->rust_target)) return -1;
+    while((ch = getopt(*argc, argv, "D:d:EFf:g:hn:LPp:RS:vW:X")) != -1) {
+        if(asn1c_handle_option(ch, optarg, options, argv[0])) return -1;
+    }
+    return 0;
+}
+
+/*
+ * Dispatch one parsed option to its bounded option-family handler.
+ * Parameters: ch and optarg identify the option; options stores results; av0
+ * is the program name for usage. Returns zero or -1. Original source: asn1c
+ * option switch. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
+ * maintainers. History: split for target-aware validation. Example:
+ * `handle_option('g', "en-UPER", &options, argv[0])`.
+ */
+static int
+asn1c_handle_option(int ch, const char *optarg, asn1c_cli_options_t *options,
+                    const char *av0) {
+    switch(ch) {
+    case 'f': return asn1c_handle_f_option(optarg, options);
+    case 'g':
+    case 'n': return asn1c_handle_codec_option(ch, optarg, options);
+    case 'p':
+    case 'P': return asn1c_handle_print_option(ch, optarg, options);
+    case 'W': return asn1c_handle_warning_option(optarg, options);
+    default: return asn1c_handle_basic_option(ch, optarg, options, av0);
+    }
+}
+
+/*
+ * Apply an explicit codec toggle to both C and Rust-specific option state.
+ * Parameters: ch is 'g' or 'n'; optarg is the existing CLI spelling; options
+ * stores updated masks. Returns zero or -1. Original source: asn1c codec
+ * options. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
+ * maintainers. History: avoids treating C's all-codec default as a Rust
+ * request. Example: `handle_codec_option('g', "en-UPER", &options)`.
+ */
+static int
+asn1c_handle_codec_option(int ch, const char *optarg,
+                          asn1c_cli_options_t *options) {
+    const char *prefix = ch == 'g' ? "en-" : "o-gen-";
+    size_t prefix_length = strlen(prefix);
+    uint64_t flag;
+    if(strncmp(optarg, prefix, prefix_length)) goto invalid;
+    if(ch == 'g' && !strcmp(optarg + prefix_length, "autotools"))
+        goto invalid;
+    flag = asn1c_codec_flag(optarg + prefix_length);
+    if(!flag) goto invalid;
+    if(ch == 'g') {
+        options->compiler_flags |= (enum asn1c_flags)flag;
+        options->rust_codec_flags |= flag;
+    } else {
+        options->compiler_flags &= ~(enum asn1c_flags)flag;
+        options->rust_codec_flags &= ~flag;
+    }
+    return 0;
+invalid:
+    fprintf(stderr, "-%c%s: Invalid argument\n", ch, optarg);
+    return -1;
+}
+
+/*
+ * Remember the first option that has no Rust-target meaning.
+ * Parameters: options owns the diagnostic state; spelling identifies the
+ * incompatible switch. Returns no value and raises no exception. Original
+ * source: new asn1c target validation. Version/date: 0.1.0, 2026-10-11.
+ * Responsible party: asn1c maintainers. History: added for pre-parse errors.
+ * Example: `mark_rust_incompatible(&options, "-R")`.
+ */
+static void
+asn1c_mark_rust_incompatible(asn1c_cli_options_t *options,
+                             const char *spelling) {
+    if(!options->rust_incompatible_option)
+        options->rust_incompatible_option = spelling;
+}
+
+/*
+ * Apply non-codec options that use the basic asn1c CLI switches.
+ * Parameters: ch and optarg identify the option; options receives its value;
+ * av0 is the executable name for usage. Returns zero or -1. Original source:
+ * asn1c main option switch. Version/date: 0.1.0, 2026-10-11. Responsible party:
+ * asn1c maintainers. History: extracted for smaller, target-aware parsing.
+ * Example: `handle_basic_option('D', "generated", &options, argv[0])`.
+ */
+static int
+asn1c_handle_basic_option(int ch, const char *optarg,
+                          asn1c_cli_options_t *options, const char *av0) {
+    switch(ch) {
+    case 'D': return asn1c_handle_destination_option(optarg, options);
+    case 'd': return asn1c_handle_debug_option(optarg, options);
+    case 'E':
+    case 'F':
+    case 'X': return asn1c_handle_tree_mode_option(ch, options);
+    case 'h':
+        usage(av0);
+    case 'R':
+        options->compiler_flags |= A1C_OMIT_SUPPORT_CODE;
+        asn1c_mark_rust_incompatible(options, "-R");
+        return 0;
+    case 'S': return asn1c_handle_skeleton_option(optarg, options);
+    case 'v':
+        fprintf(stderr, "ASN.1 Compiler, " VERSION " (" PACKAGE_BUGREPORT ")\n"
+                        COPYRIGHT);
+        exit(0);
+    default:
+        usage(av0);
+    }
+    return -1;
+}
+
+/*
+ * Store an owned copy of the explicitly selected support directory.
+ * Parameters: value is the -S operand; options owns the copied path.
+ * Returns zero or -1. Original source: historical asn1c -S option.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: records explicit-path provenance for Rust runtime lookup. Example:
+ * `-S /opt/share/asn1c` selects that support directory.
+ */
+static int
+asn1c_handle_skeleton_option(const char *value,
+                             asn1c_cli_options_t *options) {
+    size_t length;
+    char *directory;
+    if(!value) return -1;
+    length = strlen(value);
+    if(length == SIZE_MAX) return -1;
+    directory = malloc(length + 1);
+    if(!directory) return -1;
+    memcpy(directory, value, length + 1);
+    if(options->skeletons_owned) free(options->skeletons_dir);
+    options->skeletons_dir = directory;
+    options->skeletons_owned = 1;
+    options->skeletons_explicit = 1;
+    return 0;
+}
+
+/*
+ * Store the destination path using the C CLI's trailing-slash convention.
+ * Parameters: value is the -D argument; options owns the allocated path.
+ * Returns zero or -1; allocation errors are reported to the caller. Original
+ * source: asn1c -D option. Version/date: 0.1.0, 2026-10-11. Responsible party:
+ * asn1c maintainers. History: extracted for target handling. Example:
+ * `-D generated` stores `generated/`.
+ */
+static int
+asn1c_handle_destination_option(const char *value,
+                                asn1c_cli_options_t *options) {
+    size_t length;
+    char *destination;
+    if(!value) return -1;
+    length = strlen(value);
+    if(length == 0) {
+        free(options->destdir);
+        options->destdir = NULL;
+        return 0;
+    }
+    if(length > SIZE_MAX - 2) return -1;
+    destination = malloc(length + 2);
+    if(!destination) return -1;
+    memcpy(destination, value, length + 1);
+    if(destination[length - 1] != '/') {
+        destination[length] = '/';
+        destination[length + 1] = '\0';
+    }
+    free(options->destdir);
+    options->destdir = destination;
+    return 0;
+}
+
+/*
+ * Parse a debug option and retain target incompatibility when it is C-only.
+ * Parameters: value is the -d argument; options stores debug state. Returns
+ * zero or -1. Original source: asn1c -d option. Version/date: 0.1.0,
+ * 2026-10-11. Responsible party: asn1c maintainers. History: extracted from
+ * main. Example: `-debug-type-naming=Thing`.
+ */
+static int
+asn1c_handle_debug_option(const char *value, asn1c_cli_options_t *options) {
+    if(strncmp(value, "ebug-type-naming=", 17) == 0) {
+        size_t count = options->debug_type_names_count;
+        char **grown;
+        size_t length = strlen(value + 17);
+        char *name;
+        if(count > SIZE_MAX / sizeof(*grown) - 2 || length == SIZE_MAX)
+            return -1;
+        name = malloc(length + 1);
+        if(!name) return -1;
+        memcpy(name, value + 17, length + 1);
+        grown = realloc(options->debug_type_names,
+                        (count + 2) * sizeof(*grown));
+        if(!grown) {
+            free(name);
+            return -1;
+        }
+        options->debug_type_names = grown;
+        options->debug_type_names[count] = name;
+        options->debug_type_names[count + 1] = NULL;
+        options->debug_type_names_count++;
+        asn1c_mark_rust_incompatible(options, "-d debug-type-naming");
+        return 0;
+    }
+    if(strcmp(value, "ebug-output-origin-lines") == 0) {
+        options->compiler_flags |= A1C_DEBUG_OUTPUT_ORIGIN_LINES;
+        asn1c_mark_rust_incompatible(options, "-d debug-output-origin-lines");
+        return 0;
+    }
+    fprintf(stderr, "-d%s: Invalid argument\n", value);
+    return -1;
+}
+
+/*
+ * Record parse-tree display modes, which cannot be combined with --rust output.
+ * Parameters: ch is E, F, or X; options stores the requested mode. Returns
+ * zero. Original source: asn1c -E/-F/-X switch. Version/date: 0.1.0,
+ * 2026-10-11. Responsible party: asn1c maintainers. History: extracted from
+ * main. Example: `-X` requests parse, fix, and XML-DTD display.
+ */
+static int
+asn1c_handle_tree_mode_option(int ch, asn1c_cli_options_t *options) {
+    if(ch == 'E') {
+        options->print_out = 1;
+        asn1c_mark_rust_incompatible(options, "-E");
+    } else if(ch == 'F') {
+        options->fix_n_print = 1;
+        asn1c_mark_rust_incompatible(options, "-F");
+    } else {
+        options->print_out = 1;
+        options->fix_n_print = 1;
+        options->printer_flags |= APF_PRINT_XML_DTD;
+        asn1c_mark_rust_incompatible(options, "-X");
+    }
+    return 0;
+}
+
+/*
+ * Handle one C compiler -f option that is represented by a direct flag change.
+ * Parameters: name is the option suffix; options owns the compiler/fixer
+ * settings. Returns 1 if handled, 0 if unknown. Original source: asn1c -f
+ * switch. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
+ * maintainers. History: table-free split of legacy option parsing. Example:
+ * `handle_simple_f_option("wide-types", &options)`.
+ */
+static int
+asn1c_handle_simple_f_option(const char *name, asn1c_cli_options_t *options) {
+    if(!strcmp(name, "all-defs-global"))
+        options->compiler_flags |= A1C_ALL_DEFS_GLOBAL;
+    else if(!strcmp(name, "bless-SIZE"))
+        options->fixer_flags |= A1F_EXTENDED_SizeConstraint;
+    else if(!strcmp(name, "compound-names")) {
+        options->compiler_flags |= A1C_COMPOUND_NAMES;
+        options->fixer_flags |= A1F_COMPOUND_NAMES;
+    } else if(!strcmp(name, "indirect-choice"))
+        options->compiler_flags |= A1C_INDIRECT_CHOICE;
+    else if(!strcmp(name, "prefer-import-source"))
+        options->fixer_flags |= A1F_PREFER_IMPORT_SOURCE;
+    else if(!strcmp(name, "wide-types"))
+        options->compiler_flags |= A1C_USE_WIDE_TYPES;
+    else if(!strcmp(name, "line-refs"))
+        options->compiler_flags |= A1C_LINE_REFS;
+    else if(!strcmp(name, "no-constraints"))
+        options->compiler_flags |= A1C_NO_CONSTRAINTS;
+    else if(!strcmp(name, "no-include-deps"))
+        options->compiler_flags |= A1C_NO_INCLUDE_DEPS;
+    else if(!strcmp(name, "includes-quoted"))
+        options->compiler_flags |= A1C_INCLUDES_QUOTED;
+    else if(!strcmp(name, "unnamed-unions"))
+        options->compiler_flags |= A1C_UNNAMED_UNIONS;
+    else if(!strcmp(name, "link-skeletons"))
+        options->compiler_flags |= A1C_LINK_SKELETONS;
+    else if(!strcmp(name, "gen-only-pdu-deps"))
+        options->compiler_flags |= A1C_GEN_ONLY_PDU_DEPS;
+    else if(!strcmp(name, "list-deps"))
+        options->compiler_flags |= A1C_LIST_DEPS;
+    else
+        return 0;
+    asn1c_mark_rust_incompatible(options, "-f C-only option");
+    return 1;
+}
+
+/*
+ * Apply an option in the existing -f family or reject it before parsing.
+ * Parameters: arg is the option suffix; options receives all related state.
+ * Returns zero or -1. Original source: asn1c -f option switch. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: separated
+ * codec-independent C options for --rust validation. Example:
+ * `handle_f_option("complex-threshold=8", &options)`.
+ */
+static int
+asn1c_handle_f_option(const char *arg, asn1c_cli_options_t *options) {
+    int handled;
+    if(!strncmp(arg, "complex-threshold=", 18))
+        return asn1c_parse_complex_threshold(arg + 18, options);
+    if(!strncmp(arg, "long-size=", 10))
+        return asn1c_parse_long_size(arg + 10, options);
+    if(!strncmp(arg, "integer-native-type=", 20))
+        return asn1c_parse_integer_native_type(arg + 20, options);
+    if(!strncmp(arg, "known-extern-type=", 18)) {
+        int ret = asn1f_make_known_external_type(arg + 18);
+        if(ret != 0 && errno != EEXIST) return -1;
+        asn1c_mark_rust_incompatible(options, "-fknown-extern-type");
+        return 0;
+    }
+    if(!strncmp(arg, "prefix=", 7)) {
+        asn1c_prefix_set(arg + 7);
+        asn1c_mark_rust_incompatible(options, "-fprefix");
+        return 0;
+    }
+    if(!strcmp(arg, "native-types")) {
+        fprintf(stderr, "-f%s: Deprecated option\n", arg);
+        options->compiler_flags &= ~A1C_USE_WIDE_TYPES;
+        asn1c_mark_rust_incompatible(options, "-fnative-types");
+        return 0;
+    }
+    if(!strcmp(arg, "skeletons-copy")) {
+        fprintf(stderr, "-f%s: Deprecated option\n", arg);
+        options->compiler_flags &= ~A1C_LINK_SKELETONS;
+        asn1c_mark_rust_incompatible(options, "-fskeletons-copy");
+        return 0;
+    }
+    handled = asn1c_handle_simple_f_option(arg, options);
+    if(handled) return 0;
+    fprintf(stderr, "-f%s: Invalid argument\n", arg);
+    return -1;
+}
+
+/*
+ * Handle a -P or -p C printer/debug option.
+ * Parameters: ch selects the option family; optarg is its suffix; options
+ * receives the selected behavior. Returns zero or -1. Original source:
+ * asn1c printer option switch. Version/date: 0.1.0, 2026-10-11. Responsible
+ * party: asn1c maintainers. History: extracted to validate Rust target modes.
+ * Example: `handle_print_option('p', "rint-lines", &options)`.
+ */
+static int
+asn1c_handle_print_option(int ch, const char *optarg,
+                          asn1c_cli_options_t *options) {
+    if(ch == 'P') {
+        options->compiler_flags |= A1C_PRINT_COMPILED;
+        options->compiler_flags &= ~A1C_NO_C99;
+        asn1c_mark_rust_incompatible(options, "-P");
+        return 0;
+    }
+    if(!strncmp(optarg, "du=", 3)) {
+        const char *name = optarg + 3;
+        if(!strcmp(name, "all"))
+            options->compiler_flags |= A1C_PDU_ALL;
+        else if(!strcmp(name, "auto"))
+            options->compiler_flags |= A1C_PDU_AUTO;
+        else if(name[0] >= 'A' && name[0] <= 'Z') {
+            asn1c__add_pdu_type(name);
+            options->compiler_flags |= A1C_PDU_TYPE;
+        } else {
+            fprintf(stderr, "-pdu=%s: expected -pdu={all|auto|Type}\n", name);
+            return -1;
+        }
+        asn1c_mark_rust_incompatible(options, "-pdu");
+        return 0;
+    }
+    if(!strcmp(optarg, "rint-class-matrix"))
+        options->printer_flags |= APF_PRINT_CLASS_MATRIX;
+    else if(!strcmp(optarg, "rint-constraints"))
+        options->printer_flags |= APF_PRINT_CONSTRAINTS;
+    else if(!strcmp(optarg, "rint-lines"))
+        options->printer_flags |= APF_LINE_COMMENTS;
+    else {
+        fprintf(stderr, "-p%s: Invalid argument\n", optarg);
+        return -1;
+    }
+    asn1c_mark_rust_incompatible(options, "-p printer option");
+    return 0;
+}
+
+/*
+ * Parse warning and diagnostic options that do not generate C layout.
+ * Parameters: optarg is the warning suffix; options receives the state.
+ * Returns zero or -1. Original source: asn1c -W option switch. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: separated
+ * compiler-only debugging from input diagnostics. Example: `-Werror`.
+ */
+static int
+asn1c_handle_warning_option(const char *optarg,
+                            asn1c_cli_options_t *options) {
+    if(!strcmp(optarg, "error")) {
+        options->warnings_as_errors = 1;
+    } else if(!strcmp(optarg, "debug-lexer")) {
+        options->parser_flags |= A1P_DEBUG_LEXER;
+    } else if(!strcmp(optarg, "debug-parser")) {
+        options->parser_flags |= A1P_DEBUG_PARSER;
+    } else if(!strcmp(optarg, "debug-fixer")) {
+        options->fixer_flags |= A1F_DEBUG;
+    } else if(!strcmp(optarg, "debug-compiler")) {
+        options->compiler_flags |= A1C_DEBUG;
+        asn1c_mark_rust_incompatible(options, "-Wdebug-compiler");
+    } else {
+        fprintf(stderr, "-W%s: Invalid argument\n", optarg);
+        return -1;
+    }
+    return 0;
+}
+
+/*
+ * Parse and validate a requested C long width.
+ * Parameters: value is the `-flong-size` suffix; options receives the global
+ * C target setting. Returns zero or -1. Original source: asn1c -f parser.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: extracted from main. Example: `-flong-size=64`.
+ */
+static int
+asn1c_parse_long_size(const char *value, asn1c_cli_options_t *options) {
+    if(!strcmp(value, "32"))
+        asn1c_target_long_size = ASN_TARGET_LONG_32;
+    else if(!strcmp(value, "64"))
+        asn1c_target_long_size = ASN_TARGET_LONG_64;
+    else {
+        fprintf(stderr, "-flong-size expects one of: 32, 64\n");
+        return -1;
+    }
+    asn1c_mark_rust_incompatible(options, "-flong-size");
+    return 0;
+}
+
+/*
+ * Parse the C constrained-INTEGER native storage policy.
+ * Parameters: value is the option suffix; options records Rust incompatibility.
+ * Returns zero or -1. Original source: asn1c -finteger-native-type parser.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: extracted from main. Example: `-finteger-native-type=uint64`.
+ */
+static int
+asn1c_parse_integer_native_type(const char *value,
+                               asn1c_cli_options_t *options) {
+    if(!strcmp(value, "auto") || !strcmp(value, "long")) {
+        if(!strcmp(value, "long"))
+            fprintf(stderr, "-finteger-native-type=long is deprecated\n");
+        asn1c_integer_native_type = AINT_NATIVE_AUTO;
+    } else if(!strcmp(value, "int32")) {
+        asn1c_integer_native_type = AINT_NATIVE_INT32;
+    } else if(!strcmp(value, "uint32")) {
+        asn1c_integer_native_type = AINT_NATIVE_UINT32;
+    } else if(!strcmp(value, "int64")) {
+        asn1c_integer_native_type = AINT_NATIVE_INT64;
+    } else if(!strcmp(value, "uint64")) {
+        asn1c_integer_native_type = AINT_NATIVE_UINT64;
+    } else {
+        fprintf(stderr,
+                "-finteger-native-type expects one of: "
+                "int32, uint32, int64, uint64, auto\n");
+        return -1;
+    }
+    asn1c_mark_rust_incompatible(options, "-finteger-native-type");
+    return 0;
+}
+
+/*
+ * Parse the positive C complex-structure indirection threshold.
+ * Parameters: value is the decimal suffix; options receives the threshold.
+ * Returns zero or -1. Original source: asn1c -f parser. Version/date: 0.1.0,
+ * 2026-10-11. Responsible party: asn1c maintainers. History: extracted from
+ * main. Example: `-fcomplex-threshold=8`.
+ */
+static int
+asn1c_parse_complex_threshold(const char *value,
+                              asn1c_cli_options_t *options) {
+    long parsed;
+    if(!is_integer(value, &parsed) || parsed <= 0 || parsed > 500) {
+        fprintf(stderr, "-fcomplex-threshold: bad format or value too large\n");
+        return -1;
+    }
+    options->complex_threshold = (int)parsed;
+    asn1c_mark_rust_incompatible(options, "-fcomplex-threshold");
+    return 0;
+}
+
+/*
+ * Validate target-specific constraints before input files are parsed.
+ * Parameters: options is the complete option state. Returns zero or -1; no
+ * exception is raised. Original source: asn1c option validation. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: moved
+ * target checks ahead of parsing/output. Example: `validate_options(&options)`.
+ */
+static int
+asn1c_validate_options(const asn1c_cli_options_t *options) {
+    if(options->print_out) {
+        if((options->printer_flags & APF_PRINT_CONSTRAINTS)
+           && !options->fix_n_print) {
+            fprintf(stderr,
+                    "Error: -print-constraints argument requires -E -F\n");
+            return -1;
+        }
+    } else {
+        if(options->fix_n_print) {
+            fprintf(stderr, "Error: -F requires -E\n");
+            return -1;
+        }
+        if(options->printer_flags) {
+            fprintf(stderr, "Error: -print-... arguments require -E\n");
+            return -1;
+        }
+    }
+    if(options->rust_target) {
+        if(options->rust_incompatible_option) {
+            fprintf(stderr, "Error: %s is incompatible with --rust\n",
+                    options->rust_incompatible_option);
+            return -1;
+        }
+        if(options->rust_codec_flags != (uint64_t)A1C_GEN_UPER) {
+            fprintf(stderr,
+                    "Error: --rust supports only UPER; requested codec "
+                    "options do not select UPER alone\n");
+            return -1;
+        }
+        return 0;
+    }
+    if((options->compiler_flags & A1C_NO_CONSTRAINTS)
+       && (options->compiler_flags
            & (A1C_GEN_OER | A1C_GEN_UPER | A1C_GEN_APER))) {
         fprintf(stderr,
                 "Error: -fno-constraints is incompatible with -gen-OER, "
                 "-gen-UPER, or -gen-APER\n");
-        exit(EX_USAGE);
+        return -1;
     }
+    return 0;
+}
 
-    /*
-     * Ensure that there are some input files present.
-     */
-    if(ac > optind) {
-        ac -= optind;
-        av += optind;
-    } else {
-        const char *bin_name = a1c_basename(av[0], NULL);
-        fprintf(stderr,
-                "%s: No input files specified. "
-                "Try '%s -h' for more information\n",
-                bin_name, bin_name);
-        exit(EX_USAGE);
-    }
+/*
+ * Join two filesystem path components with bounded output.
+ * Parameters: output is the destination buffer; capacity is its size; left and
+ * right are path components. Returns zero or -1. Original source: new asn1c
+ * CLI path handling. Version/date: 0.1.0, 2026-10-11. Responsible party:
+ * asn1c maintainers. History: added for portable runtime asset resolution.
+ * Example: `join_path(buf, sizeof(buf), "share/asn1c", "runtime")`.
+ */
+static int
+asn1c_join_path(char *output, size_t capacity, const char *left,
+                const char *right) {
+    size_t left_length;
+    int written;
+    if(!output || !capacity || !left || !right) return -1;
+    left_length = strlen(left);
+    written = snprintf(output, capacity, "%s%s%s", left,
+                       left_length && left[left_length - 1] == '/' ? "" : "/",
+                       right);
+    return written < 0 || (size_t)written >= capacity ? -1 : 0;
+}
 
-    /*
-     * Make sure the skeleton directory is out there.
-     */
-    if(skeletons_dir == NULL) {
-        struct stat sb;
-        skeletons_dir = DATADIR;
-        if(stat(skeletons_dir, &sb)) {
-            /*
-             * The default skeletons directory does not exist,
-             * compute it from my file name:
-             * ./asn1c/asn1c -> ./skeletons
-             */
-            const char *skel_dir;
-            size_t len;
-
-            skel_dir = a1c_dirname(av[-optind]);
-
-            len = strlen(skel_dir) + sizeof("/../skeletons");
-            skeletons_dir = malloc(len);
-            assert(skeletons_dir);
-            snprintf(skeletons_dir, len, "%s/../skeletons", skel_dir);
-            if(stat(skeletons_dir, &sb)) {
-                fprintf(stderr,
-                        "WARNING: skeletons are neither in "
-                        "\"%s\" nor in \"%s\"!\n",
-                        DATADIR, skeletons_dir);
-                if(warnings_as_errors) exit(EX_OSFILE);
-            }
-        }
-    }
-
-    /*
-     * Iterate over input files and parse each.
-     * All syntax trees from all files will be bundled together.
-     */
-    for(i = 0; i < ac; i++) {
-        asn1p_t *new_asn;
-
-        errno = 0;
-        new_asn = asn1p_parse_file(av[i], asn1_parser_flags);
-        if(new_asn == NULL) {
-            /*
-             * asn1p_parse_file() sets errno to EINVAL when the file was
-             * opened but is not a regular file or not valid ASN.1, and
-             * keeps the errno of fopen() when the file cannot be opened.
-             * Do not open the file again to tell the two apart: that
-             * races with changes to the file and can block on a FIFO.
-             */
-            int parse_errno = errno;
-            fprintf(stderr, "Cannot parse \"%s\"\n", av[i]);
-            exit_code = (parse_errno == EINVAL || parse_errno == 0)
-                            ? EX_DATAERR
-                            : EX_NOINPUT;
-            goto cleanup;
-        }
-
-        /*
-         * Bundle the parsed tree with existing one.
-         */
-        if(asn) {
-            asn1p_module_t *mod;
-            while((mod = TQ_REMOVE(&(new_asn->modules), mod_next)))
-                TQ_ADD(&(asn->modules), mod, mod_next);
-            asn1p_delete(new_asn);
+/*
+ * Select the source/install support directory using the C CLI's fallback.
+ * Parameters: options stores the selected path; argv0 locates a source-tree
+ * fallback. Returns zero or EX_OSFILE. Original source: asn1c skeleton search.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: extracted before --rust asset resolution. Example: `-S skeletons`.
+ */
+static int
+asn1c_resolve_skeletons(asn1c_cli_options_t *options, const char *argv0) {
+    struct stat status;
+    if(!options->skeletons_dir) {
+        if(stat(DATADIR, &status) == 0 && S_ISDIR(status.st_mode)) {
+            options->skeletons_dir = DATADIR;
         } else {
-            asn = new_asn;
+            const char *directory = a1c_dirname(argv0);
+            size_t length = strlen(directory);
+            if(length > SIZE_MAX - sizeof("/../skeletons")) return EX_OSFILE;
+            options->skeletons_dir = malloc(length + sizeof("/../skeletons"));
+            if(!options->skeletons_dir) return EX_OSFILE;
+            snprintf(options->skeletons_dir,
+                     length + sizeof("/../skeletons"),
+                     "%s/../skeletons", directory);
+            options->skeletons_owned = 1;
         }
     }
-
-    /* These are mostly notes for the human readers */
-    assert(asn);
-    assert(skeletons_dir);
-
-    /*
-     * Dump the parsed ASN.1 tree if -E specified and -F is NOT given.
-     */
-    if(print_arg__print_out && !print_arg__fix_n_print) {
-        if(asn1print(asn, asn1_printer_flags)) {
-            exit_code = EX_SOFTWARE;
-        }
-        goto cleanup;
+    if(stat(options->skeletons_dir, &status) != 0 || !S_ISDIR(status.st_mode)) {
+        fprintf(stderr, "WARNING: skeletons directory is unavailable: %s\n",
+                options->skeletons_dir);
+        if(options->warnings_as_errors) return EX_OSFILE;
     }
+    return 0;
+}
 
-    /*
-     * Read in the files from skeletons/standard-modules
-     */
-    if(importStandardModules(asn, skeletons_dir)) {
-        if(warnings_as_errors) {
-            exit_code = EX_DATAERR;
-            goto cleanup;
+/*
+ * Verify every required runtime asset before parsing or creating output.
+ * Parameters: path is a candidate crate directory. Returns true only when its
+ * fixed runtime file set is present and regular. Original source: new asn1c
+ * Rust CLI. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
+ * maintainers. History: added for early Rust target validation. Example:
+ * `runtime_layout_available("share/asn1c/rust/asn1c-runtime")`.
+ */
+static int
+asn1c_runtime_layout_available(const char *path) {
+    static const char *const files[] = {
+        "Cargo.toml", "README.md", "LICENSE", "src/lib.rs"
+    };
+    struct stat status;
+    char asset[PATH_MAX];
+    size_t i;
+    if(lstat(path, &status) != 0 || !S_ISDIR(status.st_mode)) return 0;
+    if(asn1c_join_path(asset, sizeof(asset), path, "src")
+       || lstat(asset, &status) != 0 || !S_ISDIR(status.st_mode)) return 0;
+    for(i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+        if(asn1c_join_path(asset, sizeof(asset), path, files[i])
+           || lstat(asset, &status) != 0 || !S_ISREG(status.st_mode)) return 0;
+    }
+    return 1;
+}
+
+/*
+ * Resolve the runtime beside the selected skeletons or in installed package data.
+ * Parameters: options contains the skeleton path and writes the runtime path.
+ * Returns zero or EX_OSFILE. Original source: new asn1c Rust CLI. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: supports
+ * source and installed layouts. Example: `--rust -S /prefix/share/asn1c`.
+ */
+static int
+asn1c_resolve_runtime(asn1c_cli_options_t *options) {
+    char candidate[PATH_MAX];
+    int resolved = 0;
+    if(!options->skeletons_dir || !*options->skeletons_dir) {
+        fprintf(stderr, "asn1c: Rust runtime lookup requires a nonempty -S path\n");
+        return EX_OSFILE;
+    }
+    if(!asn1c_join_path(candidate, sizeof(candidate), options->skeletons_dir,
+                        "rust/asn1c-runtime")
+       && asn1c_runtime_layout_available(candidate)) resolved = 1;
+    if(!resolved
+       && !asn1c_join_path(candidate, sizeof(candidate), options->skeletons_dir,
+                           "../rust/asn1c-runtime")
+       && asn1c_runtime_layout_available(candidate)) resolved = 1;
+    if(!resolved && !options->skeletons_explicit
+       && !asn1c_join_path(candidate, sizeof(candidate), DATADIR,
+                           "rust/asn1c-runtime")
+       && asn1c_runtime_layout_available(candidate)) resolved = 1;
+    if(!resolved) {
+        fprintf(stderr,
+                "asn1c: cannot find the Rust runtime beside skeletons or in "
+                "installed package data\n");
+        return EX_OSFILE;
+    }
+    strcpy(options->rust_runtime_dir, candidate);
+    return 0;
+}
+
+/*
+ * Parse all positional ASN.1 files and combine their modules into one tree.
+ * Parameters: count and inputs describe the files; parser_flags configures the
+ * parser; tree receives the result; exit_code receives a sysexits status.
+ * Returns zero or -1. Original source: asn1c main input loop. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: extracted
+ * to reduce main() complexity. Example: `parse_inputs(n, files, flags, &tree)`.
+ */
+static int
+asn1c_parse_inputs(int count, char **inputs, enum asn1p_flags parser_flags,
+                   asn1p_t **tree, int *exit_code) {
+    int index;
+    for(index = 0; index < count; index++) {
+        asn1p_t *new_tree;
+        errno = 0;
+        new_tree = asn1p_parse_file(inputs[index], parser_flags);
+        if(!new_tree) {
+            int parse_errno = errno;
+            fprintf(stderr, "Cannot parse \"%s\"\n", inputs[index]);
+            *exit_code = (parse_errno == EINVAL || parse_errno == 0)
+                             ? EX_DATAERR : EX_NOINPUT;
+            return -1;
         }
+        if(*tree) {
+            asn1p_module_t *module;
+            while((module = TQ_REMOVE(&(new_tree->modules), mod_next)))
+                TQ_ADD(&((*tree)->modules), module, mod_next);
+            asn1p_delete(new_tree);
+        } else {
+            *tree = new_tree;
+        }
+    }
+    return 0;
+}
+
+/*
+ * Release allocations owned by one parsed CLI invocation.
+ * Parameters: options holds the state initialized by asn1c_cli_options_init.
+ * Returns no value and raises no exception. Original source: new CLI ownership
+ * cleanup. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
+ * maintainers. History: added while splitting main(). Example:
+ * `asn1c_cli_options_destroy(&options)` before process exit.
+ */
+static void
+asn1c_cli_options_destroy(asn1c_cli_options_t *options) {
+    size_t index;
+    for(index = 0; index < options->debug_type_names_count; index++)
+        free(options->debug_type_names[index]);
+    free(options->debug_type_names);
+    free(options->destdir);
+    if(options->skeletons_owned) free(options->skeletons_dir);
+}
+
+/*
+ * Import standard modules and run the ASN.1 fixer with CLI error policy.
+ * Parameters: options contains fixer settings; asn is the parsed tree; result
+ * receives EX_DATAERR for a nonfatal FATAL diagnostic allowed during -E -F.
+ * Returns zero to continue or EX_DATAERR to stop. Original source: former main
+ * tree-processing block. Version/date: 0.1.0, 2026-10-11. Responsible party:
+ * asn1c maintainers. History: extracted to bound dispatch complexity. Example:
+ * `asn1c_import_and_fix_tree(&options, tree, &result)`.
+ */
+static int
+asn1c_import_and_fix_tree(asn1c_cli_options_t *options, asn1p_t *asn,
+                          int *result) {
+    int fix_status;
+    if(importStandardModules(asn, options->skeletons_dir)) {
+        if(options->warnings_as_errors) return EX_DATAERR;
     } else {
         asn1f_use_standard_namespaces(asn);
     }
-
-    /*
-     * Process the ASN.1 specification: perform semantic checks,
-     * expand references, etc, etc.
-     * This function will emit necessary warnings and error messages.
-     */
-    /*
-     * The fixer keeps this logger for the lookups that the code generator
-     * makes later, so fixer_fatal_count also counts those diagnostics.
-     */
-    ret = asn1f_process(asn, asn1_fixer_flags, fixer_error_logger);
-    switch(ret) {
-    case 0:
-        break; /* All clear */
-    case 1:
-        if(!warnings_as_errors) {
-            break;
-        }
-        /* Fall through */
-    case -1:
-        exit_code = EX_DATAERR; /* Fatal failure */
-        goto cleanup;
-    }
+    fix_status = asn1f_process(asn, options->fixer_flags, fixer_error_logger);
+    if(fix_status == -1 || (fix_status == 1 && options->warnings_as_errors))
+        return EX_DATAERR;
     if(fixer_fatal_count) {
-        /*
-         * A FATAL diagnostic was reported, but not returned by the fixer.
-         * Do not generate code. With -E -F, still print the tree to help
-         * the diagnosis, then fail.
-         */
-        exit_code = EX_DATAERR;
-        if(!(print_arg__print_out && print_arg__fix_n_print))
-            goto cleanup;
+        if(!(options->print_out && options->fix_n_print)) return EX_DATAERR;
+        *result = EX_DATAERR;
+    } else {
+        *result = 0;
     }
+    return 0;
+}
 
-    /*
-     * Dump the parsed ASN.1 tree if -E specified and -F is given.
-     */
-    if(print_arg__print_out && print_arg__fix_n_print) {
-        if(asn1print(asn, asn1_printer_flags)) {
-            exit_code = EX_SOFTWARE;
-        }
+/*
+ * Run standard-module import, tree fixing, diagnostic handling, and codegen.
+ * Parameters: options contains validated target settings; argc, optc, and argv
+ * preserve the command-line context expected by the C backend; asn is the
+ * parsed tree. Returns a sysexits status. Original source: former main pipeline.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: dispatches through the target-aware compiler API. Example:
+ * `asn1c_run_pipeline(&options, argc, optind, argv, tree)`.
+ */
+static int
+asn1c_run_pipeline(asn1c_cli_options_t *options, int argc, int optc,
+                   char **argv, asn1p_t *asn) {
+    int result;
+    asn1c_target_options_t target_options;
+
+    if(options->print_out && !options->fix_n_print)
+        return asn1print(asn, options->printer_flags) ? EX_SOFTWARE : 0;
+    if(asn1c_import_and_fix_tree(options, asn, &result)) return EX_DATAERR;
+    if(options->print_out && options->fix_n_print) {
+        if(asn1print(asn, options->printer_flags)) return EX_SOFTWARE;
+        return result;
+    }
+    if(options->debug_type_names) {
+        asn1c_debug_type_naming(asn, options->compiler_flags,
+                                options->debug_type_names);
+        return result;
+    }
+    target_options.target = options->rust_target ? ASN1C_TARGET_RUST
+                                                 : ASN1C_TARGET_C;
+    target_options.rust_runtime_dir = options->rust_target
+                                          ? options->rust_runtime_dir : NULL;
+    target_options.rust_codecs = options->rust_target
+                                     ? options->rust_codec_flags : 0;
+    if(asn1_compile_with_target(
+           asn, options->skeletons_dir,
+           options->destdir ? options->destdir : "", options->compiler_flags,
+           argc, optc, argv, options->complex_threshold, &target_options))
+        result = EX_SOFTWARE;
+    if(fixer_fatal_count) result = EX_SOFTWARE;
+    return result;
+}
+
+
+/*
+ * Parse options, validate target compatibility, parse input, and dispatch.
+ * Parameters: ac is the process argument count; av is its argument vector.
+ * Returns zero or a sysexits status. Original source: historical asn1c main.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: split into bounded option, input, and target-pipeline helpers.
+ * Example: `asn1c --rust schema.asn1` generates a Rust project.
+ */
+int
+main(int ac, char **av) {
+    asn1c_cli_options_t options;
+    asn1p_t *asn = NULL;
+    int input_argc;
+    int exit_code = 0;
+
+    asn1c_cli_options_init(&options);
+    if(asn1c_parse_options(&ac, av, &options)) {
+        exit_code = EX_USAGE;
         goto cleanup;
     }
-
-    /*
-     * -debug-type-naming=Type
-     */
-    if(debug_type_names) {
-        asn1c_debug_type_naming(asn, asn1_compiler_flags, debug_type_names);
+    if(asn1c_validate_options(&options)) {
+        exit_code = EX_USAGE;
         goto cleanup;
     }
-
-    /*
-     * Compile the ASN.1 tree into a set of source files
-     * of another language.
-     */
-    if(asn1_compile(asn, skeletons_dir, destdir ? destdir : "",
-                    asn1_compiler_flags, ac + optind, optind, av - optind,
-                    complex_threshold)) {
-        exit_code = EX_SOFTWARE;
+    input_argc = ac - optind;
+    if(input_argc <= 0) {
+        const char *program = a1c_basename(av[0], NULL);
+        fprintf(stderr,
+                "%s: No input files specified. Try '%s -h' for more "
+                "information\n", program, program);
+        exit_code = EX_USAGE;
+        goto cleanup;
     }
-    if(fixer_fatal_count) {
-        exit_code = EX_SOFTWARE; /* FATAL during code generation lookups */
+    exit_code = asn1c_resolve_skeletons(&options, av[0]);
+    if(exit_code) goto cleanup;
+    if(options.rust_target) {
+        exit_code = asn1c_resolve_runtime(&options);
+        if(exit_code) goto cleanup;
     }
+    if(asn1c_parse_inputs(input_argc, av + optind, options.parser_flags,
+                          &asn, &exit_code))
+        goto cleanup;
+    exit_code = asn1c_run_pipeline(&options, ac, optind, av, asn);
 
 cleanup:
-    /*
-     * The printer and the type naming can look up symbols through the
-     * fixer after the checks above. A FATAL diagnostic there means that
-     * the output is incomplete.
-     */
-    if(exit_code == 0 && fixer_fatal_count)
-        exit_code = EX_SOFTWARE;
+    if(exit_code == 0 && fixer_fatal_count) exit_code = EX_SOFTWARE;
     asn1p_delete(asn);
     asn1p_lex_destroy();
-    if (exit_code) exit(exit_code);
-
-    return 0;
+    asn1c_cli_options_destroy(&options);
+    return exit_code;
 }
 
 /*
@@ -731,6 +1237,7 @@ usage(const char *av0) {
 "ASN.1 Compiler, " VERSION "\n" COPYRIGHT
 "Usage: %s [options] file ...\n"
 "Options:\n"
+"  --rust                Generate a standalone Rust project (initial target supports UPER)\n"
 "  -E                    Run only the ASN.1 parser and print out the tree\n"
 "  -F                    During -E operation, also perform tree fixing\n"
 "\n"
@@ -738,7 +1245,7 @@ usage(const char *av0) {
 "  -R                    Restrict output (tables only, no support code)\n"
 "  -S <dir>              Directory with support (skeleton?) files\n"
 "                        (Default is \"%s\")\n"
-"  -D <dir>              Destination directory for generated files (default current dir)\n"
+"  -D <dir>              Output directory (C default: current dir; Rust: asn1c-rust)\n"
 "  -X                    Generate and print the XML DTD\n"
 "\n"
 

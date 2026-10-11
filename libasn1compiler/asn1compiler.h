@@ -2,6 +2,7 @@
 #define	ASN1_COMPILER_H
 
 #include <asn1parser.h>
+#include <stdint.h>
 
 /*
  * Policy for selecting the native C storage type of constrained ASN.1
@@ -178,10 +179,51 @@ enum asn1c_flags {
 };
 
 /*
+ * Select the complete code-generation target while keeping C as the
+ * compatibility default.
+ */
+typedef enum asn1c_target_e {
+	ASN1C_TARGET_C = 0, /* Existing C backend. */
+	ASN1C_TARGET_RUST = 1 /* Safe Rust crate backend. */
+} asn1c_target_e;
+
+/*
+ * Target-specific options passed from the command-line driver to the
+ * compiler. Each member records one target-selection state variable.
+ */
+typedef struct asn1c_target_options_s {
+	asn1c_target_e target; /* Selected complete output target state variable. */
+	const char *rust_runtime_dir; /* Runtime source directory state variable. */
+	uint64_t rust_codecs; /* Requested Rust codec mask state variable. */
+} asn1c_target_options_t;
+
+/*
  * Compile the ASN.1 specification.
  */
 int asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_flags,
 	int argc, int optc, char **argv, int complex_threshold);
+
+/*
+ * Compile a fixed ASN.1 tree for the selected complete target.
+ *
+ * Parameters:
+ *   asn               Fixed semantic tree.
+ *   datadir           C skeleton and standard-module asset directory.
+ *   destdir           Output directory, or empty for the target default.
+ *   flags             Existing compiler flags.
+ *   argc, optc, argv  Original command-line context for C generation.
+ *   complex_threshold Existing C layout threshold.
+ *   target_options    Target kind and target-specific options.
+ * Returns zero on success and a negative value on failure. It does not throw.
+ * Original source: new target dispatch around the existing compiler.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: preserves asn1_compile() as the C compatibility entry point.
+ * Example: call with target_options.target = ASN1C_TARGET_RUST.
+ */
+int asn1_compile_with_target(asn1p_t *asn, const char *datadir,
+	const char *destdir, enum asn1c_flags flags, int argc, int optc,
+	char **argv, int complex_threshold,
+	const asn1c_target_options_t *target_options);
 
 void asn1c_debug_type_naming(asn1p_t *asn, enum asn1c_flags,
                              char **asn_type_names);

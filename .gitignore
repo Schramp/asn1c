@@ -135,3 +135,9 @@ asn1c/tmp/
 
 # Test artifact directories created when smoke tests are run from repo root
 /test-*/
+
+# Local build output of the dependency-free Rust runtime library.
+!/rust/asn1c-runtime/
+!/rust/asn1c-runtime/**
+/rust/asn1c-runtime/target/
+/rust/asn1c-runtime/Cargo.lock

@@ -1,0 +1,5 @@
+NamedNumber DEFINITIONS ::= BEGIN
+
+Value ::= INTEGER { red(0), blue(1) } (0..1)
+
+END

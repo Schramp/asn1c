@@ -34,6 +34,12 @@ Build the libraries and the compiler:
 
     make
 
+The compiler build does not require Rust. Installation includes the Rust runtime
+sources used by `--rust`. To build generated Rust packages or run the optional
+Rust tests, install Cargo and a Rust toolchain supporting Rust 2021. The initial
+runtime has no dependencies and generated packages build with Cargo's `--offline`
+option. See [Rust output usage and limits](docs/rust/implementation.md).
+
 Ensure asn1c is still behaving well after compiling on your platform:
 
     make check

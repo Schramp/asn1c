@@ -1,0 +1,5 @@
+UnionInteger DEFINITIONS ::= BEGIN
+
+Value ::= INTEGER ((0..2) | (5..7))
+
+END

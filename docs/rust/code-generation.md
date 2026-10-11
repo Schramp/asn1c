@@ -1,6 +1,6 @@
 # Rust code generation architecture
 
-**Status:** Proposed plan; documentation only
+**Status:** Implementation in progress; initial UPER slice present
 **Date:** 2026-10-11
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`
 **Scope:** An opt-in Rust target that reuses the C parser and fixer, emits a
@@ -36,9 +36,9 @@ option must validate a compatible runtime version and API.
 ## C codec dispatch and converter inventory
 
 The C compiler defaults to its current codec family set in
-[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L110). Its `-gen-*` parser supports BER,
+[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L176). Its `-gen-*` parser supports BER,
 XER, JER, CBOR, OER, UPER, and APER; there is no `-gen-DER` or `-gen-CER`
-selector ([`asn1c/asn1c.c`](../../asn1c/asn1c.c#L257)). A generated type's
+selector ([`asn1c/asn1c.c`](../../asn1c/asn1c.c#L266)). A generated type's
 operation table has separate decoder and encoder pointers for BER/DER, OER,
 UPER, APER, and CBOR, guarded by build feature macros and generation flags
 ([`constr_TYPE.h`](../../skeletons/constr_TYPE.h#L200),
@@ -59,7 +59,7 @@ These shared branches are in the generic transfer-syntax dispatcher at
 [`asn_application.c`](../../skeletons/asn_application.c#L285),
 [`asn_application.c`](../../skeletons/asn_application.c#L343),
 [`asn_application.c`](../../skeletons/asn_application.c#L473), and
-[`asn_application.c`](../../skeletons/asn_application.c#L536).
+[`asn_application.c`](../../skeletons/asn_application.c#L563).
 
 The API table in [`README.md`](../../README.md#L70) advertises
 `ber_decode()` for BER, DER, and CER-shaped input, with no CER encoder. The
@@ -84,20 +84,22 @@ CER canonical form.
 ## Existing pipeline and backend coupling
 
 The command-line driver parses all input modules, merges them, establishes
-standard namespaces, and runs the fixer before invoking `asn1_compile()`.
-That is the right shared front-end boundary: Rust generation can consume the
-resolved tree, including references, specializations, tags, constraints,
+standard namespaces, and runs the fixer before invoking
+`asn1_compile_with_target()`. This is the shared frontend boundary: Rust
+consumes the resolved tree, including references, specializations, tags,
+constraints,
 extension markers, imports, and information-object metadata. See the driver
-flow at [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L469),
-[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L522), and
-[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L534).
+flow at [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L947), tree fixing at
+[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L1003), and backend dispatch at
+[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L1025).
 
-There is a small target-language dispatch table, but it is not a decoupled
-backend interface. [`asn1c_lang.h`](../../libasn1compiler/asn1c_lang.h#L6)
-stores one callback per expression kind, and
-[`asn1c_lang.c`](../../libasn1compiler/asn1c_lang.c#L7) accepts only C.
-[`asn1compiler.c`](../../libasn1compiler/asn1compiler.c#L31) initializes C
-name-clash tracking and unconditionally selects C. Its visitors write to
+The old target-language table is not a decoupled backend interface.
+[`asn1c_lang.h`](../../libasn1compiler/asn1c_lang.h#L6) stores one callback per
+expression kind, and [`asn1c_lang.c`](../../libasn1compiler/asn1c_lang.c#L7)
+accepts only C. The new public dispatch in
+[`asn1compiler.c`](../../libasn1compiler/asn1compiler.c#L42) selects the
+standalone Rust backend before entering the existing C-only pipeline. C
+visitors still write to
 [`asn1c_out.h`](../../libasn1compiler/asn1c_out.h#L14)'s C-oriented include,
 declaration, table, and code streams. The C visitors in
 [`asn1c_C.c`](../../libasn1compiler/asn1c_C.c#L152) call C type naming,
@@ -123,82 +125,74 @@ custom XER/JER operation generation is in the C visitor. Extract shared
 semantic helpers where they are coupled to C output; then apply each encoding
 control only in Rust codecs that implement its behavior.
 
-## Proposed integration points
+## Integration points and current implementation
 
-1. Keep `asn1p_parse_file()`, module merging, standard namespace setup, and
-   `asn1f_process()` in `asn1c/asn1c.c`. No Rust parser or second semantic
-   fixer is proposed.
-2. Extract language-option parsing and compile dispatch before modifying the
-   large CLI `main()` in [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L107). Keep each
-   changed critical callable at or below 200 lines and McCabe complexity 20.
-   Split pre-existing oversized callables that must change; do not waive the
-   source limits or broaden this into unrelated cleanup. Preserve C behavior
-   with existing regressions.
-3. Add a target selection value to compiler options and pass it into
-   `asn1_compile()`. Replace the unconditional C selection with an early
-   backend selection and capability-validation step.
-4. Keep existing C callback registration, C naming, streams, skeleton copying,
-   Makefile output, and generated files on the C path.
-5. Add Rust-specific lowering and writing code in
+1. `asn1p_parse_file()`, module merging, standard namespace setup, and
+   `asn1f_process()` remain in `asn1c/asn1c.c`. The Rust backend receives the
+   fixed tree; it does not parse ASN.1 or run a second fixer.
+2. The CLI parses `--rust` in bounded option helpers, validates target-specific
+   flags before generation, resolves the runtime, and calls
+   `asn1_compile_with_target()`. The C target remains the default. Functions
+   changed for this work are kept within the repository's size and complexity
+   limits, including extracted helpers for prior oversized callables.
+3. `asn1compiler.h` now defines the target options structure. The public
+   `asn1_compile()` API is a compatibility wrapper selecting C; the new
+   `asn1_compile_with_target()` dispatches to Rust or the unchanged C pipeline.
+4. Existing C callback registration, C naming, streams, skeleton copying,
+   Makefile output, and generated files remain on the C path.
+5. The Rust lowering and writer now live in
    `libasn1compiler/asn1c_rust.c` and `asn1c_rust.h`, registered in
-   `libasn1compiler/Makefile.am`. These are proposed filenames, not existing
-   files. Lower the fixed AST into a checked representation before writing.
-6. Add runtime crate sources under `rust/asn1c-runtime/` and include
-   them in Automake distribution and package-data installation. Resolve these
-   sources independently of `-S`, which currently names the directory used
-   for C skeletons and standard ASN.1 modules.
-7. Give Rust its own identifier sanitizer and collision checker. Keep ASN.1
-   names in diagnostics and retain a deterministic mapping from ASN.1 module,
-   type, and member names to Rust paths.
-8. Add a generated-crate test harness under a Rust compiler test directory.
-   It should invoke the built compiler, use offline Cargo when dependencies
-   are local or vendored, and inspect outputs. Existing parser/fixer tests
-   remain shared; C output tests remain
-   the regression gate for the default target.
+   `libasn1compiler/Makefile.am`. It validates the fixed tree before staging
+   output. The current gate accepts top-level BOOLEAN, NULL, and bounded,
+   nonextensible INTEGER whose complete range fits `i64`.
+6. Runtime sources now live under `rust/asn1c-runtime/` and are included in
+   Automake distribution and package-data installation. The CLI resolves the
+   runtime separately from `-S`, which still selects C skeletons and standard
+   ASN.1 modules.
+7. Rust has a bounded identifier sanitizer and collision checker. Diagnostics
+   retain source module/type names and line numbers. The initial slice has no
+   member paths because it rejects constructed types.
+8. The generated-crate harness lives under
+   `tests/tests-rust-compiler/`. It invokes the built compiler and checks the
+   staged Cargo project. The first runtime has no third-party dependencies;
+   future offline builds require all dependencies to be local or vendored.
+   Existing parser/fixer tests remain shared; C output tests remain the
+   regression gate for the default target.
 
-The backend contract should be deliberately small: accept the fixed tree and
-resolved compiler options; report supported codecs and schema features; build
-the backend's checked representation; calculate its complete output manifest;
-then write a staged output tree or return a diagnostic. Do not generalize the
-existing `OUT()` macros or C stream enum into a universal text-emission system.
-Freeze shared headers, manifest wiring, CLI, and build hooks under Sol's
-ownership. Codec work should use exclusive runtime and generator paths and the
-reviewed runtime API; send shared-interface changes to Sol for serial
-integration before dependent work continues. Before handoff, check every
-changed callable against the project's length and complexity limits and split
-pre-existing oversized functions that the work must modify.
+The backend contract remains deliberately small: accept the fixed tree and
+resolved target options; validate supported codecs, schema features, names,
+and output paths; then stage the complete crate or return a diagnostic. Do not
+generalize the existing `OUT()` macros or C stream enum into a universal
+text-emission system. The first supported tree is validated before the writer
+creates any files.
 
 ## Generated crate layout
 
-Use one generated crate rooted at the requested destination directory:
+The current writer creates one crate at the requested destination directory:
 
 ```text
-  Cargo.toml                 # edition = "2021"
-Cargo.lock                 # policy is frozen in M0
-src/lib.rs
-src/asn1/mod.rs
-src/asn1/<module>.rs
-  runtime/Cargo.toml         # package = "asn1c-runtime"
+Cargo.toml                  # package = "asn1c-generated", edition 2021
+src/lib.rs                  # declares each generated module
+src/<module>.rs             # one normalized file per ASN.1 module
+runtime/Cargo.toml          # package = "asn1c-runtime"
 runtime/src/lib.rs
-runtime/src/<runtime modules>.rs
+.asn1c-rust-files            # exact generated-file ownership manifest
 ```
 
-Copy only the required runtime sources and preserve their license notices.
-The `Cargo.toml` declares a local path dependency on the copied runtime crate
-at `rust/asn1c-runtime/`. Generated code imports it as `asn1c_runtime`. The
-crate root re-exports generated ASN.1 modules. One Rust source module per ASN.1
-module keeps imports and repeated type names unambiguous. Generated file names
-use a Rust-specific sanitizer; collisions after sanitization must
-be detected before output. A stable suffix derived from the full ASN.1 module
-identity may disambiguate module file names, but the user-facing Rust module
-path should remain predictable and be recorded in the manifest.
+The writer copies `Cargo.toml`, `README.md`, `LICENSE`, and `src/lib.rs` from
+the runtime and records them in the local path dependency `runtime`. Generated
+code imports the runtime as `asn1c_runtime`. The crate root declares one Rust
+module per ASN.1 module. The first sanitizer bounds identifiers to 80 bytes,
+prefixes Rust keywords and reserved module filenames, and rejects collisions
+after normalization. Imports and repeated type names remain unsupported in
+this initial slice.
 
-Calculate the full output manifest before writing. Refuse an unmarked
-destination that contains user files at managed paths. Stage the complete
-crate, then publish it only after generation succeeds. For regeneration, use a
-manifest to identify the old crate's owned files, preserve unrelated files,
-and clean stale generated files through a documented replacement procedure.
-Failure cleanup must leave either the old crate or the complete new crate.
+The writer stages the complete crate before publication. A destination must
+be empty or contain a valid generator ownership manifest and exactly the files
+it lists. Existing unowned files, symlinks, malformed manifests, Cargo build
+artifacts, and `Cargo.lock` cause refusal; the generator preserves them. A
+valid prior generated crate is replaced as a unit after staging succeeds.
+Failure cleanup keeps the old crate or publishes the complete new crate.
 
 The local runtime copy isolates generated crates from a globally installed
 runtime update. Start with no runtime dependencies if the first slice can meet
@@ -220,7 +214,7 @@ integer-width heuristics.
 | --- | --- | --- |
 | BOOLEAN | generated public newtype over `bool` | The codec validates the encoded form. |
 | NULL | generated unit struct | The codec still validates the encoded NULL form. |
-| INTEGER | bounded `i64` newtype or runtime `Integer` | Select width from schema bounds; use arbitrary precision otherwise. |
+| INTEGER | bounded `i64` newtype or runtime `Integer` | Use schema bounds; arbitrary precision otherwise. |
 | ENUMERATED | generated enum | Extensible types need an unknown numeric variant. |
 | REAL | runtime `Real` | Must preserve special values and source precision; `f64` alone is insufficient. |
 | BIT STRING | runtime `BitString` | Store bytes and bit length; validate unused bits and size. |
@@ -236,13 +230,13 @@ integer-width heuristics.
 | Type reference | module-qualified reference | Use public newtypes for aliases that add constraints or API identity. |
 | ANY / open type | runtime `OpenType` or generated typed enum | Preserve unknowns; use IOC metadata when resolved. |
 
-The first generated UPER slice has a narrower frozen contract. It supports
-BOOLEAN as a public newtype over `bool`, NULL as a public unit struct, and
-bounded nonextensible INTEGER as a public newtype over `i64`. The INTEGER
-range must fit `i64`; its generated checked `new(value)` validates the schema
-bounds. Reject every other ASN.1 type or unsupported combination before
-creating the crate. Add ENUMERATED, OCTET STRING, and BIT STRING only after
-their bounded forms and malformed inputs are safely covered.
+The current generated UPER slice supports BOOLEAN as a public newtype over
+`bool`, NULL as a public unit struct, and a bounded, nonextensible INTEGER as
+a public newtype over `i64`. INTEGER must have one effective finite PER range
+that fits `i64`; `new(value)` returns `Result` and checks that range. The
+BOOLEAN constructor is infallible. Reject aliases, imports, tags, constructed
+types, unsupported constraints, and all other types before creating output.
+ENUMERATED, OCTET STRING, and BIT STRING remain future increments.
 
 Use a safe, `std`-only runtime crate at `rust/asn1c-runtime/`, package name
 `asn1c-runtime`, import name `asn1c_runtime`, and Cargo edition 2021. Make no
@@ -251,8 +245,8 @@ MSRV claim beyond the Rust toolchain actually tested. Its initial public API is
 `Encoded { bytes: Vec<u8>, bit_len: usize }`, and
 `Decoded<T> { value, consumed_bits, consumed_bytes }`; `Decoded::map` transforms
 a decoded value without changing consumption. `Encoded.bit_len` records
-meaningful bits. For NULL and any
-zero-width complete encoding, return `bytes == [0]` and `bit_len == 0`.
+meaningful bits. For NULL and any zero-width complete encoding, return
+`bytes == [0]` and `bit_len == 0`.
 
 The primitive functions have these signatures:
 
@@ -274,15 +268,15 @@ byte consumption. Preserve the current C PER decoder's acceptance of nonzero
 low-order padding bits; do not turn that behavior into strict padding
 validation in the initial slice.
 
-The initial runtime API uses bounded `Limits` for input bytes, output bytes,
-and work bits. Every generated encode/decode path receives these limits, and
-nested decoders share the same bounded work accounting. Choose finite defaults
-with rationale and tests; callers can supply tighter limits. Check arithmetic
-and limits before advancing, accumulating, allocating, or sorting. Input-driven
-allocation must be fallible, and malformed input must return typed errors
-without input-driven panics. Safe Rust cannot guarantee that every process-level
-allocation failure avoids aborting; document residual limits and review
-recursion, cloning, formatting, and teardown behavior.
+The runtime uses bounded `Limits` for input bytes, output bytes, and work bits.
+Defaults are 1 MiB for each byte limit and 8 MiBits for work. Every generated
+encode/decode path receives these limits. Callers can tighten them. Check
+arithmetic and limits before advancing,
+accumulating, allocating, or sorting. Input-driven allocation must be fallible,
+and malformed input must return typed errors without input-driven panics. Safe
+Rust cannot guarantee that every process-level allocation failure avoids
+aborting; document residual limits and review recursion, cloning, formatting,
+and teardown behavior.
 
 ## Semantic lowering requirements
 
@@ -333,66 +327,61 @@ recursion, cloning, formatting, and teardown behavior.
   specialization with deterministic names and diagnostics for unsupported
   unresolved parameters.
 
-The decode API must distinguish complete-message decoding from prefix or
-incremental decoding. Incomplete input and malformed input are different
-results. Report PER consumption in bits and other consumption in the relevant
-byte or text unit. Nested decoders must share one budget and incremental state
-must not trigger repeated unbounded reparsing. Freeze these interfaces after a
-small M0 prototype and review.
+Complete-message and prefix decoding must report distinct consumption
+semantics. Report PER consumption in bits and other consumption in the relevant
+byte or text unit. Full resumable PER sessions are optional unless the C
+coverage ledger identifies a supported behavior that requires them. If a
+streaming API is added, incomplete and malformed input must remain distinct,
+nested decoders must share one budget, and resumed work must remain bounded.
 
 ## CLI behavior and diagnostics
 
-Add one major selector, `--rust`, for the complete Rust generation path:
-generated types, codec implementations, runtime assets, writer, and Cargo
-project. Omitting it must retain the existing C target and its behavior. The
-current CLI uses `getopt()` at [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L130) and
-does not define long options, so add exact `--rust` parsing in the extracted
-target-option and dispatch helpers. Do not overload the `-l` convention used
-for existing `-gen-*` tokens.
+The CLI has one major selector, `--rust`, for the complete Rust path: generated
+types, codecs, runtime assets, writer, and Cargo project. Omitting it keeps the
+C target and its defaults. Exact `--rust` parsing is extracted from the short
+option parser; the option is recognized only before `--`. It cannot be used as
+the operand of `-D` or `-S`. Existing `-gen-*` spellings remain unchanged.
 
-Keep C compiler defaults unchanged. Rust derives its default codec set from
-Rust-qualified implementations, starting with UPER; it must not inherit the
-C driver's all-codecs mask. Track explicit `-gen-*` requests separately from
-that default so an explicit request for an unsupported codec gets a precise
-error. `-no-gen-*` removes a codec from the qualified default. If that leaves
-no codec selected, fail instead of writing a type-only crate. As each codec is
-qualified, add it to the Rust default until that default covers the current C
-codec set. The `--rust` option alone must work without another codec flag.
+Rust defaults independently to its qualified codecs. In this first slice,
+`--rust` alone selects UPER. Explicit `-gen-BER`, `-gen-APER`, `-gen-OER`,
+`-gen-XER`, `-gen-JER`, or `-gen-CBOR` requests fail before output is created.
+Explicitly disabling UPER also fails rather than writing a type-only crate.
+As codecs are qualified, add them
+to the Rust default until it covers the current C codec set. The CLI keeps the
+C defaults unchanged.
 
 Validate all flags and the complete schema before creating output files. An
-unsupported CLI combination should be an `EX_USAGE` diagnostic; an unsupported
-ASN.1 feature should be an input diagnostic with module, type, source line,
-codec, and feature. Do not silently ignore a C-specific option or emit a Rust
+unsupported CLI combination is an `EX_USAGE` diagnostic; an unsupported
+ASN.1 feature produces a module/type/source-line diagnostic. Do not silently
+ignore a C-specific option or emit a Rust
 `compile_error!` placeholder in generated output. Keep the existing exit-status
-categories documented in [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L793).
+categories documented in [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L148).
 
-The option capability table should initially classify flags as follows:
+The current Rust option handling is:
 
 | Option family | Rust handling |
 | --- | --- |
-| `-D`, `-pdu`, `-fgen-only-pdu-deps`, `-flist-deps` | Preserve where the generated crate meaning is defined. |
-| `-gen-*`, `-no-gen-*` codecs | Support per codec; reject requested unsupported codecs or schema features. |
-| C storage flags such as `-fwide-types`, `-flong-size`, `-finteger-native-type` | Reject as C-only. |
-| C layout/output flags such as `-findirect-choice`, `-funnamed-unions`, `-fno-include-deps` | Reject as C-only. |
-| `-S` | Keep as the C skeleton/standard-module directory; Rust uses its installed runtime assets. |
-| `-P`, `-R`, C helper/example flags | Reject until Rust-specific semantics are defined. |
-| parser/fixer flags and `-E` / `-F` | Preserve because they run before backend selection. |
+| `-D` | Selects the output directory; Rust defaults to `asn1c-rust`. |
+| `-gen-*`, `-no-gen-*` | UPER is qualified; other explicit codec requests fail. |
+| C storage/layout/output flags | Fail as incompatible with `--rust`. |
+| `-S` | Selects standard modules and resolves the matching runtime assets. |
+| `-P`, `-R`, C helper/example flags | Fail as incompatible with `--rust`. |
+| parser/fixer options | Apply before backend selection where supported. |
+| `-E`, `-F`, `-X` | Fail because they select inspection or printing output. |
 
-Where a shared option affects only C code generation, explicitly classify it
-as C-only instead of treating it as a harmless no-op. Add CLI tests for the
-default C target, `--rust` alone, Rust defaults as qualified codecs grow,
-explicit unsupported codec requests, disabled codecs, no-codec selection,
-C-only options under Rust, unsupported schema features, and diagnostics before
-any files are written.
+Where a shared option affects only C code generation, reject it rather than
+treating it as a harmless no-op. The CLI tests cover the default C target,
+`--rust` alone, unsupported codec requests, C-only options, unsupported schema
+features, and refusal before any files are written.
 
 ## Build, packaging, and tests
 
-Add runtime sources to the Automake distribution and package data. Build-time
-tests should use the compiler-built crate generator and configured runtime
-source directory. Generated output
-should contain only the runtime modules required by selected codecs and schema.
-The first slice should need no external crates. Review and vendor later
-dependencies with local Cargo configuration before claiming offline builds.
+Automake distributes and installs the Rust runtime sources. The CLI resolves
+the source runtime alongside `-S`, or the installed runtime beneath the
+configured data directory. The compiler integration harness uses the built
+CLI and a local temporary output directory. The first runtime has no
+third-party crates, and the generated copy passes an offline Cargo test.
+Review later dependencies and vendor all sources before claiming offline builds.
 
 For each feature increment, test three layers:
 
@@ -413,12 +402,13 @@ For each feature increment, test three layers:
    evidence of standards correctness; include normative vectors and boundary
    cases.
 
-Put Rust integration scripts in a separate test directory and register them in
-Automake's `TESTS`. Dedicated Rust CI must exercise them; Cargo stays optional
+Rust integration scripts are in `tests/tests-rust-compiler/` and are registered
+in Automake's `TESTS`. Dedicated Rust CI exercises them; Cargo remains optional
 for C-only builds. Record vector provenance and semantic differences in
-fixtures. The M0 ledger maps each
-relevant C schema/test to its Rust counterpart, codec, direction, variant,
-constraints, extension policy, result, or source-backed exclusion.
+fixtures. The M0 ledger maps each relevant C schema/test to its Rust
+counterpart, codec, direction, variant, constraints, extension policy, and
+result. Exclusions require evidence that the C behavior is unsupported or has
+a source-backed limit.
 
 ## Implementation supervision and ownership
 
@@ -431,31 +421,30 @@ names the supported matrix, dependencies, owned paths, reference rules and
 fixtures, required negative cases, commands, and evidence. See the detailed
 [stage-one plan](stage-one-plan.md) for the assignment template and owners.
 
-Keep `--rust` opt-in and C behavior on the existing path. Once a Rust codec is
-qualified, `--rust` alone must generate the qualified default set. If an
-explicitly requested codec or schema feature is not implemented, fail before
-publishing any crate. Do not expose a user-facing type-only crate as a
-fallback. M1 may test writer plumbing internally; M2 is the first generated
-UPER slice.
+Keep `--rust` opt-in and C behavior on the existing path. `--rust` alone
+currently generates UPER for the qualified primitive slice. Explicitly
+requested codecs and unsupported schema features fail before publishing a
+crate. Do not expose a user-facing type-only crate as a fallback. The first
+generated UPER slice is present; it is not full M2 qualification.
 
 ## Milestones and completion gates
 
 1. **M0, baseline and contracts:** Build a coverage ledger for existing C
    codec/type/direction/variant behavior and applicable tests. Freeze integer,
    bit-string, error, cursor, constraint, tag, codec-context, unknown-extension,
-   resource-budget, and generator/writer contracts. Prototype streaming and
-   consumption semantics. Use Cargo edition 2021. Select dependencies and
-   finite default limits with evidence; make no MSRV claim beyond tested
+   resource-budget, and generator/writer contracts. Freeze prefix-consumption
+   semantics; prototype resumable streaming only if the coverage ledger needs
+   it. Use Cargo edition 2021. Select dependencies and finite default limits
+   with evidence; make no MSRV claim beyond tested
    toolchains.
-2. **M1, foundation and harness:** Add `--rust` selection and capability
-   diagnostics, name/path validation, a checked semantic representation,
-   staged Cargo output, local runtime packaging, and generated-crate tests.
-   Test that explicitly unsupported codec requests fail without publishing
-   partial output. Keep Cargo optional for C-only builds and preserve C tests.
-3. **M2, first UPER slice:** Support NULL, BOOLEAN, and bounded INTEGER whose
-   declared range fits the selected Rust representation. Add nonextensible
-   ENUMERATED, bounded OCTET STRING, and BIT STRING only when their bounds and
-   malformed-input behavior are safely covered. Include a
+2. **M1, foundation and harness:** The target flag, capability diagnostics,
+   name/path validation, staged Cargo output, local runtime packaging, and
+   generated-crate harness are implemented. Complete negative, regeneration,
+   install, and platform qualification as part of the stage gates.
+3. **M2, first UPER slice:** The current slice supports NULL, BOOLEAN, and
+   bounded nonextensible INTEGER whose effective range fits `i64`. Extend it
+   with nonextensible ENUMERATED, bounded OCTET STRING, and BIT STRING only
+   when bounds and malformed-input behavior are safely covered. Include a
    small SEQUENCE only after field traversal is reviewed. Test bit consumption,
    truncation, bound edges, invalid application values, and small budgets.
    Compare Rust/C in both directions, use independent vectors, and provide
@@ -466,11 +455,10 @@ UPER slice.
    extensions, and recursion. Complete imports, aliases, parameterized
    specializations, constraints, PDU dependencies, IOC tables, and open types
    in bounded feature assignments.
-5. **M4, BER/DER and OER:** Add BER decoding, DER encoding, BER TLV and length
-   handling, constructed strings, canonical ordering, and OER encode/decode.
-   Qualify supported basic and canonical variants independently. Add the
-   advertised BER-backed decode path for CER-compatible input, correcting the
-   `ATS_CER` dispatch mismatch and converter selector with regression tests.
+5. **M4, BER/DER and OER:** Add Rust BER decoding, DER encoding, BER TLV and
+   length handling, constructed strings, canonical ordering, and OER
+   encode/decode. Qualify supported basic and canonical variants independently.
+   Preserve the existing C BER-backed decode path for CER-compatible input.
    This means permissive BER decoding only; there is no CER encoder or strict
    CER canonical validator in the current C API to port.
 6. **M5, XER/JER/CBOR:** Add bounded tokenization, escaping, names, supported
@@ -483,8 +471,9 @@ UPER slice.
    and supported behavior cell. Investigate every gap and record source-backed
    exclusions. Test feature combinations, strict/compatible extension policy,
    Rust toolchains, platforms, packaging, VPATH, output paths with spaces,
-   streaming, budgets, teardown, fuzz regressions, and generated projects from
-   installed and distribution artifacts. Add a Rust converter/example for
+   prefix consumption, any supported streaming mode, budgets, teardown, fuzz
+   regressions, and generated projects from installed and distribution
+   artifacts. Add a Rust converter/example for
    interoperability workflows. Test Linux and macOS, and a 32-bit target when
    an executable runner is available. Keep utility APIs idiomatic; do not clone
    each C helper signature. Useful display support and Rust-native randomized
@@ -493,13 +482,13 @@ UPER slice.
 Milestones are ordered by dependency, and all codec families remain in scope.
 A codec-feature pair is qualified only when its runtime, generator, errors,
 generated-crate tests, policy tests, and interoperability evidence pass. The
-stage is incomplete while any applicable C cell lacks a Rust counterpart or a
-reviewed, source-backed exclusion.
+Every C-supported behavior cell needs a Rust counterpart. Exclusions are
+allowed only for C-unsupported behavior or a source-backed C limitation.
 
 ## Open implementation questions
 
-- What finite defaults should `Limits` use, and how can generated methods let
-  callers configure them?
+- Should finite default limits change as codec and constructed-type support
+  grows, and what tests would justify an adjustment?
 - Which Rust toolchains can CI test, and what licensing checks are required
   for the runtime and generated projects?
 - Which dependencies, if any, are needed for bigint, XML, JSON, or CBOR support,
@@ -515,8 +504,9 @@ reviewed, source-backed exclusion.
 
 ## Source map
 
-The line references above describe baseline commit
-`5a0ccf24ede9b176e8fd76861bf4855ed95f5105`. The fixed expression model and
+The baseline records the code-generation audit starting point. File anchors
+above refer to the checked-out source tree and may need refreshing on another
+revision. The fixed expression model and
 its fields for constraints, tags, markers, encoding controls, modules, and
 object tables are in [`asn1p_expr.h`](../../libasn1parser/asn1p_expr.h#L116) and
 [`asn1p_module.h`](../../libasn1parser/asn1p_module.h#L46). The callback table

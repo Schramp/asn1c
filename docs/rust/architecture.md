@@ -1,6 +1,6 @@
 # ADR: Generate Rust codecs while retaining the C frontend
 
-**Status:** Proposed architecture; scope confirmed by the user.
+**Status:** Accepted conversion direction; initial primitive UPER slice implemented.
 **Date:** 2026-10-11.
 **Deciders:** Repository maintainer; Sol supervises Luna implementation agents.
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`.
@@ -45,7 +45,8 @@ and encoding-control interpretation. Keep backend emission and output packaging
 separate. Extract small language-neutral semantic helpers where existing helpers
 combine semantic analysis with C emission; do not make Rust parse generated C.
 
-Create a native Rust runtime at the proposed path `rust/asn1c-runtime/`. It
+Create a native Rust runtime at `rust/asn1c-runtime/`. The first primitive
+UPER implementation is present; remaining coverage is a conversion target. It
 implements the behavior of `skeletons/` without calling C codecs. Keep the C
 runtime as the compatibility baseline and differential test participant.
 Generated Rust should use typed structs/enums, checked semantic metadata, and

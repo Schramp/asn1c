@@ -3,6 +3,7 @@
 SUBDIRS = \
     tests-asn1c-compiler    \
     tests-skeletons         \
+    tests-rust-compiler     \
     tests-asn1c-smoke       \
     tests-c-compiler        \
     tests-randomized        \

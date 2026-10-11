@@ -1,0 +1,60 @@
+name: Rust backend
+
+on:
+  push:
+    branches: [ vlm_master ]
+  pull_request:
+    branches: [ vlm_master ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generated-codecs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select the Rust toolchain
+        run: |
+          rustup default stable
+          rustup component add rustfmt clippy
+          rustc --version
+          cargo --version
+      - name: Build the compiler
+        run: |
+          autoreconf -ivf
+          ./configure --disable-test-fuzzer
+          make -j"$(nproc)"
+      - name: Check the safe runtime
+        run: |
+          cargo fmt --manifest-path rust/asn1c-runtime/Cargo.toml --check
+          cargo test --offline --manifest-path rust/asn1c-runtime/Cargo.toml
+          cargo clippy --offline --manifest-path rust/asn1c-runtime/Cargo.toml --all-targets -- -D warnings
+      - name: Check generated codecs and CLI failures
+        run: |
+          command -v cargo
+          command -v rustc
+          make -C tests/tests-rust-compiler check
+      - name: Verify installed runtime packaging
+        run: |
+          make install DESTDIR="$RUNNER_TEMP/asn1c-install"
+          mkdir "$RUNNER_TEMP/asn1c-rust-output"
+          printf 'Install DEFINITIONS ::= BEGIN Flag ::= BOOLEAN END\n' > "$RUNNER_TEMP/install.asn1"
+          "$RUNNER_TEMP/asn1c-install/usr/local/bin/asn1c" --rust \
+            -S "$RUNNER_TEMP/asn1c-install/usr/local/share/asn1c" \
+            -D "$RUNNER_TEMP/asn1c-rust-output" "$RUNNER_TEMP/install.asn1"
+          cargo check --offline --manifest-path "$RUNNER_TEMP/asn1c-rust-output/Cargo.toml"
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rust-test-logs
+          if-no-files-found: ignore
+          path: |
+            config.log
+            tests/tests-rust-compiler/*.log

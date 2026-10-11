@@ -1,4 +1,10 @@
 Changes since v1.5.3:
+	* Added --rust as a complete output mode with native safe Rust UPER codecs
+	  for BOOLEAN, NULL, and finite nonextensible INTEGER ranges fitting i64.
+	  Generated Cargo packages include a dependency-free Rust runtime. Added
+	  resource limits, checked errors, output ownership checks, C comparison
+	  tests, Rust CI, and runtime source installation. Other Rust codecs and
+	  ASN.1 type families remain incremental conversion work.
 	* Routed generic CER decoding to the existing BER decoder and added DER
 	  and CER input aliases to generated converters. CER encoding remains
 	  unsupported. Added binary dispatch, malformed-input, segmented CER,
@@ -6,7 +12,8 @@ Changes since v1.5.3:
 	* Documented the proposed first stage of Rust conversion: an opt-in Rust
 	  generation backend, a safe Rust runtime for all current codec families,
 	  test migration, and supervised implementation milestones. This change
-	  adds planning documentation only; Rust generation is not implemented.
+	  initially added planning documentation; the first implementation is
+	  described above.
 	* Fixed an assertion when parsing nested constrained SEQUENCE OF and SET OF
 	  types. Element constraints now pass through nested collections while SIZE
 	  constraints remain attached to their collections. Added issue #575 coverage.

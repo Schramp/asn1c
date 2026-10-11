@@ -1,0 +1,11 @@
+[package]
+name = "asn1c-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Safe Rust primitives for generated ASN.1 codecs"
+readme = "README.md"
+license = "BSD-2-Clause"
+
+[lib]
+name = "asn1c_runtime"
+path = "src/lib.rs"

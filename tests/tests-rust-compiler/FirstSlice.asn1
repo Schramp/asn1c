@@ -1,0 +1,15 @@
+FirstSlice DEFINITIONS ::= BEGIN
+
+Flag ::= BOOLEAN
+Empty ::= NULL
+Count ::= INTEGER (-10..10)
+Singleton ::= INTEGER (5..5)
+Wide ::= INTEGER (-9223372036854775808..9223372036854775807)
+
+Limits ::= BOOLEAN
+Error ::= NULL
+Decoded ::= INTEGER (0..1)
+Result ::= BOOLEAN
+Ok ::= BOOLEAN
+
+END

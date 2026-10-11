@@ -2,8 +2,11 @@
 
 Status: planning document for baseline
 `5a0ccf24ede9b176e8fd76861bf4855ed95f5105` (2026-10-11). The Rust runtime
-and test targets do not exist at this baseline. Future Rust commands below are
-acceptance targets, not commands verified today.
+and test targets did not exist at that baseline. The initial primitive UPER
+implementation now has runtime unit tests and a
+[generated-code integration harness](../../tests/tests-rust-compiler/README.md).
+Commands and coverage for additional codec families below remain acceptance
+targets. See the [first implementation](implementation.md) for current limits.
 
 ## Scope and ownership
 
@@ -17,7 +20,7 @@ Runtime unit tests own codec algorithms, primitive operations, constraints,
 error handling, and resource limits. Test resumable input only for APIs that
 currently support it or for a separately approved Rust interface. The generated
 Rust harness owns schema-to-codegen-to-runtime behavior. Reuse schemas and
-vectors and invoke the proposed `--rust` backend when it exists.
+vectors and invoke the `--rust` backend within its supported subset.
 
 Keep the C implementation as the comparison implementation throughout the
 migration. It is not the protocol oracle. Treat any C/Rust disagreement as a

@@ -139,10 +139,15 @@ for a short installation guide.
 
 ## Documentation
 
-The proposed first stage of Rust conversion is documented in
-[docs/rust/](docs/rust/README.md): a Rust output backend, a safe Rust runtime,
-and migration of the applicable codec tests, with supervised implementation
-milestones. This is a plan; Rust code generation is not yet implemented.
+`--rust` selects native Rust output as a complete compiler mode. The initial
+implementation generates a standalone Cargo package with safe, dependency-free
+UPER codecs for BOOLEAN, NULL, and finite nonextensible INTEGER ranges fitting
+`i64`. Unsupported schemas, codec requests, and C-specific output options fail
+with diagnostics. Build the generated package with Cargo in offline mode.
+
+See [the initial implementation](docs/rust/implementation.md) for usage and
+limits, and [the conversion plan](docs/rust/README.md) for incremental delivery
+of all current codec families and test migration.
 
 For the list of asn1c command line options, see `asn1c -h` or `man asn1c`.
 

@@ -1,0 +1,8 @@
+CParity DEFINITIONS ::= BEGIN
+
+Flag ::= BOOLEAN
+Empty ::= NULL
+Count ::= INTEGER (-10..10)
+Singleton ::= INTEGER (5..5)
+
+END
