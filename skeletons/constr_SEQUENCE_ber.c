@@ -540,6 +540,15 @@ SEQUENCE_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
                 RETURN(RC_FAIL);
             }
 
+            if(!ctx->context && specs->first_extension >= 0
+               && _tag_in_trailing_optionals(specs, elements, tlv_tag)) {
+                ASN_DEBUG("Tag %s repeats a component before the "
+                          "extension marker in %s",
+                          ber_tlv_tag_string(tlv_tag), td->name);
+                RETURN(RC_FAIL);
+            }
+            ctx->context = 1;  /* First extension addition seen */
+
             ll = ber_skip_length(opt_codec_ctx,
                                  BER_TLV_CONSTRUCTED(ptr),
                                  (const char *)ptr + tl, LEFT - tl);
