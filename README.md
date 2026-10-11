@@ -71,7 +71,7 @@ Encoding       | API function               | Understood by | API function
 -------------- | -------------------------- | ------------- | -------------
 BER            | der_encode()               | BER           | ber_decode()
 DER            | der_encode()               | DER, BER      | ber_decode()
-CER            | _not supported_            | CER, BER      | ber_decode()
+CER            | _encoding not supported_   | CER, BER      | ber_decode()
 BASIC-OER      | oer_encode()               | *-OER         | oer_decode()
 CANONICAL-OER  | oer_encode()               | *-OER         | oer_decode()
 BASIC-UPER     | uper_encode()              | *-UPER        | uper_decode()
@@ -87,6 +87,17 @@ CBOR           | cbor_encode()              | CBOR          | cbor_decode()
 *) Asterisk means both BASIC and CANONICAL variants. JER-MINIFIED produces
 whitespace-free JSON, and `jer_decode()` accepts either JER form.
 </details>
+
+CER decoding is supported by the BER decoder, including indefinite-length
+constructed values and segmented strings. `asn_decode(ATS_CER, ...)` uses that
+same decoder; CER encoding is not implemented. DER and CER input selectors
+accept BER-compatible input and do not independently enforce all canonical
+restrictions. The generated converter accepts `-iber`, `-ider`, and `-icer`.
+
+Basic/canonical OER, UPER, and APER selectors share each family's decoder;
+CBOR has its own encoder and decoder. Support still depends on the generated
+type's codec operations and enabled codec families. See the
+[binary codec audit](docs/binary-codec-support.md) for dispatch details and limits.
 
 ## XER and JER Encoding Instructions
 

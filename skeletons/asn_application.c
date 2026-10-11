@@ -500,6 +500,24 @@ asn_encode_internal(const asn_codec_ctx_t *opt_codec_ctx,
     return er;
 }
 
+/*
+ * Purpose: Dispatch a transfer-syntax decode to its generic codec.
+ * Original source: Existing asn1c generic dispatcher; no external code copied.
+ * Version/date: Updated 2026-10-11; baseline 5a0ccf24ede9b176e8fd76861bf4855ed95f5105.
+ * Parameters:
+ *   opt_codec_ctx: Optional codec limits and decoding context.
+ *   syntax: Transfer syntax selecting the decoder.
+ *   td: Type descriptor for the value to decode.
+ *   sptr: Address of the target value pointer, possibly initially NULL.
+ *   buffer: Input bytes; may be NULL only when size is zero.
+ *   size: Number of available input bytes.
+ * Returns: RC_OK, RC_WMORE, or RC_FAIL and the number of bytes consumed.
+ * Errors/exceptions: Sets ENOENT for unsupported or disabled syntax; C has no
+ *   exceptions, and malformed or incomplete input is reported in the result.
+ * Author/responsible party: asn1c maintainers.
+ * History: 2026-10-11 routes ATS_CER through ber_decode when BER is enabled.
+ * Example: asn_decode(ctx, ATS_CER, &asn_DEF_Type, &value, input, input_size).
+ */
 asn_dec_rval_t
 asn_decode(const asn_codec_ctx_t *opt_codec_ctx,
            enum asn_transfer_syntax syntax, const asn_TYPE_descriptor_t *td,
@@ -509,7 +527,6 @@ asn_decode(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     switch(syntax) {
-    case ATS_CER:
     case ATS_NONSTANDARD_PLAINTEXT:
     default:
         errno = ENOENT;
@@ -535,6 +552,7 @@ asn_decode(const asn_codec_ctx_t *opt_codec_ctx,
 
     case ATS_DER:
     case ATS_BER:
+    case ATS_CER:
 #if !defined(ASN_DISABLE_BER_SUPPORT)
         return ber_decode(opt_codec_ctx, td, sptr, buffer, size);
 #else

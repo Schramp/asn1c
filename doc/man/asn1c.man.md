@@ -258,7 +258,7 @@ See the `asn1c-usage.pdf` for details.
 | -------------- | -------------------- | -------------- | -------------- |
 | BER | `der_encode()` | BER | `ber_decode()` |
 | DER | `der_encode()` | DER, BER | `ber_decode()` |
-| CER | *not supported* | CER, BER | `ber_decode()` |
+| CER | *encoding not supported* | CER, BER | `ber_decode()` |
 | BASIC-OER | `oer_encode()` | *-OER | `oer_decode()` |
 | CANONICAL-OER | `oer_encode()` | *-OER | `oer_decode()` |
 | BASIC-UPER | `uper_encode()` | *-UPER | `uper_decode()` |
@@ -270,6 +270,11 @@ See the `asn1c-usage.pdf` for details.
 | JER | `jer_encode()` | JER | `jer_decode()` |
 | JER-MINIFIED | `jer_encode()` | JER | `jer_decode()` |
 | CBOR | `cbor_encode()` | CBOR | `cbor_decode()` |
+
+CER decoding uses the shared BER decoder through `asn_decode(ATS_CER, ...)`.
+The generated converter accepts `-iber`, `-ider`, and `-icer`. These input
+selectors accept BER-compatible encodings and do not independently enforce
+canonical restrictions. There is no CER encoder.
 
 *) Asterisk means both BASIC and CANONICAL variants. Pass `XER_F_BASIC` or
 `XER_F_CANONICAL` to `xer_encode()` for the corresponding XER variant. Use

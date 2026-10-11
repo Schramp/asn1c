@@ -55,8 +55,9 @@ the README encoding table. Preserve known gaps such as PKIX JER open-type
 decoding. Record the repository's CBOR mapping explicitly; a generic CBOR parser
 does not establish ASN.1 mapping parity. For disputed standards behavior, inspect
 the governing primary text and record the rule separately from project policy.
-Record the `ATS_CER` header/dispatch discrepancy: the current generic decoder
-rejects it, so a dedicated CER decoder is outside the verified parity target.
+The binary audit corrected `ATS_CER` dispatch to the existing BER decoder.
+CER-compatible decoding is in scope; a CER encoder and strict canonical
+validation remain separate features without an implemented C baseline.
 
 ## Sol and Luna working agreement
 
@@ -140,8 +141,9 @@ fixtures and vectors so it can find errors without mirroring implementation.
 
 Keep the C frontend and C generation tests passing. Validate malformed schemas
 and option combinations; do not insert assertion-based failures for user input.
-Select the Rust target through `-lang=rust`; initially require an explicit
-qualified codec. The generated Cargo manifest uses a local copied runtime.
+Select the complete Rust generation mode through `--rust`; it defaults to
+currently qualified codecs. Explicit unsupported codec requests fail. The
+generated Cargo manifest uses a local copied runtime.
 
 **Exit:** Empty/minimal generated crates build; known unsupported schemas/codecs
 produce nonzero diagnostics without publishing incomplete output. C tests and
@@ -194,7 +196,8 @@ canonical-order, extension, and semantic tests; unsupported cells remain visible
 Port BER TLV parsing, definite/indefinite lengths, tag stacks, incremental state,
 constructed strings, and DER encoding/canonical ordering. Distinguish supported
 BER decoding from a dedicated strict DER decoder; the existing C API uses
-`ber_decode` for DER inputs. Reject CER support claims without implementation.
+`ber_decode` for DER and CER inputs. Preserve CER-compatible BER decoding and
+unsupported CER encoding; do not claim strict canonical validation.
 Port OER length and presence determinants, constraints, open types, and ordering.
 Qualify basic/canonical variants independently, including malformed encodings.
 

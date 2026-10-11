@@ -24,6 +24,7 @@ check_PROGRAMS =                \
     check-XER-CHOICE-formatting \
     check-JER                   \
     check-CBOR                  \
+    check-binary-dispatch       \
     check-OER-support           \
     check-OER-INTEGER           \
     check-OER-NativeEnumerated  \

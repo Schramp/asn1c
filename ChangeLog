@@ -1,4 +1,8 @@
 Changes since v1.5.3:
+	* Routed generic CER decoding to the existing BER decoder and added DER
+	  and CER input aliases to generated converters. CER encoding remains
+	  unsupported. Added binary dispatch, malformed-input, segmented CER,
+	  and generated-converter regression coverage; clarified codec support.
 	* Documented the proposed first stage of Rust conversion: an opt-in Rust
 	  generation backend, a safe Rust runtime for all current codec families,
 	  test migration, and supervised implementation milestones. This change

@@ -104,19 +104,18 @@ instead of inferring complete coverage from a family-level filename.
 | Codec family | Current modes | Main C source anchors |
 | --- | --- | --- |
 | BER / DER | BER decode; DER encode | ber_decoder.c, der_encoder.c |
-| CER | No decoder; selector returns ENOENT | asn_application.c |
+| CER | BER-compatible decode; encoding unsupported | ber_decoder.c |
 | PER | UPER / APER, each basic and canonical | per_*.c, uper_*.c, aper_*.c |
 | OER | Basic and canonical | oer_*.c |
 | XER | Basic and canonical | xer_*.c |
 | JER | Regular and minified | jer_*.c |
 | CBOR | CBOR | cbor_*.c |
 
-CER is a header/dispatch discrepancy. The ATS_CER comment says decode is
-supported, but asn_decode handles ATS_CER by returning ENOENT
-(skeletons/asn_application.c:503-516). README.md also lists CER as
-unsupported. Therefore CER has no verified C operation to port; test the
-existing unsupported-selector diagnostic and leave CER outside the parity
-matrix.
+The binary audit corrected the earlier CER conclusion. Direct ber_decode
+already accepts CER-compatible input, and the dispatcher fix routes ATS_CER
+through it. Port that behavior to Rust, while keeping CER encoding unsupported.
+Neither DER nor CER selection alone provides a strict canonical validator.
+See [the binary audit](../binary-codec-support.md).
 
 The C encoder already exposes a byte callback, while decoder entry points accept
 input slices and return RC_OK, RC_WMORE, or RC_FAIL. Its codec context limits
@@ -229,7 +228,7 @@ the runtime buildable and should add its tests and support matrix entries.
 3. APER plus constructed and recursive types, including optional/default
    members, CHOICE, SET, OF collections, extensions, open types, and limits.
 4. Remaining BER/DER and OER families, including the supported BER behavior
-   and the CER unsupported-selector diagnostic.
+   and CER-compatible BER decoding; CER encoding remains unsupported.
 5. XER, JER, and CBOR. These may proceed in parallel after shared value,
    descriptor, error, and I/O interfaces stabilize.
 6. Parity qualification: close the type/syntax/direction matrix and qualify

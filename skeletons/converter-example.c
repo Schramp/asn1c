@@ -154,7 +154,11 @@ typedef struct {
 
 static syntax_selector input_encodings[] = {
     {"ber", ATS_BER, CODEC_OFFSET(ber_decoder),
-     "Input is in BER (Basic Encoding Rules) or DER"},
+     "Input is in BER, DER, or CER (BER-compatible decoding)"},
+    {"der", ATS_DER, CODEC_OFFSET(ber_decoder),
+     "Input is in DER (BER-compatible decoding, no canonical validation)"},
+    {"cer", ATS_CER, CODEC_OFFSET(ber_decoder),
+     "Input is in CER (BER-compatible decoding, no canonical validation)"},
     {"oer", ATS_BASIC_OER, CODEC_OFFSET(oer_decoder),
      "Input is in OER (Octet Encoding Rules)"},
     {"per", ATS_UNALIGNED_BASIC_PER, CODEC_OFFSET(uper_decoder),

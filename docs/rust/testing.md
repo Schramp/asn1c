@@ -17,7 +17,7 @@ Runtime unit tests own codec algorithms, primitive operations, constraints,
 error handling, and resource limits. Test resumable input only for APIs that
 currently support it or for a separately approved Rust interface. The generated
 Rust harness owns schema-to-codegen-to-runtime behavior. Reuse schemas and
-vectors and invoke the proposed `-lang=rust` backend when it exists.
+vectors and invoke the proposed `--rust` backend when it exists.
 
 Keep the C implementation as the comparison implementation throughout the
 migration. It is not the protocol oracle. Treat any C/Rust disagreement as a
@@ -61,11 +61,12 @@ canonical XER, JER, minified JER, and CBOR. Qualify each type/direction cell
 against actual descriptor operations and enabled features; a syntax enum or
 codec source file alone does not establish support.
 
-There is a specific CER discrepancy to preserve. `ATS_CER` is described in
-`asn_application.h` as decode-only, but the generic `asn_decode` switch in
-`asn_application.c` rejects it with `ENOENT`. Record the C decode cell as
-unsupported and add a dispatch regression for that result. Do not implement a
-CER decoder as part of this migration.
+The accompanying binary-dispatch regression corrects ATS_CER routing to the
+existing BER decoder. CER-compatible input decoding is in scope; test valid
+indefinite/segmented encodings, incomplete and malformed input, and the shared
+BER decoder's permissiveness. CER encoding remains unsupported. Do not equate
+selector acceptance with strict canonical validation. See
+[the binary audit](../binary-codec-support.md).
 
 CI runs GCC `make check`, `make distcheck`, and Clang sanitizer `make check`.
 Each configures with `--disable-test-fuzzer`. Normal CI therefore runs randomized

@@ -16,11 +16,13 @@ current output and option behavior. Add Rust as an opt-in target; its generator
 must produce Rust files and Cargo metadata through a Rust-specific writer and
 runtime rather than reuse the C source emitter or C skeleton dependency list.
 
-The target includes all current encoding families over time: BER/DER, UPER,
-APER, OER, XER, JER, and CBOR. During early Rust development, the user must
-select at least one codec explicitly. Each selected codec and requested schema
-feature must pass capability checks before any output is published. Once the
-Rust target is qualified, its default may enable every qualified codec.
+The target includes the current C codec families over time: BER decoding and
+DER encoding, UPER, APER, OER, XER, JER, and CBOR. Rust keeps the C target's
+codec defaults independent. `--rust` selects the Rust backend as a whole;
+starting with the first usable release, it emits every currently qualified
+Rust codec by default, beginning with UPER. An explicit existing codec request
+that Rust cannot satisfy must fail before output is published. As codecs are
+qualified, add them to the Rust default until it covers the C defaults.
 
 The generated crate includes a copy of the matching runtime sources under its
 own directory and refers to it with a Cargo path dependency. Both runtime and
@@ -30,6 +32,54 @@ without runtime dependencies if the first slice can meet its requirements;
 review any later bigint, XML, JSON, or CBOR dependency. Claim offline builds
 only when every dependency is included or vendored. A future shared-runtime
 option must validate a compatible runtime version and API.
+
+## C codec dispatch and converter inventory
+
+The C compiler defaults to its current codec family set in
+[`asn1c/asn1c.c`](../../asn1c/asn1c.c#L110). Its `-gen-*` parser supports BER,
+XER, JER, CBOR, OER, UPER, and APER; there is no `-gen-DER` or `-gen-CER`
+selector ([`asn1c/asn1c.c`](../../asn1c/asn1c.c#L257)). A generated type's
+operation table has separate decoder and encoder pointers for BER/DER, OER,
+UPER, APER, and CBOR, guarded by build feature macros and generation flags
+([`constr_TYPE.h`](../../skeletons/constr_TYPE.h#L200),
+[`asn1c_C.c`](../../libasn1compiler/asn1c_C.c#L3019)). Thus, codec coverage
+must be measured by type, direction, syntax variant, and feature, not by the
+presence of a family name alone.
+
+| C selector or syntax | Current dispatch and meaning |
+| --- | --- |
+| `-gen-BER`, `ATS_BER` / `ATS_DER` | BER decoder and DER encoder pointers; both labels dispatch through them. |
+| `ATS_CER` | `asn_decode` routes to the BER decoder; `asn_encode` rejects it. |
+| `ATS_BASIC_OER` / `ATS_CANONICAL_OER` | Both labels call the same OER encoder or decoder. |
+| UPER basic / canonical | Both labels call the same UPER encoder or complete decoder. |
+| APER basic / canonical | Both labels call the same APER encoder or complete decoder. |
+| `ATS_CBOR` | Calls the CBOR encoder or decoder when its feature is built. |
+
+These shared branches are in the generic transfer-syntax dispatcher at
+[`asn_application.c`](../../skeletons/asn_application.c#L285),
+[`asn_application.c`](../../skeletons/asn_application.c#L343),
+[`asn_application.c`](../../skeletons/asn_application.c#L473), and
+[`asn_application.c`](../../skeletons/asn_application.c#L536).
+
+The API table in [`README.md`](../../README.md#L70) advertises
+`ber_decode()` for BER, DER, and CER-shaped input, with no CER encoder. The
+generic syntax dispatcher now routes `ATS_CER` through the BER decoder
+([`asn_application.c`](../../skeletons/asn_application.c#L555)); the generated
+converter's `-icer` selector reaches the same decoder
+([`converter-example.c`](../../skeletons/converter-example.c#L160)). This
+provides BER-backed decoding, not strict CER canonical-form validation. CER
+encoding remains unsupported.
+
+The example converter's baseline inputs are BER, OER, PER/UPER, APER, XER,
+JER, and CBOR; outputs are DER, OER, PER/UPER, APER, XER, JER, CBOR, text,
+and null. The converter provides `ber`, `der`, and `cer` input aliases that
+invoke the BER decoder pointer, then call `asn_decode()`
+([`converter-example.c`](../../skeletons/converter-example.c#L155),
+[`converter-example.c`](../../skeletons/converter-example.c#L174),
+[`converter-example.c`](../../skeletons/converter-example.c#L827)). Its OER,
+PER, and APER output labels select canonical syntax values. The CER selector
+now works through the shared BER decoder route; it does not validate strict
+CER canonical form.
 
 ## Existing pipeline and backend coupling
 
@@ -123,18 +173,19 @@ pre-existing oversized functions that the work must modify.
 Use one generated crate rooted at the requested destination directory:
 
 ```text
-Cargo.toml
+  Cargo.toml                 # edition = "2021"
 Cargo.lock                 # policy is frozen in M0
 src/lib.rs
 src/asn1/mod.rs
 src/asn1/<module>.rs
-runtime/Cargo.toml
+  runtime/Cargo.toml         # package = "asn1c-runtime"
 runtime/src/lib.rs
 runtime/src/<runtime modules>.rs
 ```
 
 Copy only the required runtime sources and preserve their license notices.
-The `Cargo.toml` declares a local path dependency on the copied runtime. The
+The `Cargo.toml` declares a local path dependency on the copied runtime crate
+at `rust/asn1c-runtime/`. Generated code imports it as `asn1c_runtime`. The
 crate root re-exports generated ASN.1 modules. One Rust source module per ASN.1
 module keeps imports and repeated type names unambiguous. Generated file names
 use a Rust-specific sanitizer; collisions after sanitization must
@@ -167,9 +218,9 @@ integer-width heuristics.
 
 | ASN.1 form | Proposed Rust representation | Notes |
 | --- | --- | --- |
-| BOOLEAN | `bool` | Constraint checking remains codec/runtime behavior. |
-| NULL | `()` | The codec still validates the encoded NULL form. |
-| INTEGER | fixed-width or runtime `Integer` | Select width from schema bounds; use arbitrary precision otherwise. |
+| BOOLEAN | generated public newtype over `bool` | The codec validates the encoded form. |
+| NULL | generated unit struct | The codec still validates the encoded NULL form. |
+| INTEGER | bounded `i64` newtype or runtime `Integer` | Select width from schema bounds; use arbitrary precision otherwise. |
 | ENUMERATED | generated enum | Extensible types need an unknown numeric variant. |
 | REAL | runtime `Real` | Must preserve special values and source precision; `f64` alone is insufficient. |
 | BIT STRING | runtime `BitString` | Store bytes and bit length; validate unused bits and size. |
@@ -185,17 +236,53 @@ integer-width heuristics.
 | Type reference | module-qualified reference | Use public newtypes for aliases that add constraints or API identity. |
 | ANY / open type | runtime `OpenType` or generated typed enum | Preserve unknowns; use IOC metadata when resolved. |
 
-The runtime should include a bounded reader/writer abstraction, structured
-decode errors with offsets and paths, constraint errors, tag metadata, and
-codec-specific state. Every decode context must carry mandatory default
-budgets for depth, total input, allocation, collection items, extensions, and
-work. Nested and open-type decoders share those budgets; callers can configure
-them. Encoders also bound work and output. Defaults need rationale and tests.
-Check arithmetic and limits before advancing, accumulating, allocating, or
-sorting. Input-driven allocation must be fallible, and malformed input must
-return typed errors without input-driven panics. Safe Rust cannot guarantee
-that every process-level allocation failure avoids aborting; document residual
-limits and review recursion, cloning, formatting, and teardown behavior.
+The first generated UPER slice has a narrower frozen contract. It supports
+BOOLEAN as a public newtype over `bool`, NULL as a public unit struct, and
+bounded nonextensible INTEGER as a public newtype over `i64`. The INTEGER
+range must fit `i64`; its generated checked `new(value)` validates the schema
+bounds. Reject every other ASN.1 type or unsupported combination before
+creating the crate. Add ENUMERATED, OCTET STRING, and BIT STRING only after
+their bounded forms and malformed inputs are safely covered.
+
+Use a safe, `std`-only runtime crate at `rust/asn1c-runtime/`, package name
+`asn1c-runtime`, import name `asn1c_runtime`, and Cargo edition 2021. Make no
+MSRV claim beyond the Rust toolchain actually tested. Its initial public API is
+`Limits { max_input_bytes, max_output_bytes, max_work_bits }`, `Error`,
+`Encoded { bytes: Vec<u8>, bit_len: usize }`, and
+`Decoded<T> { value, consumed_bits, consumed_bytes }`; `Decoded::map` transforms
+a decoded value without changing consumption. `Encoded.bit_len` records
+meaningful bits. For NULL and any
+zero-width complete encoding, return `bytes == [0]` and `bit_len == 0`.
+
+The primitive functions have these signatures:
+
+```rust
+encode_boolean(value: bool, limits: &Limits) -> Result<Encoded, Error>
+decode_boolean(input: &[u8], limits: &Limits) -> Result<Decoded<bool>, Error>
+encode_null(limits: &Limits) -> Result<Encoded, Error>
+decode_null(input: &[u8], limits: &Limits) -> Result<Decoded<()>, Error>
+validate_integer(value: i64, lower: i64, upper: i64) -> Result<(), Error>
+encode_integer(value: i64, lower: i64, upper: i64, limits: &Limits)
+    -> Result<Encoded, Error>
+decode_integer(input: &[u8], lower: i64, upper: i64, limits: &Limits)
+    -> Result<Decoded<i64>, Error>
+```
+
+Generated inherent `encode_uper` and `decode_uper` methods delegate to these
+functions. Complete-value decoding may leave a suffix and reports both bit and
+byte consumption. Preserve the current C PER decoder's acceptance of nonzero
+low-order padding bits; do not turn that behavior into strict padding
+validation in the initial slice.
+
+The initial runtime API uses bounded `Limits` for input bytes, output bytes,
+and work bits. Every generated encode/decode path receives these limits, and
+nested decoders share the same bounded work accounting. Choose finite defaults
+with rationale and tests; callers can supply tighter limits. Check arithmetic
+and limits before advancing, accumulating, allocating, or sorting. Input-driven
+allocation must be fallible, and malformed input must return typed errors
+without input-driven panics. Safe Rust cannot guarantee that every process-level
+allocation failure avoids aborting; document residual limits and review
+recursion, cloning, formatting, and teardown behavior.
 
 ## Semantic lowering requirements
 
@@ -255,22 +342,22 @@ small M0 prototype and review.
 
 ## CLI behavior and diagnostics
 
-Add `-lang=c|rust`, spelled `-lang=rust` for the Rust target. The current CLI
-uses `getopt()` at [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L130) with an optstring
-that does not occupy `-l`; existing forms
-such as `-gen-UPER` are handled by the leading short option consuming the rest
-of the token. The new `-l` branch can follow that convention while accepting
-only exact values `ang=c` and `ang=rust`. Test the token handling rather than
-assuming GNU long-option behavior. Omitting `-lang` must preserve today's C
-default and output byte-for-byte wherever practical.
+Add one major selector, `--rust`, for the complete Rust generation path:
+generated types, codec implementations, runtime assets, writer, and Cargo
+project. Omitting it must retain the existing C target and its behavior. The
+current CLI uses `getopt()` at [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L130) and
+does not define long options, so add exact `--rust` parsing in the extracted
+target-option and dispatch helpers. Do not overload the `-l` convention used
+for existing `-gen-*` tokens.
 
-The C driver's default compiler flags enable all current codecs. Rust needs a
-separate explicit-codec mask so an early Rust release does not inherit requests
-for every codec by accident. Track each explicit `-gen-*` and `-no-gen-*`
-option; for early Rust releases, fail if no codec is explicitly selected.
-Generate only selected codecs that pass the capability check. Once Rust is
-qualified, its default may enable every qualified codec family. C keeps its
-existing defaults.
+Keep C compiler defaults unchanged. Rust derives its default codec set from
+Rust-qualified implementations, starting with UPER; it must not inherit the
+C driver's all-codecs mask. Track explicit `-gen-*` requests separately from
+that default so an explicit request for an unsupported codec gets a precise
+error. `-no-gen-*` removes a codec from the qualified default. If that leaves
+no codec selected, fail instead of writing a type-only crate. As each codec is
+qualified, add it to the Rust default until that default covers the current C
+codec set. The `--rust` option alone must work without another codec flag.
 
 Validate all flags and the complete schema before creating output files. An
 unsupported CLI combination should be an `EX_USAGE` diagnostic; an unsupported
@@ -293,9 +380,10 @@ The option capability table should initially classify flags as follows:
 
 Where a shared option affects only C code generation, explicitly classify it
 as C-only instead of treating it as a harmless no-op. Add CLI tests for the
-default C target, valid Rust selection, invalid language values, explicit and
-disabled codec sets, missing explicit selection, C-only options under Rust,
-unsupported schema features, and diagnostics before any files are written.
+default C target, `--rust` alone, Rust defaults as qualified codecs grow,
+explicit unsupported codec requests, disabled codecs, no-codec selection,
+C-only options under Rust, unsupported schema features, and diagnostics before
+any files are written.
 
 ## Build, packaging, and tests
 
@@ -343,11 +431,12 @@ names the supported matrix, dependencies, owned paths, reference rules and
 fixtures, required negative cases, commands, and evidence. See the detailed
 [stage-one plan](stage-one-plan.md) for the assignment template and owners.
 
-Keep `-lang=rust` opt-in and C behavior on the existing path. The Rust driver
-must reject a missing codec selection during early development. If a requested
-codec or schema feature is not implemented, fail before publishing any crate.
-Do not expose a user-facing type-only crate as a fallback. M1 may test writer
-plumbing internally; M2 is the first generated UPER slice.
+Keep `--rust` opt-in and C behavior on the existing path. Once a Rust codec is
+qualified, `--rust` alone must generate the qualified default set. If an
+explicitly requested codec or schema feature is not implemented, fail before
+publishing any crate. Do not expose a user-facing type-only crate as a
+fallback. M1 may test writer plumbing internally; M2 is the first generated
+UPER slice.
 
 ## Milestones and completion gates
 
@@ -355,15 +444,18 @@ plumbing internally; M2 is the first generated UPER slice.
    codec/type/direction/variant behavior and applicable tests. Freeze integer,
    bit-string, error, cursor, constraint, tag, codec-context, unknown-extension,
    resource-budget, and generator/writer contracts. Prototype streaming and
-   consumption semantics. Select Cargo edition, MSRV, licensing, dependencies,
-   and default limits with evidence.
-2. **M1, foundation and harness:** Add Rust selection and capability
+   consumption semantics. Use Cargo edition 2021. Select dependencies and
+   finite default limits with evidence; make no MSRV claim beyond tested
+   toolchains.
+2. **M1, foundation and harness:** Add `--rust` selection and capability
    diagnostics, name/path validation, a checked semantic representation,
    staged Cargo output, local runtime packaging, and generated-crate tests.
-   Test that missing or unsupported codec requests fail without publishing
+   Test that explicitly unsupported codec requests fail without publishing
    partial output. Keep Cargo optional for C-only builds and preserve C tests.
-3. **M2, first UPER slice:** Support NULL, BOOLEAN, bounded INTEGER,
-   nonextensible ENUMERATED, bounded OCTET STRING, and BIT STRING. Include a
+3. **M2, first UPER slice:** Support NULL, BOOLEAN, and bounded INTEGER whose
+   declared range fits the selected Rust representation. Add nonextensible
+   ENUMERATED, bounded OCTET STRING, and BIT STRING only when their bounds and
+   malformed-input behavior are safely covered. Include a
    small SEQUENCE only after field traversal is reviewed. Test bit consumption,
    truncation, bound edges, invalid application values, and small budgets.
    Compare Rust/C in both directions, use independent vectors, and provide
@@ -376,8 +468,11 @@ plumbing internally; M2 is the first generated UPER slice.
    in bounded feature assignments.
 5. **M4, BER/DER and OER:** Add BER decoding, DER encoding, BER TLV and length
    handling, constructed strings, canonical ordering, and OER encode/decode.
-   Qualify supported basic and canonical variants independently. Do not claim
-   CER support without a dedicated implementation and tests.
+   Qualify supported basic and canonical variants independently. Add the
+   advertised BER-backed decode path for CER-compatible input, correcting the
+   `ATS_CER` dispatch mismatch and converter selector with regression tests.
+   This means permissive BER decoding only; there is no CER encoder or strict
+   CER canonical validator in the current C API to port.
 6. **M5, XER/JER/CBOR:** Add bounded tokenization, escaping, names, supported
    encoding controls, exact integer handling, object-member policy, and the
    repository's CBOR mapping. Keep canonical output and permissive decoding
@@ -403,10 +498,10 @@ reviewed, source-backed exclusion.
 
 ## Open implementation questions
 
-- What resource-limit defaults should generated decoders use, and how can
-  callers configure them through the shared decode/encode context APIs?
-- Which Cargo edition, minimum supported Rust version, and licensing policy
-  should M0 establish for the runtime and generated projects?
+- What finite defaults should `Limits` use, and how can generated methods let
+  callers configure them?
+- Which Rust toolchains can CI test, and what licensing checks are required
+  for the runtime and generated projects?
 - Which dependencies, if any, are needed for bigint, XML, JSON, or CBOR support,
   and how will their code and licenses be vendored for offline builds?
 - What exact internal representation should `Real` use to preserve values

@@ -30,6 +30,7 @@ TESTS += check-APER-inline-constrained-ioc.sh
 TESTS += check-fprefix-link.sh
 TESTS += check-fprefix-anon-typedef.sh
 TESTS += check-CONTAINING.sh
+TESTS += check-binary-format-selectors.sh
 
 CLEANFILES = Makefile.am.* *.[acho] check-*.log check-*.trs
 

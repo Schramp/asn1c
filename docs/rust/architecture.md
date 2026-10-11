@@ -31,10 +31,11 @@ every type, direction, or canonical variant is implemented. For example,
 [CI](../../.github/workflows/c-cpp.yml) explicitly limits PKIX JER testing to
 encoding because of ANY open types.
 
-The header's `ATS_CER` comment says decoding is supported, but
-[asn_decode](../../skeletons/asn_application.c) rejects that selector with
-`ENOENT`. Record this discrepancy and preserve the unsupported-selector
-diagnostic; it does not establish a dedicated CER decoder to port.
+An audit correction found that [ber_decode](../../skeletons/ber_decoder.h)
+already accepts CER input. The accompanying generic-dispatch fix routes
+`ATS_CER` to that decoder. CER decoding belongs in the Rust parity target;
+CER encoding remains unsupported. BER-compatible decoding does not establish
+strict canonical validation. See the [binary audit](../binary-codec-support.md).
 
 ## Decision
 
@@ -66,17 +67,19 @@ review any bigint, XML, JSON, or CBOR dependency before adding it.
 
 ## Generated output and compiler behavior
 
-The proposed selector is `-lang=rust`, with `-lang=c` and C as the unchanged
-default. This spelling is not implemented by this documentation. The existing
-`getopt` layout permits a new `l:` case that validates `ang=rust` or `ang=c`, in
-the style of current `-gen-*` spellings. Document and test invalid selectors.
+The user selected `--rust` as a major top-level flag. It switches the complete
+generation path: Rust types, codec implementations, runtime assets, naming,
+output writer, and Cargo build metadata. C remains the default without this
+flag. Reject incompatible C-only output/layout modes rather than applying them
+to Rust output. Preserve shared ASN.1 parsing and semantic processing.
 
 Use existing `-gen-*`/`-no-gen-*` syntax for codec selection. Track explicit
-selection separately from legacy default flags. During incremental development,
-require an explicit supported codec selection for Rust; never silently drop an
-unsupported requested codec. Once qualified, the Rust default may enable all
-qualified families. Diagnose C-only options rather than ignoring them, and
-preserve `-E`, `-EF`, and C generation behavior.
+selection separately from legacy default flags. `--rust` alone selects currently
+qualified Rust codecs and reports its support boundary. Explicitly requested
+unsupported codecs or schema features are errors; never silently drop them.
+As families are qualified, add them to the Rust default until all current
+families are supported. Shared frontend inspection remains available in C mode;
+incompatible inspection/output combinations with `--rust` receive diagnostics.
 
 By default, generate a self-contained Cargo project with a copied runtime source
 crate under `runtime/` and a local path dependency. Include only required sources
