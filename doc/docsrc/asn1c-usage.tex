@@ -1883,6 +1883,12 @@ work, collection, recursive-traversal, and tag-chain limits. An additional
 explicit member tag counts against the tag-chain cap; see the binary codec
 support audit for defaults and the type boundary.
 
+Constructed character strings retain their outer type tag and encode their
+fragments with universal OCTET STRING tag 4. BIT STRING fragments use universal
+tag 3. BER input preserves legacy opaque \texttt{ANY} containers while checking
+their lengths, nesting, and EOC markers. Typed string wrappers require one
+child value; this compatibility does not imply canonical open-type validation.
+
 \section{\label{sec:Rust-output}Generating Rust code}
 
 The \texttt{-{}-rust} option selects a standalone Cargo project with a copied,

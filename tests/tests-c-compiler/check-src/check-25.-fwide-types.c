@@ -86,6 +86,18 @@ uint8_t buf1[] = {
 	111, 222, 223
 };
 
+/*
+ * Decode one test input and verify its value or bounded failure behavior.
+ * Original source: Existing check-25 BER regression helper.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: is_ok selects value checks; buf/size provide encoded input;
+ *   consumed is the expected full length or the maximum allowed on failure.
+ * Returns: No value; assertions terminate the test on status/value mismatch.
+ * Errors: Decoder failures are checked when is_ok is false; assertion failures
+ *   abort the test. The temporary decoded structure is reset before return.
+ * Responsible party: asn1c maintainers. History: Used for seeded BER mutations.
+ * Example: check(1, buf1, sizeof(buf1), sizeof(buf1) - 3).
+ */
 static void
 check(int is_ok, uint8_t *buf, size_t size, size_t consumed) {
 	T_t t, *tp;
@@ -139,6 +151,73 @@ check(int is_ok, uint8_t *buf, size_t size, size_t consumed) {
 	ASN_STRUCT_RESET(asn_DEF_T, &t);
 }
 
+/*
+ * Decode one fixed mutation and require its exact BER status.
+ * Original source: New check-25 regression helper for malformed BER vectors.
+ * Version/date: 1.0, 2026-10-12.
+ * Parameters: name labels the case; buf/size bound the original; offset and
+ *   replacement define one changed octet; expected_code is the decoder result.
+ * Returns: No value; the test aborts if the decoder status differs.
+ * Errors: Assertion failure terminates the test; the partial value is freed.
+ * Responsible party: asn1c maintainers. History: Added for CER BER regressions.
+ * Example: require a VisibleString fragment-tag mutation to return RC_FAIL.
+ */
+static void
+expect_mutation_code(const char *name, const uint8_t *buf, size_t size,
+		     size_t offset, uint8_t replacement,
+		     enum asn_dec_rval_code_e expected_code) {
+	uint8_t tmp[size];
+	T_t t, *tp;
+	asn_dec_rval_t rval;
+
+	assert(size > 0);
+	assert(offset < size);
+	memcpy(tmp, buf, size);
+	tmp[offset] = replacement;
+	tp = memset(&t, 0, sizeof(t));
+	rval = ber_decode(0, &asn_DEF_T, (void **)&tp, tmp, size);
+	fprintf(stderr, "%s: returned code %d, consumed %zd\n",
+		name, (int)rval.code, rval.consumed);
+	assert(rval.code == expected_code);
+	ASN_STRUCT_RESET(asn_DEF_T, &t);
+}
+
+/*
+ * Decode a valid alternative OCTET-fragment split for the same VisibleString.
+ * Original source: New check-25 positive BER regression vector.
+ * Version/date: 1.0, 2026-10-12.
+ * Parameters: None; the fixed source buffer is split as "ve" followed by "_".
+ * Returns: No value; check() verifies all decoded members and string contents.
+ * Errors: Assertion failure terminates the test and reports the mismatch.
+ * Responsible party: asn1c maintainers. History: Added beside malformed tags.
+ * Example: called after the canonical OCTET-fragment layout in main().
+ */
+static void
+check_alternative_visible_fragments(void) {
+	uint8_t alternate[sizeof(buf1) - 3];
+	const size_t size = sizeof(alternate);
+
+	memcpy(alternate, buf1, size);
+	/* Keep the abstract "ve_" value while using a different legal split. */
+	alternate[28] = 2;
+	alternate[30] = 'e';
+	alternate[31] = 4;
+	alternate[32] = 1;
+	alternate[33] = '_';
+	check(1, alternate, size, size);
+}
+
+/*
+ * Exercise 1000 deterministic random mutations of non-payload BER octets.
+ * Original source: Existing check-25 malformed-input regression helper.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: buf/size identify the original encoding; allow_consume bounds
+ *   the bytes a mutated value may consume before failure.
+ * Returns: No value; check() asserts rejection or incomplete consumption.
+ * Errors: Assertion failures terminate the test; tmp uses a size-bounded VLA.
+ * Responsible party: asn1c maintainers. History: Retains broad seeded coverage.
+ * Example: try_corrupt(buf1, sizeof(buf1) - 3, sizeof(buf1) - 3).
+ */
 static void
 try_corrupt(uint8_t *buf, size_t size, int allow_consume) {
 	uint8_t tmp[size];
@@ -166,6 +245,17 @@ try_corrupt(uint8_t *buf, size_t size, int allow_consume) {
 	}
 }
 
+/*
+ * Verify BER decoding resumes across tested three-chunk input partitions.
+ * Original source: Existing check-25 incremental-decoding regression helper.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: buf/size identify the complete encoding split into three feeds.
+ * Returns: No value; assertions require RC_WMORE twice, then a complete value.
+ * Errors: Assertion failures terminate the test; each decoded value is reset.
+ * Responsible party: asn1c maintainers. History: Covers all tested two-cut
+ * positions while retaining a nonempty final feed.
+ * Example: partial_read(buf1, sizeof(buf1) - 3).
+ */
 static void
 partial_read(uint8_t *buf, size_t size) {
 	T_t t, *tp;
@@ -238,20 +328,43 @@ partial_read(uint8_t *buf, size_t size) {
 	}
 }
 
+/*
+ * Run positive, deterministic negative, random-mutation, and restartability tests.
+ * Original source: Existing check-25 generated-type regression program.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: ac/av are ignored command-line arguments from the test runner.
+ * Returns: Zero after all checks pass; the process aborts on assertion failure.
+ * Errors: Decoder mismatches and malformed-input acceptance fail assertions.
+ * Responsible party: asn1c maintainers. History: Adds CER fragment-tag vectors.
+ * Example: invoked as `./check-program` by the generated test directory.
+ */
 int
 main(int ac, char **av) {
+	size_t size = sizeof(buf1) - 3;
 
 	(void)ac;	/* Unused argument */
 	(void)av;	/* Unused argument */
+	srandom(1);
 
 	/* Check that the full buffer may be decoded normally */
-	check(1, buf1, sizeof(buf1), sizeof(buf1) - 3);
+	check(1, buf1, sizeof(buf1), size);
+	check_alternative_visible_fragments();
+
+	/* Reject wrong outer/fragment tags, truncated lengths, and malformed EOCs. */
+	expect_mutation_code("wrong SEQUENCE wrapper", buf1, size,
+			     0, 0x31, RC_FAIL);
+	expect_mutation_code("VisibleString chunk used as OCTET fragment", buf1,
+			     size, 27, 26, RC_FAIL);
+	expect_mutation_code("truncated OCTET fragment", buf1, size,
+			     28, 0x7f, RC_WMORE);
+	expect_mutation_code("malformed nested EOC", buf1, size,
+			     34, 1, RC_FAIL);
 
 	/* Check that some types of buffer corruptions will lead to failure */
-	try_corrupt(buf1, sizeof(buf1) - 3, sizeof(buf1) - 3);
+	try_corrupt(buf1, size, size);
 
 	/* Split the buffer in parts and check decoder restartability */
-	partial_read(buf1, sizeof(buf1) - 3);
+	partial_read(buf1, size);
 
 	return 0;
 }

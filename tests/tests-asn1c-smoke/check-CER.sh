@@ -17,6 +17,8 @@ trap 'rm -rf "$test_directory"' EXIT
 cat > "$test_directory/review.asn1" <<'ASN1'
 CERReview DEFINITIONS IMPLICIT TAGS ::= BEGIN
 Blob ::= OCTET STRING
+LongVisible ::= VisibleString
+LongBMP ::= BMPString
 Lower ::= CHOICE { late [8] INTEGER, early [0] BOOLEAN }
 ChoiceSet ::= SET { plain [4] INTEGER, selected Lower }
 MixedSet ::= SET {
@@ -87,7 +89,7 @@ printf '\207\001\132' > "$test_directory/tagged.expected"
     "$test_directory/tagged.xml" > "$test_directory/tagged.actual"
 cmp "$test_directory/tagged.expected" "$test_directory/tagged.actual"
 
-# Long implicitly tagged strings retain their natural OCTET fragment identifier.
+# Long implicitly tagged OCTET STRINGs use universal tag 4 for each fragment.
 awk 'BEGIN { printf "<Tagged>"; for (i=0; i<1001; i++) printf "5A"; print "</Tagged>" }' \
     > "$test_directory/tagged-long.xml"
 { printf '\247\200\004\202\003\350';
@@ -132,15 +134,40 @@ for retag_case in Octets Bits; do
     cmp "$test_directory/r$case_lower.expected" "$test_directory/r$case_lower.actual"
 done
 
-# Fragment identifiers remain UTF8String even when the outer identifier changes.
+# CER character-string fragments use OCTET STRING identifiers after retagging.
 awk 'BEGIN { printf "<RetagUTF8>"; for (i=0; i<1001; i++) printf "A"; print "</RetagUTF8>" }' \
     > "$test_directory/rutf8.xml"
-{ printf '\044\200\014\202\003\350';
+{ printf '\044\200\004\202\003\350';
   awk 'BEGIN { for (i=0; i<1000; i++) printf "A" }';
-  printf '\014\001A\000\000'; } > "$test_directory/rutf8.expected"
+  printf '\004\001A\000\000'; } > "$test_directory/rutf8.expected"
 "$test_directory/enabled/converter-example" -p RetagUTF8 -ixer -ocer \
     "$test_directory/rutf8.xml" > "$test_directory/rutf8.actual"
 cmp "$test_directory/rutf8.expected" "$test_directory/rutf8.actual"
+printf '\044\200\014\001A\000\000' > "$test_directory/rutf8-natural.bin"
+if "$test_directory/enabled/converter-example" -p RetagUTF8 -icer -ocer \
+    "$test_directory/rutf8-natural.bin" > "$test_directory/rutf8-natural.out" \
+    2> "$test_directory/rutf8-natural.err"; then
+    echo 'FAIL: decoder accepted UTF8String fragment tags inside a constructed string' >&2
+    exit 1
+fi
+
+# VisibleString and BMPString use OCTET STRING fragment identifiers at CER boundaries.
+awk 'BEGIN { printf "<LongVisible>"; for (i=0; i<1001; i++) printf "A";
+    print "</LongVisible>" }' > "$test_directory/visible-long.xml"
+{ printf '\072\200\004\202\003\350';
+  awk 'BEGIN { for (i=0; i<1000; i++) printf "A" }';
+  printf '\004\001A\000\000'; } > "$test_directory/visible-long.expected"
+"$test_directory/enabled/converter-example" -p LongVisible -ixer -ocer \
+    "$test_directory/visible-long.xml" > "$test_directory/visible-long.actual"
+cmp "$test_directory/visible-long.expected" "$test_directory/visible-long.actual"
+awk 'BEGIN { printf "<LongBMP>"; for (i=0; i<501; i++) printf "A";
+    print "</LongBMP>" }' > "$test_directory/bmp-long.xml"
+{ printf '\076\200\004\202\003\350';
+  for ((i=0; i<500; i++)); do printf '\000A'; done;
+  printf '\004\002\000A\000\000'; } > "$test_directory/bmp-long.expected"
+"$test_directory/enabled/converter-example" -p LongBMP -ixer -ocer \
+    "$test_directory/bmp-long.xml" > "$test_directory/bmp-long.actual"
+cmp "$test_directory/bmp-long.expected" "$test_directory/bmp-long.actual"
 
 # Retagged BIT STRING fragments use tag 3 and include their unused-bit octet.
 awk 'BEGIN { printf "<RetagBits>"; for (i=0; i<8000; i++) printf "1"; print "</RetagBits>" }' \
@@ -238,7 +265,8 @@ C
 cmp "$test_directory/deep.expected" "$test_directory/deep.actual"
 
 # Every generated structural vector must also decode through the CER selector.
-for decode_case in choice mixed triple tagged tagged-long bag tchoice nchoice deep roctets rbits rbits-long rutf8; do
+for decode_case in choice mixed triple tagged tagged-long bag tchoice nchoice deep \
+    roctets rbits rbits-long rutf8 visible-long bmp-long; do
     case "$decode_case" in
         choice) decode_type=ChoiceSet ;;
         mixed) decode_type=MixedSet ;;
@@ -251,6 +279,8 @@ for decode_case in choice mixed triple tagged tagged-long bag tchoice nchoice de
         roctets) decode_type=RetagOctets ;;
         rbits|rbits-long) decode_type=RetagBits ;;
         rutf8) decode_type=RetagUTF8 ;;
+        visible-long) decode_type=LongVisible ;;
+        bmp-long) decode_type=LongBMP ;;
     esac
     "$test_directory/enabled/converter-example" -p "$decode_type" -icer -ocer \
         "$test_directory/$decode_case.actual" > "$test_directory/$decode_case.reencoded"

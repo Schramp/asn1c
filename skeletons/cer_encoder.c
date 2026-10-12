@@ -1488,22 +1488,25 @@ cer_wrap_choice_tags(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
  */
 /*
  * Encode non-BIT string content using CER's 1000-octet fragmentation rule.
- * Original source: New asn1c CER encoder helper, following X.690 9.2.
- * Version/date: 1.0, 2026-10-11.
- * Parameters: ctx/td/value identify the operation; content and universal_tag
- *   describe the canonical contents and fragment tag; base_tag is the effective
- *   outer type tag; result receives the primitive or constructed TLV.
+ * Character-string components use OCTET STRING tag 4 per X.690 8.23.3.
+ * Original source: New asn1c CER encoder helper, following X.690 8.23.3/9.2.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: ctx/td/value identify the operation; content holds canonical
+ *   contents; base_tag is the effective outer type tag; result receives the TLV.
  * Returns: 0 on success; -1 for bounded allocation or encoding failure.
  * Errors: EOVERFLOW, ENOMEM, or EBADF through ctx->error.
- * Responsible party: asn1c maintainers. History: Added 2026-10-11.
+ * Responsible party: asn1c maintainers. History: Corrected component tags to
+ * universal 4 for non-BIT character strings; BIT STRING remains on tag 3.
  * Example: used for long OCTET STRING and character-string values.
  */
 static int
 cer_encode_octet_fragments(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
-                           const void *value, ber_tlv_tag_t universal_tag,
-                           ber_tlv_tag_t base_tag, const cer_buffer_t *content,
+                           const void *value, ber_tlv_tag_t base_tag,
+                           const cer_buffer_t *content,
                            cer_buffer_t *result) {
     cer_buffer_t fragments = {0};
+    const ber_tlv_tag_t fragment_tag =
+        ASN_TAG_CLASS_UNIVERSAL | (4u << 2);
     size_t offset = 0;
 
     while(offset < content->length) {
@@ -1514,7 +1517,7 @@ cer_encode_octet_fragments(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
         if(take > 1000) take = 1000;
         if(cer_buffer_append(ctx, &part, content->data + offset, take, td,
                              value) ||
-           cer_make_tlv(ctx, td, value, universal_tag, 0, 0, &part,
+           cer_make_tlv(ctx, td, value, fragment_tag, 0, 0, &part,
                         &fragment) ||
            cer_buffer_append(ctx, &fragments, fragment.data, fragment.length,
                              td, value)) {
@@ -1715,8 +1718,8 @@ cer_build_primitive_tlv(cer_context_t *ctx,
         status = cer_encode_bit_fragments(ctx, td, value, universal_tag,
                                           base_tag, named_bits, content, &inner);
     } else if(fragmentable && content->length > 1000) {
-        status = cer_encode_octet_fragments(ctx, td, value, universal_tag,
-                                            base_tag, content, &inner);
+        status = cer_encode_octet_fragments(ctx, td, value, base_tag, content,
+                                            &inner);
     } else {
         status = cer_make_tlv(ctx, td, value, base_tag, 0, 0, content, &inner);
     }

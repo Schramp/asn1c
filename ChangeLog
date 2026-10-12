@@ -1,4 +1,13 @@
 Changes since v1.5.3:
+	* Corrected CER restricted-character-string fragments to use universal
+	  OCTET STRING tags, preserving the outer string type tag. BER decoding
+	  no longer accepts a character-type tag in a nested OCTET STRING-only
+	  fragment position. Restored legacy opaque ANY container compatibility
+	  without removing parent-length, nesting, or EOC validation. Added fixed
+	  byte-vector and malformed/streaming regressions for generated C tests
+	  25, 60, and 62; randomized corruption coverage is retained.
+	  All 71 generated C checks and 52 linked skeleton checks pass, along
+	  with CER codec-disable variants and Rust/C interoperability checks.
 	* Added --rust as a complete output mode with native safe Rust UPER
 	  encode/decode and CER encoding for BOOLEAN, NULL, and finite
 	  nonextensible INTEGER ranges fitting i64. Generated Cargo packages use

@@ -102,6 +102,11 @@ encoding at build time while preserving BER-backed CER input. See the
 [binary codec support audit](docs/binary-codec-support.md) for the current
 descriptor, value, and resource boundaries.
 
+Constructed CER character strings retain their outer string tag and use
+universal OCTET STRING tags for the fragments; BIT STRING fragments use their
+universal BIT STRING tag. BER input also preserves legacy opaque `ANY`
+containers under the bounds described in that audit.
+
 In Rust output mode, the current CER encoder supports top-level BOOLEAN, NULL,
 and finite, nonextensible INTEGER values whose bounds fit signed 64-bit
 integers. Rust CER output is selected by default with UPER; `-no-gen-UPER`

@@ -1,7 +1,7 @@
 /*
  * Exercise Canonical Encoding Rules against fixed X.690 wire vectors.
  * Original source: New asn1c skeleton regression suite.
- * Version/date: 1.0, 2026-10-11.
+ * Version/date: 1.1, 2026-10-12.
  * Inputs: Built-in primitive descriptors and generated-style local metadata.
  * Returns: EXIT_SUCCESS when all direct/generic encoder and decoder checks pass.
  * Exceptions: No C++ exceptions; failed assertions exit with EXIT_FAILURE.
@@ -29,6 +29,7 @@
 #include <PrintableString.h>
 #include <REAL.h>
 #include <UTCTime.h>
+#include <UniversalString.h>
 #include <UTF8String.h>
 #include <VisibleString.h>
 #include <constr_CHOICE.h>
@@ -1144,24 +1145,38 @@ cer_check_generalized_time_vectors(void) {
 
 /*
  * Compare one character/octet string at the 1000-octet CER boundary.
- * Original source: New asn1c CER regression fixture, following X.690 9.2.
- * Version/date: 1.0, 2026-10-11.
- * Parameters: td/tag_number select the type; content_size chooses 999, 1000,
- *   or 1001 payload bytes; label identifies the expected form.
+ * Original source: New asn1c CER regression fixture, following X.690 8.23.3/9.2.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: td/tag_number/unit_size select the type; content_size chooses
+ *   type-aligned lengths around 1000 octets; label identifies the expected form.
  * Returns: Zero if the generated primitive/fragment TLV matches the fixed form.
- * Errors: No exceptions; malformed test parameters are outside this fixture.
- * Responsible party: asn1c maintainers. History: Added 2026-10-11.
- * Example: cer_check_string_boundary(&asn_DEF_UTF8String, 12, 1001, "UTF8").
+ * Errors: Invalid test widths/lengths fail through cer_require().
+ * Responsible party: asn1c maintainers. History: Added BMP/Universal widths.
+ * Example: cer_check_string_boundary(&asn_DEF_BMPString, 30, 2, 1002, "BMP").
  */
 static int
 cer_check_string_boundary(const asn_TYPE_descriptor_t *td, unsigned tag_number,
-                          size_t content_size, const char *label) {
-    uint8_t content[1001];
+                          size_t unit_size, size_t content_size,
+                          const char *label) {
+    uint8_t content[1004];
     uint8_t expected[1100];
-    size_t expected_size = 0;
+    size_t expected_size = 0; /* state variable: initialized TLV bytes. */
+    size_t offset; /* state variable: code-unit fill position. */
     uint8_t fill_byte = tag_number == 18 ? (uint8_t)'1' : (uint8_t)'A';
 
-    memset(content, fill_byte, sizeof(content));
+    if(!td || tag_number == 0 || tag_number > 30
+    || (unit_size != 1 && unit_size != 2 && unit_size != 4)
+    || content_size < 128 || content_size > sizeof(content)
+    || content_size % unit_size != 0
+    || (content_size > 1000 && 1000 % unit_size != 0)) {
+        return cer_require(0, label);
+    }
+
+    /* Encode ASCII code points as valid one-, two-, or four-octet units. */
+    for(offset = 0; offset < content_size; offset += unit_size) {
+        memset(content + offset, 0, unit_size);
+        content[offset + unit_size - 1] = fill_byte;
+    }
     if(content_size <= 1000) {
         expected[expected_size++] = (uint8_t)tag_number;
         expected[expected_size++] = 0x82;
@@ -1172,15 +1187,17 @@ cer_check_string_boundary(const asn_TYPE_descriptor_t *td, unsigned tag_number,
     } else {
         expected[expected_size++] = (uint8_t)(tag_number | 0x20);
         expected[expected_size++] = 0x80;
-        expected[expected_size++] = (uint8_t)tag_number;
+        expected[expected_size++] = 0x04;
         expected[expected_size++] = 0x82;
         expected[expected_size++] = 0x03;
         expected[expected_size++] = 0xe8;
         memcpy(expected + expected_size, content, 1000);
         expected_size += 1000;
-        expected[expected_size++] = (uint8_t)tag_number;
-        expected[expected_size++] = 0x01;
-        expected[expected_size++] = content[1000];
+        expected[expected_size++] = 0x04;
+        expected[expected_size++] = (uint8_t)(content_size - 1000);
+        memcpy(expected + expected_size, content + 1000,
+               content_size - 1000);
+        expected_size += content_size - 1000;
         expected[expected_size++] = 0x00;
         expected[expected_size++] = 0x00;
     }
@@ -1194,42 +1211,45 @@ cer_check_string_boundary(const asn_TYPE_descriptor_t *td, unsigned tag_number,
 }
 
 /*
- * Exercise CER boundaries for OCTET STRING and representative character types.
+ * Exercise CER boundaries for OCTET and representative character string types.
  * Original source: New asn1c CER regression fixture, following X.690 9.2.
  * Version/date: 1.0, 2026-10-11.
- * Parameters: None; the descriptor/tag pairs and lengths are fixed locally.
+ * Parameters: None; descriptors, character widths, and aligned lengths are fixed.
  * Returns: Zero when every primitive and constructed vector matches.
  * Errors: No exceptions; failed vectors return -1 and write diagnostics.
  * Responsible party: asn1c maintainers. History: Added 2026-10-11.
- * Example: called by main() to check 999-, 1000-, and 1001-byte strings.
+ * Example: called by main() to check type-valid lengths around 1000 octets.
  */
 static int
 cer_check_string_boundaries(void) {
     static const struct {
         const asn_TYPE_descriptor_t *type; /* CER descriptor under test. */
         unsigned tag; /* Intrinsic universal primitive tag number. */
+        size_t unit_size; /* Encoded width of each ASCII test character. */
+        size_t sizes[3]; /* Type-valid payload lengths around 1000 octets. */
         const char *name; /* Human-readable boundary description. */
     } types[] = {
-        {&asn_DEF_OCTET_STRING, 4, "OCTET STRING"},
-        {&asn_DEF_UTF8String, 12, "UTF8String"},
-        {&asn_DEF_NumericString, 18, "NumericString"},
-        {&asn_DEF_PrintableString, 19, "PrintableString"},
-        {&asn_DEF_IA5String, 22, "IA5String"},
-        {&asn_DEF_GeneralString, 27, "GeneralString"},
-        {&asn_DEF_VisibleString, 26, "VisibleString"},
+        {&asn_DEF_OCTET_STRING, 4, 1, {999, 1000, 1001}, "OCTET STRING"},
+        {&asn_DEF_UTF8String, 12, 1, {999, 1000, 1001}, "UTF8String"},
+        {&asn_DEF_NumericString, 18, 1, {999, 1000, 1001}, "NumericString"},
+        {&asn_DEF_PrintableString, 19, 1, {999, 1000, 1001}, "PrintableString"},
+        {&asn_DEF_IA5String, 22, 1, {999, 1000, 1001}, "IA5String"},
+        {&asn_DEF_GeneralString, 27, 1, {999, 1000, 1001}, "GeneralString"},
+        {&asn_DEF_VisibleString, 26, 1, {999, 1000, 1001}, "VisibleString"},
+        {&asn_DEF_BMPString, 30, 2, {998, 1000, 1002}, "BMPString"},
+        {&asn_DEF_UniversalString, 28, 4, {996, 1000, 1004}, "UniversalString"},
     };
-    static const size_t sizes[] = {999, 1000, 1001};
     size_t type_index;
     size_t size_index;
     int failed = 0;
 
     for(type_index = 0;
         type_index < sizeof(types) / sizeof(types[0]); type_index++) {
-        for(size_index = 0; size_index < sizeof(sizes) / sizeof(sizes[0]);
-            size_index++) {
+        for(size_index = 0; size_index < 3; size_index++) {
             failed |= cer_check_string_boundary(
                 types[type_index].type, types[type_index].tag,
-                sizes[size_index], types[type_index].name);
+                types[type_index].unit_size, types[type_index].sizes[size_index],
+                types[type_index].name);
         }
     }
     return failed;
@@ -2700,11 +2720,8 @@ cer_check_ber_wrapper_compatibility(void) {
     static const ber_tlv_tag_t named_octet_tags[] = {
         CER_CONTEXT_TAG(5), CER_UNIVERSAL_TAG(4)
     };
-    static const ber_tlv_tag_t utf8_natural_tags[] = {
+    static const ber_tlv_tag_t utf8_outer_tags[] = {
         CER_UNIVERSAL_TAG(4)
-    };
-    static const ber_tlv_tag_t utf8_fragment_tags[] = {
-        CER_UNIVERSAL_TAG(4), CER_UNIVERSAL_TAG(12), CER_UNIVERSAL_TAG(4)
     };
     static const ber_tlv_tag_t implicit_octet_tags[] = {
         CER_CONTEXT_TAG(7)
@@ -2727,6 +2744,9 @@ cer_check_ber_wrapper_compatibility(void) {
         0xa5, 0x08, 0x24, 0x06, 0x04, 0x01, 'A', 0x04, 0x01, 'Z'
     };
     static const uint8_t utf8_fragments[] = {
+        0x24, 0x80, 0x04, 0x01, 'A', 0x04, 0x01, 'Z', 0x00, 0x00
+    };
+    static const uint8_t utf8_natural_fragments[] = {
         0x24, 0x80, 0x0c, 0x01, 'A', 0x0c, 0x01, 'Z', 0x00, 0x00
     };
     static const uint8_t implicit_octet_fragments[] = {
@@ -2742,11 +2762,10 @@ cer_check_ber_wrapper_compatibility(void) {
                             / sizeof(named_octet_tags[0]);
     named_octets.all_tags = named_octet_tags;
     named_octets.all_tags_count = named_octets.tags_count;
-    utf8.tags = utf8_natural_tags;
-    utf8.tags_count = sizeof(utf8_natural_tags) / sizeof(utf8_natural_tags[0]);
-    utf8.all_tags = utf8_fragment_tags;
-    utf8.all_tags_count =
-        sizeof(utf8_fragment_tags) / sizeof(utf8_fragment_tags[0]);
+    utf8.tags = utf8_outer_tags;
+    utf8.tags_count = sizeof(utf8_outer_tags) / sizeof(utf8_outer_tags[0]);
+    utf8.all_tags = utf8_outer_tags;
+    utf8.all_tags_count = sizeof(utf8_outer_tags) / sizeof(utf8_outer_tags[0]);
     implicit_octets.tags = implicit_octet_tags;
     implicit_octets.tags_count =
         sizeof(implicit_octet_tags) / sizeof(implicit_octet_tags[0]);
@@ -2781,7 +2800,10 @@ cer_check_ber_wrapper_compatibility(void) {
     failed |= cer_check_octet_payload(&utf8, 0, utf8_fragments,
                                       sizeof(utf8_fragments), two_octets,
                                       sizeof(two_octets),
-                                      "UTF8String uses natural fragment tags");
+                                      "UTF8String fragments use OCTET STRING tags");
+    failed |= cer_check_decode_status(&utf8, 0, utf8_natural_fragments,
+                                      sizeof(utf8_natural_fragments), RC_FAIL,
+                                      "UTF8String rejects natural-tag fragments");
     failed |= cer_check_octet_payload(&implicit_octets, 0,
                                       implicit_octet_fragments,
                                       sizeof(implicit_octet_fragments),

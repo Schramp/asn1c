@@ -1,6 +1,6 @@
 # Binary codec support and dispatch
 
-Source-audited on 2026-10-11 against generated descriptors, the generic
+Source-audited on 2026-10-12 against generated descriptors, the generic
 dispatcher, and CER regression cases. This records available operations, not
 blanket support for every ASN.1 type or proof of canonical conformance.
 
@@ -37,6 +37,17 @@ layers can still be rejected by the pre-existing `ber_check_tags` limitation.
 This is a BER-family input limitation, not strict CER canonical validation; it
 does not restrict CER encoder output.
 
+Opaque `ANY` input retains the existing BER decoder's permissive byte-container
+behavior, including empty or multiple-TLV explicit containers. This is runtime
+compatibility, not a claim that such containers encode one standards-conforming
+open-type value. Legacy definite containers also preserve an exact `00 00`
+pair as opaque bytes; that pair does not close a definite frame. Malformed
+tag-zero headers and missing required EOCs are rejected. Length bounds,
+nesting, and EOC checks still apply. Typed string
+wrappers continue to require exactly one child value. The
+[regression-fix design](cer-encoder-plan.md#follow-up-design-for-the-three-generated-c-test-failures)
+documents this distinction and the character-string fragment-tag correction.
+
 The C runtime provides `cer_encode()` and `asn_encode(ATS_CER, ...)`, and the
 generated converter accepts `-ocer`. The C target enables CER encoding by
 default alongside BER support. `-no-gen-CER` disables CER encoding support;
@@ -63,6 +74,9 @@ alternative tag for a CHOICE.
 encodings as if zero octets were appended for comparison only. Long supported
 strings use 1000-content-octet fragments; BIT STRING fragments reserve one
 content octet for the unused-bit count, leaving at most 999 payload octets.
+The fragment tag is universal 3 for BIT STRING and universal 4 for OCTET
+STRING and restricted character strings. Character-string outer tags retain
+their descriptor-specific values.
 Named BIT STRING values remove trailing zero bits; ordinary BIT STRING values
 preserve them. Member and explicit/implicit tag metadata is applied at each
 descriptor boundary.
@@ -134,6 +148,18 @@ input selectors. Output supports `-oder` and `-ocer` for their respective
 encoding rules.
 
 ## Verification
+
+The 2026-10-12 fragment-tag and opaque-ANY compatibility correction passes the
+complete generated C suite (71/71) under the configured ASan/UBSan test flags.
+Freshly rebuilt normal, strict, and C89 skeleton archives pass the linked
+skeleton suite (52/52). The updated generated CER converter check passes all
+three codec-enable/disable configurations, and the generated Rust harness
+passes its 10 conformance tests and C UPER/CER interoperability checks. The
+main build and regenerated manuals also pass their checks. See the
+[follow-up design](cer-encoder-plan.md#follow-up-design-for-the-three-generated-c-test-failures)
+for the exact compatibility boundary and new negative vectors.
+
+The following records the earlier CER implementation qualification:
 
 The corrected tag-capture encoder passes the linked skeleton suite (52/52) and
 the fresh Rust harness (10 generated conformance checks). The Rust harness

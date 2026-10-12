@@ -326,6 +326,10 @@ base-2 forms with exponents of at most eight octets; decimal or noncanonical
 raw forms are rejected. UTCTime is normalized to UTC seconds. GeneralizedTime
 requires an explicit zone and supports at most nine fractional-second digits;
 comma input is normalized to a period.
+Constructed character strings retain their outer type tag and use universal
+OCTET STRING tag 4 for fragments. BIT STRING fragments use universal tag 3.
+BER input preserves legacy opaque ANY containers while validating their
+lengths, nesting, and EOC markers; typed string wrappers require one child.
 The encoder applies finite output, scratch, collection, work, recursion, and
 descriptor tag-chain limits. An additional explicit member tag counts against
 the tag-chain cap; see the binary codec support documentation for defaults.

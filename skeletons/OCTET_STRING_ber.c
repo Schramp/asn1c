@@ -28,31 +28,31 @@
 #define OS_EXPLICIT_FRAME_EMPTY 2
 #define OS_EXPLICIT_FRAME_HAS_CHILD 3
 
-/* Map built-in OCTET STRING-family operations to their natural wire tags. */
-struct octet_string_intrinsic_tag {
+/* Map built-in string operations to their CER component universal tags. */
+struct octet_string_fragment_tag {
     const asn_TYPE_operation_t *operation; /* Built-in value operation table. */
-    ber_tlv_tag_t tag; /* Natural universal tag used by CER fragments. */
+    ber_tlv_tag_t tag; /* Universal tag used by constructed string components. */
 };
 
-static const struct octet_string_intrinsic_tag octet_string_intrinsic_tags[] = {
+static const struct octet_string_fragment_tag octet_string_fragment_tags[] = {
     {&asn_OP_BIT_STRING, ASN_TAG_CLASS_UNIVERSAL | (3u << 2)},
     {&asn_OP_OCTET_STRING, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
-    {&asn_OP_ObjectDescriptor, ASN_TAG_CLASS_UNIVERSAL | (7u << 2)},
-    {&asn_OP_UTF8String, ASN_TAG_CLASS_UNIVERSAL | (12u << 2)},
-    {&asn_OP_NumericString, ASN_TAG_CLASS_UNIVERSAL | (18u << 2)},
-    {&asn_OP_PrintableString, ASN_TAG_CLASS_UNIVERSAL | (19u << 2)},
-    {&asn_OP_T61String, ASN_TAG_CLASS_UNIVERSAL | (20u << 2)},
-    {&asn_OP_TeletexString, ASN_TAG_CLASS_UNIVERSAL | (20u << 2)},
-    {&asn_OP_VideotexString, ASN_TAG_CLASS_UNIVERSAL | (21u << 2)},
-    {&asn_OP_IA5String, ASN_TAG_CLASS_UNIVERSAL | (22u << 2)},
-    {&asn_OP_UTCTime, ASN_TAG_CLASS_UNIVERSAL | (23u << 2)},
-    {&asn_OP_GeneralizedTime, ASN_TAG_CLASS_UNIVERSAL | (24u << 2)},
-    {&asn_OP_GraphicString, ASN_TAG_CLASS_UNIVERSAL | (25u << 2)},
-    {&asn_OP_VisibleString, ASN_TAG_CLASS_UNIVERSAL | (26u << 2)},
-    {&asn_OP_ISO646String, ASN_TAG_CLASS_UNIVERSAL | (26u << 2)},
-    {&asn_OP_GeneralString, ASN_TAG_CLASS_UNIVERSAL | (27u << 2)},
-    {&asn_OP_UniversalString, ASN_TAG_CLASS_UNIVERSAL | (28u << 2)},
-    {&asn_OP_BMPString, ASN_TAG_CLASS_UNIVERSAL | (30u << 2)}
+    {&asn_OP_ObjectDescriptor, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_UTF8String, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_NumericString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_PrintableString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_T61String, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_TeletexString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_VideotexString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_IA5String, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_UTCTime, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_GeneralizedTime, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_GraphicString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_VisibleString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_ISO646String, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_GeneralString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_UniversalString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)},
+    {&asn_OP_BMPString, ASN_TAG_CLASS_UNIVERSAL | (4u << 2)}
 };
 
 #undef _CH_PHASE
@@ -173,16 +173,19 @@ OCTET_STRING__explicit_wrapper_header(
 /*
  * Seed string parsing with an expectation for an open explicit wrapper.
  * Original source: New BER/CER compatibility helper, following X.690 8.1.3.
- * Version/date: 1.0, 2026-10-11.
+ * Version/date: 1.1, 2026-10-12.
  * Parameters: ctx stores phase/bounds/stack; tag_skip counts skipped tags;
+ *             variant determines whether the wrapper needs one-child checks;
  *             header_size and wrapper_length initialize the outer frame.
  * Returns: 0 after installing an outer frame, otherwise -1.
  * Errors: Allocation failure returns -1; caller reports RC_FAIL.
- * Responsible party: asn1c maintainers. History: Added for CER explicit wrappers.
- * Example: tag_skip=1 advances level for a named outer descriptor tag.
+ * Responsible party: asn1c maintainers. History: Added for CER explicit wrappers;
+ * version 1.1 exempts opaque ANY wrappers from typed one-child accounting.
+ * Example: an empty A0 00 wrapper is retained for ASN_OSUBV_ANY.
  */
 static int
 OCTET_STRING__seed_explicit_wrapper(asn_struct_ctx_t *ctx, int tag_skip,
+                                    enum asn_OS_Subvariant variant,
                                     ssize_t header_size,
                                     ber_tlv_len_t wrapper_length) {
     struct _stack *stck = _new_stack();
@@ -200,7 +203,8 @@ OCTET_STRING__seed_explicit_wrapper(asn_struct_ctx_t *ctx, int tag_skip,
     }
     wrapper->left = wrapper_length;
     wrapper->want_nulls = wrapper_length == -1;
-    wrapper->bits_chopped = OS_EXPLICIT_FRAME_EMPTY;
+    if(variant != ASN_OSUBV_ANY)
+        wrapper->bits_chopped = OS_EXPLICIT_FRAME_EMPTY;
     wrapper->cont_level = (unsigned)tag_skip;
     wrapper->got = header_size;
     ctx->left = -1;
@@ -345,7 +349,8 @@ octet_string_ber_phase0(struct OCTET_STRING_ber_state *state,
             && state->td->tags_count >= BER_EXPLICIT_TAG_DEPTH_LIMIT))
             return octet_string_ber_result(state, RC_FAIL);
         if(OCTET_STRING__seed_explicit_wrapper(state->ctx,
-                descriptor_tag_skip, explicit_header, wrapper_length))
+                descriptor_tag_skip, state->variant, explicit_header,
+                wrapper_length))
             return octet_string_ber_result(state, RC_FAIL);
         state->tlv_constr = 1;
         if(octet_string_ber_advance(state, (size_t)explicit_header))
@@ -446,24 +451,25 @@ octet_string_ber_expected_tag(const struct OCTET_STRING_ber_state *state,
 }
 
 /*
- * Find the natural universal tag associated with a built-in string operation.
- * Original source: New asn1c BER/CER tag resolver, dated 2026-10-11.
- * Parameters: td identifies the operation table; tag receives its wire tag.
+ * Find the CER component tag associated with a built-in string operation.
+ * Original source: New asn1c BER/CER tag resolver, following X.690 8.23.3.
+ * Version/date: 1.1, 2026-10-12.
+ * Parameters: td identifies the operation table; tag receives the component tag.
  * Returns: 1 when a built-in operation is recognized, otherwise 0.
  * Errors: None; unknown/custom operations remain descriptor-only.
- * Responsible party: asn1c maintainers. History: Added for CER fragment tags.
- * Example: resolves a UTF8String operation to universal tag 12.
+ * Responsible party: asn1c maintainers. History: Maps character components to 4.
+ * Example: resolves UTF8String to OCTET STRING tag 4 and BIT STRING to tag 3.
  */
 static int
-octet_string_ber_intrinsic_tag(const asn_TYPE_descriptor_t *td,
-                               ber_tlv_tag_t *tag) {
+octet_string_ber_fragment_tag(const asn_TYPE_descriptor_t *td,
+                              ber_tlv_tag_t *tag) {
     size_t index;
 
     if(!td || !td->op || !tag) return 0;
-    for(index = 0; index < sizeof(octet_string_intrinsic_tags)
-                          / sizeof(octet_string_intrinsic_tags[0]); index++) {
-        if(td->op == octet_string_intrinsic_tags[index].operation) {
-            *tag = octet_string_intrinsic_tags[index].tag;
+    for(index = 0; index < sizeof(octet_string_fragment_tags)
+                          / sizeof(octet_string_fragment_tags[0]); index++) {
+        if(td->op == octet_string_fragment_tags[index].operation) {
+            *tag = octet_string_fragment_tags[index].tag;
             return 1;
         }
     }
@@ -471,27 +477,28 @@ octet_string_ber_intrinsic_tag(const asn_TYPE_descriptor_t *td,
 }
 
 /*
- * Match descriptor tags while allowing natural string tags in string frames.
- * Original source: New asn1c BER/CER compatibility helper, dated 2026-10-11.
+ * Match descriptor prefixes or legal OCTET/BIT STRING component tags.
+ * Original source: New asn1c BER/CER compatibility helper, following X.690 9.2.
+ * Version/date: 1.1, 2026-10-12.
  * Parameters: state identifies the active frame; actual/expected are wire tags.
- * Returns: 1 for the exact descriptor tag or recognized natural tag.
- * Errors: Unknown custom operations do not receive a natural-tag exception.
- * Responsible party: asn1c maintainers. History: Added for retagged fragments.
- * Example: accepts UTF8String tag 12 within an implicit tag-4 container.
+ * Returns: 1 for an exact descriptor tag or the operation's component tag.
+ * Errors: Custom operations and explicit wrappers receive no fallback.
+ * Responsible party: asn1c maintainers. History: Rejects natural UTF8 chunks.
+ * Example: accepts UTF8String components with tag 4, never tag 12 by fallback.
  */
 static int
 octet_string_ber_child_tag_matches(
     const struct OCTET_STRING_ber_state *state, ber_tlv_tag_t actual,
     ber_tlv_tag_t expected) {
-    ber_tlv_tag_t intrinsic_tag;
+    ber_tlv_tag_t fragment_tag;
 
     if(actual == expected) return 1;
     if(!state->sel
     || state->sel->bits_chopped == OS_EXPLICIT_FRAME_EMPTY
     || state->sel->bits_chopped == OS_EXPLICIT_FRAME_HAS_CHILD)
         return 0;
-    return octet_string_ber_intrinsic_tag(state->td, &intrinsic_tag)
-        && actual == intrinsic_tag;
+    return octet_string_ber_fragment_tag(state->td, &fragment_tag)
+        && actual == fragment_tag;
 }
 
 /*
@@ -595,7 +602,7 @@ static int
 octet_string_ber_is_explicit_frame(
     const struct OCTET_STRING_ber_state *state,
     const struct _stack_el *sel) {
-    if(!sel) return 0;
+    if(!sel || state->variant == ASN_OSUBV_ANY) return 0;
     if(state->tag_mode == 1 && !sel->prev && !sel->cont_level) return 1;
     return state->td->tags_count > 1
         && sel->cont_level < state->td->tags_count;
@@ -729,11 +736,14 @@ octet_string_ber_push_child(struct OCTET_STRING_ber_state *state,
 /*
  * Read one constructed-string child header and update its expectation stack.
  * Original source: New bounded helper extracted from the BER stack loop.
- * Version/date: 1.0, 2026-10-11.
+ * Version/date: 1.1, 2026-10-12.
  * Parameters: state owns the cursor, active frame, and descriptor metadata.
  * Returns: RC_OK after a child/EOC; RC_WMORE or RC_FAIL on input problems.
- * Errors: Rejects wrong tags, impossible lengths, and invalid stack accounting.
- * Responsible party: asn1c maintainers. History/example: reads OCTET chunks.
+ * Errors: Rejects malformed tag-zero encodings and EOCs outside active
+ *         indefinite frames, plus impossible lengths and bad stack accounting.
+ * Responsible party: asn1c maintainers. History: Added strict EOC handling
+ * while preserving a bounded legacy ANY zero-pair value.
+ * Example: rejects 00 01 as EOC but retains definite ANY bytes 00 00.
  */
 static asn_dec_rval_t
 octet_string_ber_read_child(struct OCTET_STRING_ber_state *state) {
@@ -747,6 +757,13 @@ octet_string_ber_read_child(struct OCTET_STRING_ber_state *state) {
     consumed_eoc = octet_string_ber_consume_eoc(state, &header);
     if(consumed_eoc < 0) return octet_string_ber_result(state, RC_FAIL);
     if(consumed_eoc) return octet_string_ber_result(state, RC_OK);
+    if(header.tag == 0) {
+        /* Keep legacy ANY bytes 00 00 only as a primitive in a definite frame. */
+        if(state->variant != ASN_OSUBV_ANY || !state->sel
+        || state->sel->left < 0
+        || !octet_string_ber_exact_eoc(state, &header))
+            return octet_string_ber_result(state, RC_FAIL);
+    }
     if(octet_string_ber_is_explicit_frame(state, state->sel)
     && state->sel->bits_chopped == OS_EXPLICIT_FRAME_HAS_CHILD)
         return octet_string_ber_result(state, RC_FAIL);

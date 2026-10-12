@@ -101,13 +101,14 @@ chains with `BER_EXPLICIT_TAG_DEPTH_LIMIT` (30 by default).
 For OCTET STRING and BIT STRING decoding, retain incremental parser state while
 checking wrapper cardinality, child tags, parent lengths, and exact EOC pairs.
 Close completed definite parent frames before requesting more bytes. Built-in
-operation identities identify natural fragment tags when an implicit outer tag
-differs from the string's intrinsic tag; explicit wrapper levels continue to
+operation identities identify universal fragment tags when an implicit outer tag
+differs from the string's intrinsic tag: BIT STRING uses tag 3, while OCTET
+STRING and restricted character strings use tag 4. Explicit wrapper levels continue to
 require the descriptor tag. This also requires the relevant built-in operation
 assets in the BER dependency closure when CER encoding is disabled.
 
 Independent decoder regressions cover one-shot and incremental input, definite
-BER wrappers and strings, nested indefinite CER wrappers, retagged natural
+BER wrappers and strings, nested indefinite CER wrappers, retagged universal
 fragments, wrong tags/forms, duplicate explicit children, and truncated or
 malformed EOCs. CER input continues to use permissive BER decoding; these fixes
 do not introduce a strict canonical CER validator.
@@ -198,6 +199,59 @@ committing the complete change.
 - [x] Record exact tests and residual limitations, then commit reviewed changes.
 
 ## Qualification evidence
+
+### Follow-up design for the three generated C test failures
+
+On 2026-10-12, `tests/tests-c-compiler/test-suite.log` reported 68/71 passes
+after `cb8c9e8d`. The failed tests were `check-25.-fwide-types.c`, `check-60.c`,
+and `check-62.c`. Their causes require two separate changes:
+
+1. Correct fragment tags in both CER output and BER input matching. The fixed
+   mutation in test 25 changes a nested OCTET STRING fragment tag from 4 to
+   VisibleString tag 26 without changing the value size. It must be rejected
+   at that nesting level. X.690 (2021), sections 8.7.3.2 and 8.23.3, require
+   OCTET STRING fragments inside constructed restricted character strings;
+   section 9.2 constrains their primitive form and size without replacing that
+   tag rule. Keep the outer descriptor tags and explicit tag-chain validation
+   separate from fragment tags. Retain randomized corruption coverage and
+   add independent positive fragmentation and fixed negative vectors.
+2. Restore legacy opaque `ANY` container compatibility. Test 60 serializes an
+   empty explicitly tagged `ANY`; test 62 preserves several complete TLVs in
+   one such container. These are existing permissive runtime representations,
+   not evidence of canonical or single-value open-type conformance. Exempt
+   only opaque `ANY` from the typed-string exact-one-child checks. Continue
+   checking parent lengths, bounded nesting, complete child headers, and exact
+   EOC markers, including incremental input and malformed fixtures. Typed
+   string wrappers must retain their cardinality checks.
+   `data-62-24-L.ber` also preserves an exact `00 00` pair as opaque bytes in
+   a definite `ANY` frame. Retain this bounded compatibility case without
+   treating it as a terminator. Malformed tag-zero headers and missing
+   required EOCs remain failures; the compatibility is not normative BER
+   validation of the unknown payload type.
+
+Sol supervises two Luna implementation agents and a third Luna reviewer.
+Implementation ownership is split between `ANY` frame state and fragment-tag
+resolution/encoding. The release gate is the complete generated C suite,
+freshly rebuilt skeleton libraries and their tests, and the generated CER
+converter check. Existing Rust source is unaffected; C interoperability
+coverage must continue to pass.
+
+The follow-up passes all 71 generated C checks, including the three previously
+failing tests, under the configured ASan/UBSan test flags. Fresh normal, strict,
+and C89 skeleton archives were rebuilt before the linked skeleton suite, which
+passes 52/52. The generated CER converter check passes CER-enabled,
+CER-disabled, and BER-disabled builds, with independent long UTF8String,
+VisibleString, and BMPString vectors. The generated Rust harness passes its
+10 conformance checks and C UPER/CER interoperability checks. The main build,
+source line-length and function size/complexity checks, and shell syntax
+checks pass. The updated man page and 97-page PDF were regenerated; the
+corrected manual pages 66–67 were inspected visually. No additional long
+fuzz campaign or source-distribution rebuild is claimed for this follow-up.
+
+The primary reference for this correction is
+[X.690 (2021)](https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.690-202102-I%21%21PDF-E&lang=e&type=items).
+
+### Initial CER implementation qualification
 
 The final main build passes. Fresh normal, strict, and C89 skeleton archives
 were rebuilt before relinking the skeleton suite: 52/52 checks pass. The compiler
