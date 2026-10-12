@@ -1,7 +1,8 @@
 # CER encoding and Rust toolchain implementation plan
 
-**Status:** Accepted design; implementation and qualification in progress.
+**Status:** Implemented and locally qualified for the documented scope.
 **Date:** 2026-10-11.
+**Qualification updated:** 2026-10-12.
 **Baseline:** `673b16c5`, the first safe Rust output slice.
 **Supervisor:** Sol; three Luna agents implement disjoint work packages.
 
@@ -53,7 +54,11 @@ BER decoding remains the route for generic CER input and converter `-icer`.
 
 Keep tag wrappers, constructed lengths, string segmentation, SET ordering, and
 SET OF sorting inside the CER walker. Existing DER primitive encoders may supply
-scalar content only where canonical content is established and checked. Reject
+scalar content only where canonical content is established and checked. Capture
+that content through a copied descriptor with one intrinsic universal tag, then
+apply the original CER tag chain in the walker. This avoids inheriting the DER
+adapter's small tag-chain limit and keeps failure results tied to the caller's
+descriptor. Reject
 unsupported opaque encodings, including raw ANY, instead of relabeling arbitrary
 bytes as canonical CER. A selected open type can be encoded through its resolved
 typed descriptor when its metadata is supported.
@@ -65,8 +70,10 @@ the implemented limits and error behavior. Propagate allocation and callback
 failures without publishing a success result. Preserve generic buffer sizing
 semantics and test direct fixed-buffer failure separately.
 
-The proposed compile-time ceilings are 30 recursive levels through
-`ASN_STACK_OVERFLOW_LIMIT`, 64 MiB encoded output through
+The implemented compile-time ceilings are 30 recursive levels and 30 tags per
+descriptor chain through `ASN_STACK_OVERFLOW_LIMIT`. An explicit member tag adds
+one chain layer; an implicit member tag replaces the outer layer. Check this
+bound before reading tag arrays. The remaining ceilings are 64 MiB encoded output through
 `ASN_CER_MAX_ENCODED_SIZE`, 128 MiB aggregate active scratch through
 `ASN_CER_MAX_SCRATCH_SIZE`, 1,000,000 collection entries through
 `ASN_CER_MAX_ELEMENTS`, and 4,000,000 descriptor/value visits through
@@ -81,6 +88,35 @@ Place CER skeleton assets in the existing BER dependency closure. CER encoding
 depends on the shared BER/DER substrate. `ASN_DISABLE_CER_SUPPORT` independently
 disables the encoder; disabling only CER encoding retains BER-based CER decoding.
 Code with BER disabled must not reference unavailable CER symbols.
+
+### BER-family decoder integration
+
+Generated CER round trips exposed an existing decoder limitation: indefinite
+explicit wrappers around definite primitive TLVs were rejected by the shared
+tag checker. Add a separate bounded primitive-header helper that preserves the
+existing checker ABI, validates each explicit layer, and checks all trailing
+end-of-contents octets before publishing a scalar value. Bound explicit tag
+chains with `BER_EXPLICIT_TAG_DEPTH_LIMIT` (30 by default).
+
+For OCTET STRING and BIT STRING decoding, retain incremental parser state while
+checking wrapper cardinality, child tags, parent lengths, and exact EOC pairs.
+Close completed definite parent frames before requesting more bytes. Built-in
+operation identities identify natural fragment tags when an implicit outer tag
+differs from the string's intrinsic tag; explicit wrapper levels continue to
+require the descriptor tag. This also requires the relevant built-in operation
+assets in the BER dependency closure when CER encoding is disabled.
+
+Independent decoder regressions cover one-shot and incremental input, definite
+BER wrappers and strings, nested indefinite CER wrappers, retagged natural
+fragments, wrong tags/forms, duplicate explicit children, and truncated or
+malformed EOCs. CER input continues to use permissive BER decoding; these fixes
+do not introduce a strict canonical CER validator.
+
+NativeInteger metadata may be absent or use a zero field width for its default
+native `long` storage. Preserve those valid cases and accept supported explicit
+widths; reject malformed widths before allocation or conversion. The unber tool
+embeds primitive decoder sources without typed-decoder support, so its internal
+stub must satisfy the new helper symbol while retaining raw TLV inspection.
 
 ### Alternatives considered
 
@@ -125,10 +161,10 @@ Rust selection state separate so legacy C defaults do not contaminate Rust mode.
 
 | Agent | Owned changes | Required handoff |
 | --- | --- | --- |
-| Luna C CER | Skeleton encoder, generic dispatch, converter, C tests, skeleton dependency lists | API, limits, supported types, independent vectors |
-| Luna Rust CER | Rust runtime, generator, CLI selection, generated configuration, Rust tests | Codec mask, APIs, negative cases, cross-language bytes |
+| Luna C CER | Skeleton encoder, BER wrapper/string integration, converter, dependency lists | API, limits, supported types, independent vectors |
+| Luna Rust CER | Rust runtime, generator, CLI, generated configuration, C/Rust and decoder regressions | Codec mask, APIs, fault injection, cross-language bytes |
 | Luna documentation | README, installation, ChangeLog, codec ledger, Rust docs, TeX/PDF, Markdown/man page | Accurate support boundaries, regeneration steps, changed PDF pages |
-| Sol supervisor | This plan, packaging, interface review, integration, validation, commits | Reviewed diff, complete qualification evidence |
+| Sol supervisor | Plan, generic dispatch, generated C regressions, fuzz integration, packaging, review, validation, commits | Reviewed diff, complete qualification evidence |
 
 Agents edit the main local checkout in disjoint scopes and do not commit. Freeze
 shared interfaces before integration. Coordinate compiler builds and test relinks
@@ -138,27 +174,78 @@ committing the complete change.
 
 ## Qualification and delivery gates
 
-- [ ] Independent scalar vectors, including INTEGER sign-boundary cases and TRUE.
-- [ ] OCTET/BIT/character string boundaries at, below, and above 1000 content
+- [x] Independent scalar vectors, including INTEGER sign-boundary cases and TRUE.
+- [x] OCTET/BIT/character string boundaries at, below, and above 1000 content
   octets, plus final fragments and nonzero BIT STRING unused bits.
-- [ ] Nested and explicit/implicit tags, SEQUENCE/SET/CHOICE, DEFAULT omission,
+- [x] Nested and explicit/implicit tags, SEQUENCE/SET/CHOICE, DEFAULT omission,
   static minimum CHOICE tag order, and SET OF final-CER byte order.
-- [ ] Invalid descriptors/values, missing fields, opaque ANY, malformed primitive
+- [x] Invalid descriptors/values, missing fields, opaque ANY, malformed primitive
   content, tiny buffers, callback failure, allocation/output/depth limits.
-- [ ] C generic dispatch, converter output, generated dependency closure, and
+- [x] C generic dispatch, converter output, generated dependency closure, and
   independent encoder/BER compile-disable combinations.
-- [ ] Existing BER-family fuzz corpora exercise CER encoding after successful
+- [x] Existing BER-family fuzz corpora exercise CER encoding after successful
   decode, with unsupported/resource failures accepted and output discarded.
-- [ ] Rust runtime and generated-crate tests, negative schema/CLI combinations,
+- [x] Rust runtime and generated-crate tests, negative schema/CLI combinations,
   selected-method availability, offline builds, format/lint checks, C byte exchange.
-- [ ] Rebuilt skeleton libraries and affected existing C/compiler suites.
-- [ ] All user-facing support tables and Rust stage-one documents agree with
+- [x] Rebuilt skeleton libraries and affected existing C/compiler suites.
+- [x] Full generated-converter smoke suite, including legacy codec combinations.
+- [x] All user-facing support tables and Rust stage-one documents agree with
   implementation; future coverage is explicitly labeled as planned.
-- [ ] `asn1c-usage.tex` and regenerated `asn1c-usage.pdf` agree; inspect changed
+- [x] `asn1c-usage.tex` and regenerated `asn1c-usage.pdf` agree; inspect changed
   PDF pages for clipping, layout, tables, and complete CER/Rust sections.
-- [ ] `asn1c.man.md` and regenerated `asn1c.1` agree; verify rendered options.
-- [ ] Installation and source distribution include runtime assets and new docs.
-- [ ] Record exact tests and residual limitations, then commit reviewed changes.
+- [x] `asn1c.man.md` and regenerated `asn1c.1` agree; verify rendered options.
+- [x] Installation and source distribution include runtime assets and new docs.
+- [x] Record exact tests and residual limitations, then commit reviewed changes.
 
-The acceptance evidence will be appended here after review. A failing gate keeps
-its implementation under revision; it does not justify a broader support claim.
+## Qualification evidence
+
+The final main build passes. Fresh normal, strict, and C89 skeleton archives
+were rebuilt before relinking the skeleton suite: 52/52 checks pass. The compiler
+suite passes 7/7 checks. All 28 generated-converter smoke checks pass, including
+legacy codec-disable combinations. The unber suite passes 1/1 checks, and unber inspects an
+actual CER fixture successfully. The CER-specific generated C check passes its
+CER-enabled, CER-disabled, and BER-disabled configurations. It checks independent
+bytes and re-decodes/re-encodes structural values, including typed open types,
+retagged primitives, and long string fragments. The revised primitive adapter
+also has independent vectors for four explicit wrappers around native INTEGER,
+raw INTEGER, and a fragmented OCTET STRING, with BER re-decode. A generated
+named-alias INTEGER case checks the actual frontend metadata for this chain.
+
+The Rust runtime suite passes 10 tests, and the fresh generated Rust harness
+passes 10 conformance tests plus codec-selection and rejected-schema cases.
+Fresh generated C references verify UPER/CER byte parity, and the C decoder
+consumes Rust-generated UPER/CER output. Runtime formatting and runtime/generated
+Clippy checks pass with warnings denied. Installed C and CER-only Rust projects
+build and pass their checks using installed runtime assets and offline Cargo.
+
+A short ASan/UBSan libFuzzer qualification processed 660,325 mutations in 16
+seconds without a sanitizer failure. Successful BER decoding feeds the new CER
+encoder; a known seed also checks independent expected CER bytes. The randomized
+driver compiles with CER or BER disabled. This is bounded qualification, not a
+long fuzz campaign or proof that every malformed input is covered.
+
+The Markdown/man page was regenerated and its rendered options checked. The
+TeX manual was compiled with XeLaTeX into the tracked 97-page PDF; changed pages
+14 and 66-69 were inspected visually for CER/Rust content and layout. Source
+whitespace checks pass; new critical functions were reviewed for the repository
+size and complexity limits. Hosted Rust CI and a minimum Rust compiler version
+have not been qualified.
+
+The source distribution contains all 13 required new/runtime/documentation assets;
+all 60 reviewed changed files match the main checkout after the plan refresh.
+A failing gate keeps its implementation under revision; it does not justify a
+broader support claim.
+
+## Residual limits and next increments
+
+The shared BER decoder accepts compatible noncanonical input under `ATS_CER`.
+It can still reject scalar chains that mix definite and indefinite lengths among
+nested constructed wrapper layers; this is the pre-existing tag-checker limit.
+Canonical CER wrapper chains and tested all-definite BER chains are covered by
+this increment. Strict CER canonical validation is a separate future feature.
+
+The C encoder rejects opaque ANY, unresolved open types, unknown primitive
+operations, and unsupported raw REAL/time forms described in the codec ledger.
+Resource ceilings are intentional API limits. Rust CER remains the primitive
+encoding slice described above; broader types and CER decoding follow the staged
+conversion plan. These boundaries must remain explicit in every support table.

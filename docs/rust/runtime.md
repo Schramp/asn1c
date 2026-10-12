@@ -106,17 +106,19 @@ instead of inferring complete coverage from a family-level filename.
 | Codec family | Current modes | Main C source anchors |
 | --- | --- | --- |
 | BER / DER | BER decode; DER encode | ber_decoder.c, der_encoder.c |
-| CER | BER-compatible decode; encoding unsupported | ber_decoder.c |
+| CER | BER-compatible decode; C encode; Rust encode-only primitive slice | ber_decoder.c, cer_encoder.c |
 | PER | UPER / APER, each basic and canonical | per_*.c, uper_*.c, aper_*.c |
 | OER | Basic and canonical | oer_*.c |
 | XER | Basic and canonical | xer_*.c |
 | JER | Regular and minified | jer_*.c |
 | CBOR | CBOR | cbor_*.c |
 
-The binary audit corrected the earlier CER conclusion. Direct ber_decode
-already accepts CER-compatible input, and the dispatcher fix routes ATS_CER
-through it. Port that behavior to Rust, while keeping CER encoding unsupported.
-Neither DER nor CER selection alone provides a strict canonical validator.
+The binary audit found that `ber_decode` accepts CER-compatible input and the
+dispatcher routes `ATS_CER` through it. The C runtime also supplies a
+descriptor-driven CER encoder. The current Rust runtime implements CER
+encoding only for BOOLEAN, NULL, and finite nonextensible INTEGER ranges that
+fit `i64`; it has no CER decoder. `ATS_CER` input remains BER-backed and does
+not provide strict canonical validation.
 See [the binary audit](../binary-codec-support.md).
 
 The C encoder already exposes a byte callback, while decoder entry points accept
@@ -230,7 +232,8 @@ the runtime buildable and should add its tests and support matrix entries.
 3. APER plus constructed and recursive types, including optional/default
    members, CHOICE, SET, OF collections, extensions, open types, and limits.
 4. Remaining BER/DER and OER families, including the supported BER behavior
-   and CER-compatible BER decoding; CER encoding remains unsupported.
+   and CER-compatible BER decoding; expand the existing C and Rust CER encoder
+   matrices before making wider claims.
 5. XER, JER, and CBOR. These may proceed in parallel after shared value,
    descriptor, error, and I/O interfaces stabilize.
 6. Parity qualification: close the type/syntax/direction matrix and qualify

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Purpose: Verify generated converters expose BER-compatible DER/CER input aliases.
+# Purpose: Verify generated converters expose BER-family input and CER output.
 # Source: Repository converter selector table and X.690 BOOLEAN TRUE encoding.
 # Version/date: 2026-10-11; responsible party: asn1c maintainers.
 # Inputs: top_builddir/top_srcdir, CC, and MAKE supplied by the Automake harness.
 # Result/errors: Exit zero on success; shell/build/codec failures return nonzero.
-# History: Added for the generic CER dispatch correction.
+# History: Added for CER dispatch; extended for native CER encoding.
 # Example: make check TESTS=check-binary-format-selectors.sh
 set -eu
 
@@ -29,9 +29,9 @@ for input_format in ber der cer; do
     cmp "$test_directory/true.bin" "$test_directory/$input_format.der"
 done
 
-# The encoder is absent: adding a CER input alias must not advertise CER output.
-if "$test_directory/converter-example" -iber -ocer "$test_directory/true.bin" \
-    > "$test_directory/unexpected-output" 2> "$test_directory/error.log"; then
-    echo "Unexpected CER encoder selector" >&2
-    exit 1
-fi
+# Every input alias must also reach the native canonical CER output path.
+for input_format in ber der cer; do
+    "$test_directory/converter-example" "-i$input_format" -ocer \
+        "$test_directory/true.bin" > "$test_directory/$input_format.cer"
+    cmp "$test_directory/true.bin" "$test_directory/$input_format.cer"
+done

@@ -8,21 +8,55 @@
 #include <INTEGER.h>
 
 /*
- * Decode INTEGER type.
+ * Decode a native INTEGER and validate explicit wrapper EOCs before storage.
+ * Original source: Existing asn1c NativeInteger BER decoder with CER support.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: opt_codec_ctx bounds decoding; td provides INTEGER metadata;
+ *             nint_ptr is the target; buf_ptr/size bound bytes; tag_mode
+ *             selects implicit, ordinary, or explicit tagging.
+ * Returns: RC_OK with consumed bytes, RC_WMORE for truncation, or RC_FAIL.
+ * Errors: Allocation, integer overflow, invalid tags, and bad EOCs fail.
+ * Responsible party: asn1c maintainers. History: Added primitive EOC checking.
+ * Example: decodes an explicitly tagged native count ending in EOC.
  */
 asn_dec_rval_t
 NativeInteger_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
                          const asn_TYPE_descriptor_t *td, void **nint_ptr,
                          const void *buf_ptr, size_t size, int tag_mode) {
-    const asn_INTEGER_specifics_t *specs =
-        (const asn_INTEGER_specifics_t *)td->specifics;
-    void *native = *nint_ptr;
+    const asn_INTEGER_specifics_t *specs;
+    void *native;
     asn_dec_rval_t rval;
     ber_tlv_len_t length;
+    size_t eoc_size;
+
+    if(!td || !nint_ptr || (!buf_ptr && size)) {
+        rval.code = RC_FAIL;
+        rval.consumed = 0;
+        return rval;
+    }
+    specs = (const asn_INTEGER_specifics_t *)td->specifics;
+    if(specs && ((specs->field_width
+                  && specs->field_width != 1 && specs->field_width != 2
+                  && specs->field_width != 4 && specs->field_width != 8)
+                 || (specs->field_unsigned != 0
+                     && specs->field_unsigned != 1))) {
+        rval.code = RC_FAIL;
+        rval.consumed = 0;
+        return rval;
+    }
+
+    ASN_DEBUG("Decoding %s as INTEGER (tm=%d)",
+              td->name, tag_mode);
 
     /*
-     * If the structure is not there, allocate it.
+     * Check tags.
      */
+    rval = ber_check_primitive_tags(opt_codec_ctx, td, &buf_ptr, &size,
+                                    tag_mode, &length, &eoc_size);
+    if(rval.code != RC_OK)
+        return rval;
+
+    native = *nint_ptr;
     if(native == NULL) {
         native = (*nint_ptr = CALLOC(1, NativeInteger_field_width(specs)));
         if(native == NULL) {
@@ -32,30 +66,11 @@ NativeInteger_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
         }
     }
 
-    ASN_DEBUG("Decoding %s as INTEGER (tm=%d)",
-              td->name, tag_mode);
-
-    /*
-     * Check tags.
-     */
-    rval = ber_check_tags(opt_codec_ctx, td, 0, buf_ptr, size,
-                          tag_mode, 0, &length, 0);
-    if(rval.code != RC_OK)
-        return rval;
-
     ASN_DEBUG("%s length is %d bytes", td->name, (int)length);
 
     /*
      * Make sure we have this length.
      */
-    buf_ptr = ((const char *)buf_ptr) + rval.consumed;
-    size -= rval.consumed;
-    if(length > (ber_tlv_len_t)size) {
-        rval.code = RC_WMORE;
-        rval.consumed = 0;
-        return rval;
-    }
-
     /*
      * ASN.1 encoded INTEGER: buf_ptr, length
      * Fill the native, at the same time checking for overflow.
@@ -80,7 +95,7 @@ NativeInteger_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     rval.code = RC_OK;
-    rval.consumed += length;
+    rval.consumed += length + eoc_size;
 
     ASN_DEBUG("Took %ld/%ld bytes to encode %s",
               (long)rval.consumed, (long)length, td->name);
@@ -89,7 +104,15 @@ NativeInteger_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
 }
 
 /*
- * Encode the NativeInteger using the standard INTEGER type DER encoder.
+ * Encode a native integer through the standard INTEGER DER encoder.
+ * Original source: Existing asn1c NativeInteger DER adapter.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: sd supplies native INTEGER layout; ptr points to the value;
+ *             tag_mode/tag control tags; cb/app_key receive encoded bytes.
+ * Returns: DER encoding result, or failure if native conversion fails.
+ * Errors: Invalid native layout/value, allocation, tag, and callback failures.
+ * Responsible party: asn1c maintainers. History: Documentation completed.
+ * Example: encodes a native count as a minimally signed INTEGER.
  */
 asn_enc_rval_t
 NativeInteger_encode_der(const asn_TYPE_descriptor_t *sd, const void *ptr,

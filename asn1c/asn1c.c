@@ -176,7 +176,7 @@ asn1c_cli_options_init(asn1c_cli_options_t *options) {
     options->compiler_flags =
         A1C_NO_C99 | A1C_GEN_BER | A1C_GEN_XER | A1C_GEN_OER | A1C_GEN_UPER
         | A1C_GEN_APER | A1C_GEN_PRINT | A1C_GEN_RFILL | A1C_GEN_EXAMPLE
-        | A1C_GEN_JER | A1C_GEN_CBOR;
+        | A1C_GEN_JER | A1C_GEN_CBOR | A1C_GEN_CER;
     options->printer_flags = APF_NOFLAGS;
     options->print_out = 0;
     options->fix_n_print = 0;
@@ -185,7 +185,7 @@ asn1c_cli_options_init(asn1c_cli_options_t *options) {
     options->skeletons_explicit = 0;
     options->skeletons_owned = 0;
     options->complex_threshold = 4;
-    options->rust_codec_flags = A1C_GEN_UPER;
+    options->rust_codec_flags = A1C_GEN_UPER | A1C_GEN_CER;
     options->rust_incompatible_option = NULL;
     options->skeletons_dir = NULL;
     options->destdir = NULL;
@@ -268,6 +268,7 @@ asn1c_codec_flag(const char *name) {
     if(!strcmp(name, "XER")) return A1C_GEN_XER;
     if(!strcmp(name, "JER")) return A1C_GEN_JER;
     if(!strcmp(name, "CBOR")) return A1C_GEN_CBOR;
+    if(!strcmp(name, "CER")) return A1C_GEN_CER;
     if(!strcmp(name, "OER")) return A1C_GEN_OER;
     if(!strcmp(name, "UPER")) return A1C_GEN_UPER;
     if(!strcmp(name, "APER")) return A1C_GEN_APER;
@@ -319,12 +320,12 @@ asn1c_handle_option(int ch, const char *optarg, asn1c_cli_options_t *options,
 }
 
 /*
- * Apply an explicit codec toggle to both C and Rust-specific option state.
+ * Apply an explicit codec toggle to C and Rust-specific option state.
  * Parameters: ch is 'g' or 'n'; optarg is the existing CLI spelling; options
  * stores updated masks. Returns zero or -1. Original source: asn1c codec
  * options. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
- * maintainers. History: avoids treating C's all-codec default as a Rust
- * request. Example: `handle_codec_option('g', "en-UPER", &options)`.
+ * maintainers. History: isolates Rust selections and maintains CER's BER
+ * dependency. Example: `handle_codec_option('g', "en-CER", &options)`.
  */
 static int
 asn1c_handle_codec_option(int ch, const char *optarg,
@@ -339,9 +340,13 @@ asn1c_handle_codec_option(int ch, const char *optarg,
     if(!flag) goto invalid;
     if(ch == 'g') {
         options->compiler_flags |= (enum asn1c_flags)flag;
+        if(flag == A1C_GEN_CER)
+            options->compiler_flags |= A1C_GEN_BER;
         options->rust_codec_flags |= flag;
     } else {
         options->compiler_flags &= ~(enum asn1c_flags)flag;
+        if(flag == A1C_GEN_BER)
+            options->compiler_flags &= ~(enum asn1c_flags)A1C_GEN_CER;
         options->rust_codec_flags &= ~flag;
     }
     return 0;
@@ -771,6 +776,8 @@ asn1c_parse_complex_threshold(const char *value,
  */
 static int
 asn1c_validate_options(const asn1c_cli_options_t *options) {
+    const uint64_t rust_supported =
+        (uint64_t)A1C_GEN_UPER | (uint64_t)A1C_GEN_CER;
     if(options->print_out) {
         if((options->printer_flags & APF_PRINT_CONSTRAINTS)
            && !options->fix_n_print) {
@@ -794,10 +801,11 @@ asn1c_validate_options(const asn1c_cli_options_t *options) {
                     options->rust_incompatible_option);
             return -1;
         }
-        if(options->rust_codec_flags != (uint64_t)A1C_GEN_UPER) {
+        if(!options->rust_codec_flags
+           || (options->rust_codec_flags & ~rust_supported)) {
             fprintf(stderr,
-                    "Error: --rust supports only UPER; requested codec "
-                    "options do not select UPER alone\n");
+                    "Error: --rust supports UPER and CER; select at least "
+                    "one supported codec and no other codec\n");
             return -1;
         }
         return 0;
@@ -1237,7 +1245,7 @@ usage(const char *av0) {
 "ASN.1 Compiler, " VERSION "\n" COPYRIGHT
 "Usage: %s [options] file ...\n"
 "Options:\n"
-"  --rust                Generate a standalone Rust project (initial target supports UPER)\n"
+"  --rust                Generate Rust BOOLEAN, NULL, and bounded i64 INTEGER codecs (UPER/CER)\n"
 "  -E                    Run only the ASN.1 parser and print out the tree\n"
 "  -F                    During -E operation, also perform tree fixing\n"
 "\n"
@@ -1280,6 +1288,8 @@ usage(const char *av0) {
 "\n"
 
 "  -no-gen-BER           Do not generate the Basic Encoding Rules (BER, X.690) support code\n"
+"  -gen-CER              Generate the Canonical Encoding Rules (CER, X.690) encoder; enables BER in C mode\n"
+"  -no-gen-CER           Do not generate the Canonical Encoding Rules (CER, X.690) encoder\n"
 "  -no-gen-XER           Do not generate the XML Encoding Rules (XER, X.693) support code\n"
 "  -no-gen-JER           Do not generate the JSON Encoding Rules (JER, X.697) support code\n"
 "  -no-gen-CBOR          Do not generate the Concise Binary Object Representation (CBOR, RFC 7049) support code\n"

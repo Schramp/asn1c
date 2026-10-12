@@ -1,6 +1,6 @@
 # ADR: Generate Rust codecs while retaining the C frontend
 
-**Status:** Accepted conversion direction; initial primitive UPER slice implemented.
+**Status:** Accepted conversion direction; initial UPER and CER encoding slices implemented.
 **Date:** 2026-10-11.
 **Deciders:** Repository maintainer; Sol supervises Luna implementation agents.
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`.
@@ -31,11 +31,12 @@ every type, direction, or canonical variant is implemented. For example,
 [CI](../../.github/workflows/c-cpp.yml) explicitly limits PKIX JER testing to
 encoding because of ANY open types.
 
-An audit correction found that [ber_decode](../../skeletons/ber_decoder.h)
-already accepts CER input. The accompanying generic-dispatch fix routes
-`ATS_CER` to that decoder. CER decoding belongs in the Rust parity target;
-CER encoding remains unsupported. BER-compatible decoding does not establish
-strict canonical validation. See the [binary audit](../binary-codec-support.md).
+The C [BER decoder](../../skeletons/ber_decoder.h) accepts CER-compatible
+input, and `ATS_CER` uses that decoder without strict canonical-form checks.
+The C runtime now also provides a descriptor-driven CER encoder. Rust adds an
+initial encode-only CER slice for BOOLEAN, NULL, and bounded nonextensible
+INTEGER values fitting `i64`; it does not add a CER decoder. See the
+[binary audit](../binary-codec-support.md).
 
 ## Decision
 
@@ -45,10 +46,12 @@ and encoding-control interpretation. Keep backend emission and output packaging
 separate. Extract small language-neutral semantic helpers where existing helpers
 combine semantic analysis with C emission; do not make Rust parse generated C.
 
-Create a native Rust runtime at `rust/asn1c-runtime/`. The first primitive
-UPER implementation is present; remaining coverage is a conversion target. It
-implements the behavior of `skeletons/` without calling C codecs. Keep the C
-runtime as the compatibility baseline and differential test participant.
+Create a native Rust runtime at `rust/asn1c-runtime/`. The initial UPER
+primitive implementation and encode-only CER support for BOOLEAN, NULL, and
+bounded nonextensible `i64` INTEGER values are present; remaining coverage is a
+conversion target. It implements codec behavior without calling C codecs.
+Keep the C runtime as the compatibility baseline and differential test
+participant.
 Generated Rust should use typed structs/enums, checked semantic metadata, and
 small codec traits or typed helpers. It should not copy raw C descriptor offsets,
 `void *` operations, pointer sentinels, or mutable global inheritance tables.
@@ -75,9 +78,10 @@ flag. Reject incompatible C-only output/layout modes rather than applying them
 to Rust output. Preserve shared ASN.1 parsing and semantic processing.
 
 Use existing `-gen-*`/`-no-gen-*` syntax for codec selection. Track explicit
-selection separately from legacy default flags. `--rust` alone selects currently
-qualified Rust codecs and reports its support boundary. Explicitly requested
-unsupported codecs or schema features are errors; never silently drop them.
+selection separately from legacy default flags. `--rust` currently defaults to
+UPER and CER encoding and reports its support boundary. `-no-gen-UPER` permits
+CER-only output. Explicitly requested unsupported codecs or schema features
+are errors; never silently drop them.
 As families are qualified, add them to the Rust default until all current
 families are supported. Shared frontend inspection remains available in C mode;
 incompatible inspection/output combinations with `--rust` receive diagnostics.

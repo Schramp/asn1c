@@ -3,7 +3,7 @@ title: "asn1c(1) ASN.1 Compiler"
 author:
   - "Lev Walkin <vlm@lionet.info>"
   - "Mouse <5923577+mouse07410@users.noreply.github.com>"
-date: "2026-10-07"
+date: "October 11, 2026"
 ---
 
 # NAME
@@ -21,26 +21,44 @@ asn1c [**--rust** | **-E** [**-F**] | **-P** | **-R**] \
 
 # DESCRIPTION
 
-asn1c compiles ASN.1 specifications into a set of
-target language (C/C++) encoders and decoders for BER, DER, PER, XER, OER,
-JER, CBOR and other encoding rules.
+asn1c compiles ASN.1 specifications into C/C++ encoders and decoders for BER,
+DER, CER, PER, XER, OER, JER, CBOR and other encoding rules. Its optional
+**--rust** mode generates a Rust Cargo project for the supported subset.
 
-The **--rust** mode generates a standalone Cargo project with a safe Rust
-runtime. Its initial supported subset is UPER BOOLEAN, NULL, and finite
-nonextensible INTEGER ranges fitting `i64`; additional types and codec families
-are conversion work. Unsupported Rust combinations produce a diagnostic.
+The **--rust** mode generates a standalone Cargo project with a safe runtime
+using the Rust 2021 edition. The current subset provides UPER encoding and
+decoding, and CER encoding, for top-level BOOLEAN, NULL, and finite
+nonextensible INTEGER ranges
+fitting `i64`. Rust does not provide CER decoding. Other types and codec
+families produce a diagnostic until implemented.
 
 # OPTIONS
 
 ## Stage Selection Options
 
 --rust
-:   Select the complete Rust output mode, including Rust types, UPER methods,
-    Cargo metadata, and a copied native Rust runtime. The default codec set is
-    the currently supported Rust set (initially UPER). Explicit requests for
-    unavailable codecs and C-specific output options fail. The default output
-    directory in this mode is `asn1c-rust`. Build the generated package with
+:   Select the complete Rust output mode, including Rust types, codec methods,
+    Cargo metadata, and a copied native Rust runtime. The current default codec
+    set is UPER and CER encoding. `-no-gen-UPER` selects CER-only output;
+    `-no-gen-CER` leaves UPER enabled. Explicit requests for unavailable codecs
+    and C-specific output options fail. The default output directory in this
+    mode is `asn1c-rust`. Build the generated package with
     `cargo check --offline --manifest-path asn1c-rust/Cargo.toml`.
+
+For example, save this schema as `Demo.asn1`:
+
+```asn1
+Demo DEFINITIONS ::= BEGIN
+Flag ::= BOOLEAN
+END
+```
+
+Generate and check it with:
+
+```sh
+asn1c --rust -D generated Demo.asn1
+cargo check --offline --manifest-path generated/Cargo.toml
+```
 
 -E
 :   Run the ASN.1 parsing stage only. Print the reconstructed ASN.1 tree (text).
@@ -200,7 +218,16 @@ are conversion work. Unsupported Rust combinations produce a diagnostic.
 : List PDU dependencies (requires -pdu option, no code generated)
 
 -no-gen-BER
-:   Do not generate the Basic Encoding Rules (BER, X.690) support code
+:   Do not generate BER-family support code, including the shared dependencies
+    used by DER and CER encoding.
+
+-gen-CER
+:   Generate Canonical Encoding Rules (CER, X.690) support with its required
+    BER-family dependencies. The C target enables CER by default.
+
+-no-gen-CER
+:   Disable CER encoding support. BER-backed decoding can still accept
+    CER-compatible input unless BER support is disabled.
 
 -no-gen-XER
 :   Do not generate the XML Encoding Rules (XER, X.693) support code
@@ -273,7 +300,7 @@ See the `asn1c-usage.pdf` for details.
 | -------------- | -------------------- | -------------- | -------------- |
 | BER | `der_encode()` | BER | `ber_decode()` |
 | DER | `der_encode()` | DER, BER | `ber_decode()` |
-| CER | *encoding not supported* | CER, BER | `ber_decode()` |
+| CER | `cer_encode()` | CER, BER-compatible BER-family input | `ber_decode()` |
 | BASIC-OER | `oer_encode()` | *-OER | `oer_decode()` |
 | CANONICAL-OER | `oer_encode()` | *-OER | `oer_decode()` |
 | BASIC-UPER | `uper_encode()` | *-UPER | `uper_decode()` |
@@ -286,10 +313,35 @@ See the `asn1c-usage.pdf` for details.
 | JER-MINIFIED | `jer_encode()` | JER | `jer_decode()` |
 | CBOR | `cbor_encode()` | CBOR | `cbor_decode()` |
 
-CER decoding uses the shared BER decoder through `asn_decode(ATS_CER, ...)`.
-The generated converter accepts `-iber`, `-ider`, and `-icer`. These input
-selectors accept BER-compatible encodings and do not independently enforce
-canonical restrictions. There is no CER encoder.
+CER encoding uses `cer_encode()` or `asn_encode(ATS_CER, ...)`; the generated
+converter accepts `-ocer` output. The C backend generates CER support by
+default, and the `ASN_DISABLE_CER_SUPPORT` build macro disables the encoder
+independently of BER-backed CER input. The generated converter accepts
+`-iber`, `-ider`, and `-icer` input. These input selectors use the BER decoder
+and accept BER-compatible encodings without enforcing CER canonical
+restrictions. Type support depends on the generated descriptor and canonical
+value forms supported by the encoder. Opaque ANY and unresolved standalone
+open types are rejected. Raw REAL accepts zero, special values, and minimal
+base-2 forms with exponents of at most eight octets; decimal or noncanonical
+raw forms are rejected. UTCTime is normalized to UTC seconds. GeneralizedTime
+requires an explicit zone and supports at most nine fractional-second digits;
+comma input is normalized to a period.
+The encoder applies finite output, scratch, collection, work, recursion, and
+descriptor tag-chain limits. An additional explicit member tag counts against
+the tag-chain cap; see the binary codec support documentation for defaults.
+
+The direct `cer_encode_to_buffer()` function fails if the caller's buffer is
+too small. The generic `asn_encode_to_buffer(ATS_CER, ...)` follows the generic
+buffer API: `.encoded` reports the full required size, and a short buffer
+contains only an output prefix.
+
+The generated converter can read BER and write CER with
+`./converter-example -iber -ocer input.ber > output.cer`.
+
+The Rust backend currently encodes CER for BOOLEAN, NULL, and bounded
+nonextensible INTEGER ranges fitting `i64`; it has no CER decoder. Its UPER and
+CER encoders are enabled by default. To generate only the CER methods, pass
+`--rust -no-gen-UPER`.
 
 *) Asterisk means both BASIC and CANONICAL variants. Pass `XER_F_BASIC` or
 `XER_F_CANONICAL` to `xer_encode()` for the corresponding XER variant. Use

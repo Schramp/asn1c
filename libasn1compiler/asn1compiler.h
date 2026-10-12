@@ -176,6 +176,11 @@ enum asn1c_flags {
 	 * Generate CBOR (Concise Binary Object Representation) support code
 	 */
 	A1C_GEN_CBOR                    = 0x800000000,
+	/*
+	 * -gen-CER / -no-gen-CER
+	 * Generate Canonical Encoding Rules support code
+	 */
+	A1C_GEN_CER                     = 0x1000000000,
 };
 
 /*

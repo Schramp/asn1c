@@ -17,8 +17,10 @@
 #define rust_getpid() getpid()
 #endif
 
-/* The first Rust slice supports only Boolean, NULL, and bounded INTEGER. */
+/* The first Rust slice supports Boolean, NULL, and bounded INTEGER codecs. */
 #define RUST_CODEC_UPER ((uint64_t)A1C_GEN_UPER)
+#define RUST_CODEC_CER ((uint64_t)A1C_GEN_CER)
+#define RUST_CODEC_MASK (RUST_CODEC_UPER | RUST_CODEC_CER)
 #define RUST_CONSTRAINT_DEPTH_LIMIT 128
 #define RUST_IDENTIFIER_LIMIT 80
 #define RUST_MANIFEST_LIMIT (1024 * 1024)
@@ -45,7 +47,7 @@ static int rust_check_type_name(asn1p_module_t *, asn1p_expr_t *);
 static int rust_check_type(asn1p_module_t *, asn1p_expr_t *);
 static int rust_constraint_supported(const asn1p_constraint_t *, unsigned);
 static int rust_integer_bounds(asn1p_expr_t *, int64_t *, int64_t *);
-static int rust_stage_project(asn1p_t *, const char *, rust_output_t *);
+static int rust_stage_project(asn1p_t *, const char *, rust_output_t *, uint64_t);
 static int rust_publish_project(rust_output_t *);
 static int rust_check_existing(const char *);
 static int rust_check_owned_tree(const char *, const char *, const char *);
@@ -57,13 +59,13 @@ static int rust_check_directory_entries(const char *);
 static int rust_remove_tree(const char *);
 static int rust_copy_runtime(const char *, const char *);
 static int rust_make_directory(const char *);
-static int rust_write_project(asn1p_t *, const char *, const char *);
-static int rust_write_module(FILE *, asn1p_module_t *);
-static int rust_write_module_file(asn1p_module_t *, const char *);
-static int rust_write_type(FILE *, asn1p_module_t *, asn1p_expr_t *);
-static int rust_write_boolean(FILE *, const char *);
-static int rust_write_null(FILE *, const char *);
-static int rust_write_integer(FILE *, const char *, int64_t, int64_t);
+static int rust_write_project(asn1p_t *, const char *, const char *, uint64_t);
+static int rust_write_module(FILE *, asn1p_module_t *, uint64_t);
+static int rust_write_module_file(asn1p_module_t *, const char *, uint64_t);
+static int rust_write_type(FILE *, asn1p_module_t *, asn1p_expr_t *, uint64_t);
+static int rust_write_boolean(FILE *, const char *, uint64_t);
+static int rust_write_null(FILE *, const char *, uint64_t);
+static int rust_write_integer(FILE *, const char *, int64_t, int64_t, uint64_t);
 static int rust_write_method_doc(FILE *, const char *, const char *,
                                  const char *, const char *, const char *);
 static int rust_write_manifest(asn1p_t *, const char *);
@@ -85,11 +87,11 @@ static void rust_diagnostic(asn1p_module_t *, asn1p_expr_t *, const char *);
  * Validate and emit a standalone Cargo project for the first Rust slice.
  * Parameters: asn is the fixed tree; runtime_dir is the matching runtime
  * source directory; destdir is the project path or NULL; codecs is the
- * requested compiler codec mask. Returns zero or -1; does not throw. This
+ * requested codec mask. Returns zero or -1; does not throw. This
  * function stages all files before publishing. Original source: new backend.
  * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
- * History: initial UPER vertical slice. Example: asn1c_rust_compile(tree,
- * runtime_path, output_path, A1C_GEN_UPER).
+ * History: initial primitive codecs. Example: asn1c_rust_compile(tree,
+ * runtime_path, output_path, A1C_GEN_UPER | A1C_GEN_CER).
  */
 int
 asn1c_rust_compile(asn1p_t *asn, const char *runtime_dir,
@@ -100,8 +102,8 @@ asn1c_rust_compile(asn1p_t *asn, const char *runtime_dir,
         fprintf(stderr, "asn1c: Rust backend is missing its tree or runtime\n");
         return -1;
     }
-    if(codecs != RUST_CODEC_UPER) {
-        fprintf(stderr, "asn1c: Rust backend currently supports UPER only\n");
+    if(!codecs || (codecs & ~RUST_CODEC_MASK)) {
+        fprintf(stderr, "asn1c: Rust backend supports UPER and CER only\n");
         return -1;
     }
     if(rust_check_tree(asn)) return -1;
@@ -115,7 +117,7 @@ asn1c_rust_compile(asn1p_t *asn, const char *runtime_dir,
     } else {
         strcpy(output.target, "asn1c-rust");
     }
-    if(rust_stage_project(asn, runtime_dir, &output)) return -1;
+    if(rust_stage_project(asn, runtime_dir, &output, codecs)) return -1;
     if(rust_publish_project(&output)) {
         if(output.stage_created) rust_remove_tree(output.stage);
         return -1;
@@ -560,15 +562,16 @@ rust_diagnostic(asn1p_module_t *module, asn1p_expr_t *expr,
 
 /*
  * Create a private sibling staging directory and write the complete project.
- * Parameters: asn is validated; runtime_dir supplies matching crate assets;
- * output receives transaction paths. Returns zero or -1. Original source:
+ * Parameters: asn is validated; runtime_dir supplies assets; output receives
+ * transaction paths; codecs selects the generated encoding methods. Returns
+ * zero or -1. Original source:
  * new Rust backend. Version/date: 0.1.0, 2026-10-11. Responsible party:
  * asn1c maintainers. History: initial staged writer. Example:
- * rust_stage_project(tree, runtime, &output).
+ * rust_stage_project(tree, runtime, &output, A1C_GEN_CER).
  */
 static int
 rust_stage_project(asn1p_t *asn, const char *runtime_dir,
-                   rust_output_t *output) {
+                   rust_output_t *output, uint64_t codecs) {
     unsigned attempt;
     if(!output->target[0]) return -1;
     for(attempt = 0; attempt < 100; attempt++) {
@@ -587,7 +590,7 @@ rust_stage_project(asn1p_t *asn, const char *runtime_dir,
         }
     }
     if(!output->stage_created) return -1;
-    if(rust_write_project(asn, runtime_dir, output->stage)) {
+    if(rust_write_project(asn, runtime_dir, output->stage, codecs)) {
         rust_remove_tree(output->stage);
         output->stage_created = 0;
         return -1;
@@ -835,13 +838,15 @@ rust_make_directory(const char *path) {
 /*
  * Write the complete staged Cargo project and vendored runtime.
  * Parameters: asn is the fixed tree; runtime_dir is the asset root; stage is a
- * private new directory. Returns zero or -1. Original source: new Rust backend.
+ * private new directory; codecs selects emitted methods. Returns zero or -1.
+ * Original source: new Rust backend.
  * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
  * History: first generated crate layout. Example: rust_write_project(tree,
- * runtime, stage).
+ * runtime, stage, A1C_GEN_CER).
  */
 static int
-rust_write_project(asn1p_t *asn, const char *runtime_dir, const char *stage) {
+rust_write_project(asn1p_t *asn, const char *runtime_dir, const char *stage,
+                   uint64_t codecs) {
     char path[PATH_MAX];
     char runtime_copy[PATH_MAX];
     FILE *cargo;
@@ -865,7 +870,7 @@ rust_write_project(asn1p_t *asn, const char *runtime_dir, const char *stage) {
        || rust_copy_runtime(runtime_dir, runtime_copy)) return -1;
     TQ_FOR(module, &asn->modules, mod_next) {
         if(module->_tags & MT_STANDARD_MODULE) continue;
-        if(rust_write_module_file(module, stage)) return -1;
+        if(rust_write_module_file(module, stage, codecs)) return -1;
     }
     if(rust_write_manifest(asn, stage)) return -1;
     return 0;
@@ -873,31 +878,34 @@ rust_write_project(asn1p_t *asn, const char *runtime_dir, const char *stage) {
 
 /*
  * Write one ASN.1 module source file with its generated type wrappers.
- * Parameters: stream receives Rust; module identifies the fixed source module.
+ * Parameters: stream receives Rust; module identifies the source; codecs
+ * selects emitted methods.
  * Returns zero or -1. Original source: new Rust backend. Version/date: 0.1.0,
  * 2026-10-11. Responsible party: asn1c maintainers. History: first module
- * emitter. Example: rust_write_module(stream, module).
+ * emitter. Example: rust_write_module(stream, module, codecs).
  */
 static int
-rust_write_module(FILE *stream, asn1p_module_t *module) {
+rust_write_module(FILE *stream, asn1p_module_t *module, uint64_t codecs) {
     asn1p_expr_t *expr;
     if(fputs("//! Generated bindings for ASN.1 module.\n\n", stream) == EOF)
         return -1;
     TQ_FOR(expr, &module->members, next) {
-        if(rust_write_type(stream, module, expr)) return -1;
+        if(rust_write_type(stream, module, expr, codecs)) return -1;
     }
     return ferror(stream) ? -1 : 0;
 }
 
 /*
- * Emit one supported primitive wrapper and its UPER methods.
- * Parameters: stream receives Rust; module and expr identify the assignment.
+ * Emit one supported primitive wrapper and methods for selected codecs.
+ * Parameters: stream receives Rust; module and expr identify the assignment;
+ * codecs selects emitted methods.
  * Returns zero or -1. Original source: new Rust backend. Version/date: 0.1.0,
  * 2026-10-11. Responsible party: asn1c maintainers. History: initial wrapper
- * generator. Example: rust_write_type(stream, module, boolean_type).
+ * generator. Example: rust_write_type(stream, module, boolean_type, codecs).
  */
 static int
-rust_write_type(FILE *stream, asn1p_module_t *module, asn1p_expr_t *expr) {
+rust_write_type(FILE *stream, asn1p_module_t *module, asn1p_expr_t *expr,
+                uint64_t codecs) {
     char *name = rust_identifier(expr->Identifier, 0);
     int ret;
     (void)module;
@@ -907,27 +915,28 @@ rust_write_type(FILE *stream, asn1p_module_t *module, asn1p_expr_t *expr) {
         return -1;
     }
     if(expr->expr_type == ASN_BASIC_BOOLEAN) {
-        ret = rust_write_boolean(stream, name);
+        ret = rust_write_boolean(stream, name, codecs);
     } else if(expr->expr_type == ASN_BASIC_NULL) {
-        ret = rust_write_null(stream, name);
+        ret = rust_write_null(stream, name, codecs);
     } else {
         int64_t lower, upper;
         if(rust_integer_bounds(expr, &lower, &upper)) ret = -1;
-        else ret = rust_write_integer(stream, name, lower, upper);
+        else ret = rust_write_integer(stream, name, lower, upper, codecs);
     }
     free(name);
     return ret || ferror(stream) ? -1 : 0;
 }
 
 /*
- * Emit the safe BOOLEAN newtype and all documented UPER methods.
- * Parameters: stream receives Rust; name is a sanitized public type name.
+ * Emit the safe BOOLEAN newtype and methods for selected codecs.
+ * Parameters: stream receives Rust; name is a sanitized public type name;
+ * codecs selects emitted methods.
  * Returns zero or -1. Original source: new Rust backend. Version/date: 0.1.0,
  * 2026-10-11. Responsible party: asn1c maintainers. History: initial BOOLEAN
- * emitter. Example: rust_write_boolean(stream, "Flag").
+ * emitter. Example: rust_write_boolean(stream, "Flag", codecs).
  */
 static int
-rust_write_boolean(FILE *stream, const char *name) {
+rust_write_boolean(FILE *stream, const char *name, uint64_t codecs) {
     if(fprintf(stream,
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\n"
         "pub struct %s(\n    /// ASN.1 BOOLEAN payload state variable.\n"
@@ -943,83 +952,123 @@ rust_write_boolean(FILE *stream, const char *name) {
             "This accessor cannot fail.", "`let bit = value.value();")) return -1;
     if(fputs("    pub const fn value(&self) -> bool { self.0 }\n", stream) == EOF)
         return -1;
-    if(rust_write_method_doc(stream, "Encode this value using UPER.",
-            "`self` is the value; `limits` bounds encoding resources.",
-            "Returns encoded bytes and meaningful bit length.",
-            "Returns a runtime error if limits are exceeded.",
-            "`let encoded = value.encode_uper(&Default::default())?;"))
-        return -1;
-    if(fputs("    pub fn encode_uper(&self, limits: &::asn1c_runtime::Limits) ->\n"
-             "        ::core::result::Result<::asn1c_runtime::Encoded, "
-             "::asn1c_runtime::Error> {\n"
-             "        ::asn1c_runtime::encode_boolean(self.0, limits)\n    }\n",
-             stream) == EOF) return -1;
-    if(rust_write_method_doc(stream,
-            "Decode one UPER value and report prefix consumption.",
-            "`input` is the encoded prefix; `limits` bounds decoding.",
-            "Returns the value and consumed bit and byte counts.",
-            "Returns an error for incomplete, malformed, or over-limit input.",
-            "`let decoded = Type::decode_uper(input, &Default::default())?;"))
-        return -1;
-    if(fputs("    pub fn decode_uper(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
-             "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
-             "::asn1c_runtime::Error> {\n"
-             "        ::asn1c_runtime::decode_boolean(input, limits)\n"
-             "            .map(|decoded| decoded.map(Self))\n    }\n}\n\n",
-             stream) == EOF) return -1;
+    if(codecs & RUST_CODEC_UPER) {
+        /* Emit both UPER directions only when the caller selected UPER. */
+        if(rust_write_method_doc(stream, "Encode this value using UPER.",
+                "`self` is the value; `limits` bounds encoding resources.",
+                "Returns encoded bytes and meaningful bit length.",
+                "Returns a runtime error if limits are exceeded.",
+                "`let encoded = value.encode_uper(&Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn encode_uper(&self, limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Encoded, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::encode_boolean(self.0, limits)\n    }\n",
+                 stream) == EOF) return -1;
+        if(rust_write_method_doc(stream,
+                "Decode one UPER value and report prefix consumption.",
+                "`input` is the encoded prefix; `limits` bounds decoding.",
+                "Returns the value and consumed bit and byte counts.",
+                "Returns an error for incomplete, malformed, or over-limit input.",
+                "`let decoded = Type::decode_uper(input, &Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn decode_uper(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::decode_boolean(input, limits)\n"
+                 "            .map(|decoded| decoded.map(Self))\n    }\n",
+                 stream) == EOF) return -1;
+    }
+    if(codecs & RUST_CODEC_CER) {
+        if(rust_write_method_doc(stream, "Encode this value using CER.",
+                "`self` is the value; `limits` bounds output and work.",
+                "Returns the complete canonical BOOLEAN TLV.",
+                "Returns a runtime error if a configured limit is exceeded.",
+                "`let encoded = value.encode_cer(&Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn encode_cer(&self, limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Encoded, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::encode_boolean_cer(self.0, limits)\n"
+                 "    }\n", stream) == EOF)
+            return -1;
+    }
+    if(fputs("}\n\n", stream) == EOF) return -1;
     return 0;
 }
 
 /*
- * Emit the safe NULL unit type and its documented UPER methods.
- * Parameters: stream receives Rust; name is a sanitized public type name.
+ * Emit the safe NULL unit type and methods for selected codecs.
+ * Parameters: stream receives Rust; name is a sanitized public type name;
+ * codecs selects emitted methods.
  * Returns zero or -1. Original source: new Rust backend. Version/date: 0.1.0,
  * 2026-10-11. Responsible party: asn1c maintainers. History: initial NULL
- * emitter. Example: rust_write_null(stream, "Empty").
+ * emitter. Example: rust_write_null(stream, "Empty", codecs).
  */
 static int
-rust_write_null(FILE *stream, const char *name) {
+rust_write_null(FILE *stream, const char *name, uint64_t codecs) {
     if(fprintf(stream,
         "#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]\n"
         "pub struct %s;\n\nimpl %s {\n", name, name) < 0) return -1;
-    if(rust_write_method_doc(stream, "Encode this NULL value using UPER.",
-            "`self` is the NULL value; `limits` bounds encoding resources.",
-            "Returns the zero-width encoding.",
-            "Returns a runtime error if limits are exceeded.",
-            "`let encoded = value.encode_uper(&Default::default())?;"))
-        return -1;
-    if(fputs("    pub fn encode_uper(&self, limits: &::asn1c_runtime::Limits) ->\n"
-             "        ::core::result::Result<::asn1c_runtime::Encoded, "
-             "::asn1c_runtime::Error> {\n"
-             "        ::asn1c_runtime::encode_null(limits)\n    }\n", stream)
-       == EOF)
-        return -1;
-    if(rust_write_method_doc(stream,
-            "Decode one UPER NULL value and report prefix consumption.",
-            "`input` is the encoded prefix; `limits` bounds decoding.",
-            "Returns the unit value and consumed bit and byte counts.",
-            "Returns an error for incomplete, malformed, or over-limit input.",
-            "`let decoded = Type::decode_uper(input, &Default::default())?;"))
-        return -1;
-    if(fputs("    pub fn decode_uper(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
-             "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
-             "::asn1c_runtime::Error> {\n"
-             "        ::asn1c_runtime::decode_null(input, limits)\n"
-             "            .map(|decoded| decoded.map(|()| Self))\n    }\n}\n\n",
-             stream) == EOF) return -1;
+    if(codecs & RUST_CODEC_UPER) {
+        /* Emit both UPER directions only when the caller selected UPER. */
+        if(rust_write_method_doc(stream, "Encode this NULL value using UPER.",
+                "`self` is the NULL value; `limits` bounds encoding resources.",
+                "Returns the zero-width encoding.",
+                "Returns a runtime error if limits are exceeded.",
+                "`let encoded = value.encode_uper(&Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn encode_uper(&self, limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Encoded, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::encode_null(limits)\n    }\n", stream)
+           == EOF)
+            return -1;
+        if(rust_write_method_doc(stream,
+                "Decode one UPER NULL value and report prefix consumption.",
+                "`input` is the encoded prefix; `limits` bounds decoding.",
+                "Returns the unit value and consumed bit and byte counts.",
+                "Returns an error for incomplete, malformed, or over-limit input.",
+                "`let decoded = Type::decode_uper(input, &Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn decode_uper(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::decode_null(input, limits)\n"
+                 "            .map(|decoded| decoded.map(|()| Self))\n    }\n",
+                 stream) == EOF)
+            return -1;
+    }
+    if(codecs & RUST_CODEC_CER) {
+        if(rust_write_method_doc(stream, "Encode this NULL value using CER.",
+                "`self` is the NULL value; `limits` bounds output and work.",
+                "Returns the complete canonical NULL TLV.",
+                "Returns a runtime error if a configured limit is exceeded.",
+                "`let encoded = value.encode_cer(&Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn encode_cer(&self, limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Encoded, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::encode_null_cer(limits)\n"
+                 "    }\n", stream) == EOF)
+            return -1;
+    }
+    if(fputs("}\n\n", stream) == EOF) return -1;
     return 0;
 }
 
 /*
- * Emit a bounded i64 newtype and checked UPER methods.
+ * Emit a bounded i64 newtype and methods for selected codecs.
  * Parameters: stream receives Rust; name is public type name; lower and upper
- * are inclusive schema bounds. Returns zero or -1. Original source: new Rust
+ * are inclusive bounds; codecs selects emitted methods. Returns zero or -1.
+ * Original source: new Rust
  * backend. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
  * maintainers. History: initial constrained INTEGER emitter. Example:
- * rust_write_integer(stream, "Count", 0, 7).
+ * rust_write_integer(stream, "Count", 0, 7, codecs).
  */
 static int
-rust_write_integer(FILE *stream, const char *name, int64_t lower, int64_t upper) {
+rust_write_integer(FILE *stream, const char *name, int64_t lower,
+                   int64_t upper, uint64_t codecs) {
     char low[64], high[64];
     if(rust_format_bound(low, sizeof(low), lower)
        || rust_format_bound(high, sizeof(high), upper)) return -1;
@@ -1046,32 +1095,51 @@ rust_write_integer(FILE *stream, const char *name, int64_t lower, int64_t upper)
             "This accessor cannot fail.", "`let number = value.value();")) return -1;
     if(fputs("    pub const fn value(&self) -> i64 { self.0 }\n", stream) == EOF)
         return -1;
-    if(rust_write_method_doc(stream, "Encode this value using UPER.",
-            "`self` is the value; `limits` bounds encoding resources.",
-            "Returns encoded bytes and meaningful bit length.",
-            "Returns a runtime error if limits are exceeded.",
-            "`let encoded = value.encode_uper(&Default::default())?;"))
-        return -1;
-    if(fprintf(stream,
-        "    pub fn encode_uper(&self, limits: &::asn1c_runtime::Limits) ->\n"
-        "        ::core::result::Result<::asn1c_runtime::Encoded, "
-        "::asn1c_runtime::Error> {\n"
-        "        ::asn1c_runtime::encode_integer(self.0, %s, %s, limits)\n"
-        "    }\n", low, high) < 0) return -1;
-    if(rust_write_method_doc(stream,
-            "Decode one UPER value and report prefix consumption.",
-            "`input` is the encoded prefix; `limits` bounds decoding.",
-            "Returns the value and consumed bit and byte counts.",
-            "Returns an error for incomplete, malformed, out-of-range, or over-limit input.",
-            "`let decoded = Type::decode_uper(input, &Default::default())?;"))
-        return -1;
-    if(fprintf(stream,
-        "    pub fn decode_uper(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
-        "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
-        "::asn1c_runtime::Error> {\n"
-        "        ::asn1c_runtime::decode_integer(input, %s, %s, limits)\n"
-        "            .map(|decoded| decoded.map(Self))\n    }\n}\n\n", low, high) < 0)
-        return -1;
+    if(codecs & RUST_CODEC_UPER) {
+        /* Emit both UPER directions only when the caller selected UPER. */
+        if(rust_write_method_doc(stream, "Encode this value using UPER.",
+                "`self` is the value; `limits` bounds encoding resources.",
+                "Returns encoded bytes and meaningful bit length.",
+                "Returns a runtime error if limits are exceeded.",
+                "`let encoded = value.encode_uper(&Default::default())?;"))
+            return -1;
+        if(fprintf(stream,
+            "    pub fn encode_uper(&self, limits: &::asn1c_runtime::Limits) ->\n"
+            "        ::core::result::Result<::asn1c_runtime::Encoded, "
+            "::asn1c_runtime::Error> {\n"
+            "        ::asn1c_runtime::encode_integer(self.0, %s, %s, limits)\n"
+            "    }\n", low, high) < 0) return -1;
+        if(rust_write_method_doc(stream,
+                "Decode one UPER value and report prefix consumption.",
+                "`input` is the encoded prefix; `limits` bounds decoding.",
+                "Returns the value and consumed bit and byte counts.",
+                "Returns an error for incomplete, malformed, out-of-range, or over-limit input.",
+                "`let decoded = Type::decode_uper(input, &Default::default())?;"))
+            return -1;
+        if(fprintf(stream,
+            "    pub fn decode_uper(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
+            "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
+            "::asn1c_runtime::Error> {\n"
+            "        ::asn1c_runtime::decode_integer(input, %s, %s, limits)\n"
+            "            .map(|decoded| decoded.map(Self))\n    }\n", low, high) < 0)
+            return -1;
+    }
+    if(codecs & RUST_CODEC_CER) {
+        if(rust_write_method_doc(stream, "Encode this value using CER.",
+                "`self` is the value; `limits` bounds output and work.",
+                "Returns the complete minimal signed INTEGER TLV.",
+                "Returns a runtime error if a configured limit is exceeded.",
+                "`let encoded = value.encode_cer(&Default::default())?;"))
+            return -1;
+        if(fprintf(stream,
+            "    pub fn encode_cer(&self, limits: &::asn1c_runtime::Limits) ->\n"
+            "        ::core::result::Result<::asn1c_runtime::Encoded, "
+            "::asn1c_runtime::Error> {\n"
+            "        ::asn1c_runtime::encode_integer_cer(self.0, %s, %s, limits)\n"
+            "    }\n", low, high) < 0)
+            return -1;
+    }
+    if(fputs("}\n\n", stream) == EOF) return -1;
     return ferror(stream) ? -1 : 0;
 }
 
@@ -1095,7 +1163,7 @@ rust_write_method_doc(FILE *stream, const char *purpose, const char *inputs,
         "    /// Original source: generated from the ASN.1 fixed tree.\n"
         "    /// Version/date: 0.1.0, 2026-10-11.\n"
         "    /// Responsible party: asn1c maintainers.\n"
-        "    /// History: emitted by the initial UPER backend.\n"
+        "    /// History: emitted by the codec-aware Rust backend.\n"
         "    /// Example: %s\n",
         purpose, inputs, returns, errors, example) < 0 ? -1 : 0;
 }
@@ -1128,13 +1196,15 @@ rust_write_lib(asn1p_t *asn, const char *path) {
 
 /*
  * Write a source module directly into the staged crate.
- * Parameters: asn is the fixed tree; stage is the project root. Returns zero
+ * Parameters: module is the fixed source module; stage is the project root;
+ * codecs selects emitted methods. Returns zero
  * or -1. Original source: new Rust backend. Version/date: 0.1.0, 2026-10-11.
  * Responsible party: asn1c maintainers. History: initial module-file writer.
  * Example: called once for each nonstandard ASN.1 module.
  */
 static int
-rust_write_module_file(asn1p_module_t *module, const char *stage) {
+rust_write_module_file(asn1p_module_t *module, const char *stage,
+                       uint64_t codecs) {
     char *name = rust_identifier(module->ModuleName, 1);
     char path[PATH_MAX];
     FILE *stream;
@@ -1150,7 +1220,7 @@ rust_write_module_file(asn1p_module_t *module, const char *stage) {
     free(name);
     stream = fopen(path, "wb");
     if(!stream) return -1;
-    ret = rust_write_module(stream, module);
+    ret = rust_write_module(stream, module, codecs);
     if(fclose(stream) != 0) ret = -1;
     return ret;
 }

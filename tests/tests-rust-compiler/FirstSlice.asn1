@@ -5,6 +5,7 @@ Empty ::= NULL
 Count ::= INTEGER (-10..10)
 Singleton ::= INTEGER (5..5)
 Wide ::= INTEGER (-9223372036854775808..9223372036854775807)
+SignBounds ::= INTEGER (-129..128)
 
 Limits ::= BOOLEAN
 Error ::= NULL

@@ -1,14 +1,28 @@
 Changes since v1.5.3:
-	* Added --rust as a complete output mode with native safe Rust UPER codecs
-	  for BOOLEAN, NULL, and finite nonextensible INTEGER ranges fitting i64.
-	  Generated Cargo packages include a dependency-free Rust runtime. Added
-	  resource limits, checked errors, output ownership checks, C comparison
-	  tests, Rust CI, and runtime source installation. Other Rust codecs and
-	  ASN.1 type families remain incremental conversion work.
-	* Routed generic CER decoding to the existing BER decoder and added DER
-	  and CER input aliases to generated converters. CER encoding remains
-	  unsupported. Added binary dispatch, malformed-input, segmented CER,
-	  and generated-converter regression coverage; clarified codec support.
+	* Added --rust as a complete output mode with native safe Rust UPER
+	  encode/decode and CER encoding for BOOLEAN, NULL, and finite
+	  nonextensible INTEGER ranges fitting i64. Generated Cargo packages use
+	  a dependency-free Rust runtime. Rust CER is encode-only; other Rust
+	  codecs and ASN.1 type families remain incremental conversion work.
+	* Added a native descriptor-driven C CER encoder, exposed through
+	  cer_encode(), the generic ATS_CER encoder, and generated converter
+	  output. C CER support is enabled by default with BER dependencies. CER
+	  input still uses permissive BER decoding. Added string fragmentation,
+	  constructed values, SET/SET OF ordering, malformed-input, and converter
+	  regression coverage. Primitive content capture uses a single intrinsic tag;
+	  the descriptor walker reapplies wrappers under the configurable tag-chain
+	  limit. Existing BER corpora also feed decoded values to generic CER encoding
+	  in randomized tests; this is not a long fuzz run.
+	* Extended BER-family CER input handling for explicit/named wrappers,
+	  natural-tag string fragments, and definite constructed BER children for
+	  covered tagged scalar forms. Validated NativeInteger width/sign metadata
+	  while preserving default native storage and DEFAULT omission. Mixed lengths
+	  among nested constructed scalar wrappers remain limited by the existing
+	  BER tag-chain path. The corrected encoder passes the linked skeleton suite
+	  (52/52), and the Rust harness passes all 10 conformance checks with C parity.
+	  A short ASan/UBSan run passes 660,325 mutations. The generated CER converter
+	  script, all 28 generated smoke tests, and installed-toolchain qualification
+	  pass.
 	* Documented the proposed first stage of Rust conversion: an opt-in Rust
 	  generation backend, a safe Rust runtime for all current codec families,
 	  test migration, and supervised implementation milestones. This change

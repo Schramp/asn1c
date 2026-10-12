@@ -95,6 +95,7 @@ libasn1cskeletons_la_SOURCES =                  \
     constr_TYPE.c constr_TYPE.h                 \
     constraints.c constraints.h                 \
     der_encoder.c der_encoder.h                 \
+    cer_encoder.c cer_encoder.h                 \
     oer_decoder.c oer_decoder.h                 \
     oer_encoder.c oer_encoder.h                 \
     oer_support.c oer_support.h                 \
@@ -130,6 +131,7 @@ libasn1cskeletons_la_SOURCES =                  \
     BIT_STRING_xer.c                            \
     BIT_STRING_jer.c                            \
     BMPString_print.c                           \
+    BMPString_jer.c                             \
     BMPString_xer.c                             \
     BOOLEAN_aper.c                              \
     BOOLEAN_ber.c                               \

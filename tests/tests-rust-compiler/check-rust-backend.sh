@@ -2,7 +2,7 @@
 
 # Run generated Rust conformance tests and live C comparison in isolated output.
 # Original source: new asn1c Automake test. Version/date: 0.1.0, 2026-10-11.
-# Responsible party: asn1c maintainers. History: initial Rust backend slice.
+# Responsible party: asn1c maintainers. History: initial Rust backend and CER slice.
 # Example: make -C tests/tests-rust-compiler check.
 
 set -eu
@@ -25,7 +25,7 @@ if [ ! -x "$asn1c_bin" ]; then
     exit 1
 fi
 
-# Reject duplicate target selection and an explicit request to disable UPER.
+# Reject duplicate target selection and a Rust request with no codec selected.
 if "$asn1c_bin" --rust --rust -S "$skeletons" \
     -D "$test_tmp/rejected-duplicate-rust" "$test_srcdir/FirstSlice.asn1" \
     >"$test_tmp/rejected-duplicate-rust.log" 2>&1; then
@@ -36,14 +36,15 @@ grep -F -- '--rust may be specified only once' \
     "$test_tmp/rejected-duplicate-rust.log" >/dev/null
 test ! -e "$test_tmp/rejected-duplicate-rust"
 
-if "$asn1c_bin" --rust -no-gen-UPER -S "$skeletons" \
-    -D "$test_tmp/rejected-disabled-uper" "$test_srcdir/FirstSlice.asn1" \
-    >"$test_tmp/rejected-disabled-uper.log" 2>&1; then
-    echo "FAIL: compiler accepted --rust with UPER disabled"
+if "$asn1c_bin" --rust -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-disabled-codecs" "$test_srcdir/FirstSlice.asn1" \
+    >"$test_tmp/rejected-disabled-codecs.log" 2>&1; then
+    echo "FAIL: compiler accepted --rust with all codecs disabled"
     exit 1
 fi
-grep -F 'supports only UPER' "$test_tmp/rejected-disabled-uper.log" >/dev/null
-test ! -e "$test_tmp/rejected-disabled-uper"
+grep -F 'select at least one supported codec' \
+    "$test_tmp/rejected-disabled-codecs.log" >/dev/null
+test ! -e "$test_tmp/rejected-disabled-codecs"
 
 # An incomplete runtime beside explicit skeletons must fail before output.
 missing_skeletons="$test_tmp/missing-runtime/skeletons"
@@ -73,6 +74,12 @@ for generated in Cargo.toml src/lib.rs src/first_slice.rs runtime/Cargo.toml \
         exit 1
     fi
 done
+grep -F 'pub fn encode_cer' "$rust_out/src/first_slice.rs" >/dev/null
+grep -F 'pub fn encode_uper' "$rust_out/src/first_slice.rs" >/dev/null
+if grep -F 'pub fn decode_cer' "$rust_out/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: Rust backend unexpectedly generated a CER decoder"
+    exit 1
+fi
 cp -R "$rust_out" "$test_tmp/first-generation"
 "$asn1c_bin" --rust -S "$skeletons" -D "$rust_out" \
     "$test_srcdir/FirstSlice.asn1"
@@ -144,6 +151,63 @@ explicit_uper="$test_tmp/explicit-uper"
     "$test_srcdir/FirstSlice.asn1"
 if [ ! -f "$explicit_uper/src/first_slice.rs" ]; then
     echo "FAIL: Rust backend rejected or omitted explicit UPER output"
+    exit 1
+fi
+grep -F 'pub fn encode_uper' "$explicit_uper/src/first_slice.rs" >/dev/null
+grep -F 'pub fn encode_cer' "$explicit_uper/src/first_slice.rs" >/dev/null
+
+# CER-only selection emits CER encoders and omits every UPER method.
+for selector in default explicit; do
+    cer_out="$test_tmp/cer-only-$selector"
+    if [ "$selector" = default ]; then
+        "$asn1c_bin" --rust -no-gen-UPER -S "$skeletons" -D "$cer_out" \
+            "$test_srcdir/FirstSlice.asn1"
+    else
+        "$asn1c_bin" --rust -gen-CER -no-gen-UPER -S "$skeletons" \
+            -D "$cer_out" "$test_srcdir/FirstSlice.asn1"
+    fi
+    generated_module="$cer_out/src/first_slice.rs"
+    grep -F 'pub fn encode_cer' "$generated_module" >/dev/null
+    if grep -E 'pub fn (encode|decode)_uper' "$generated_module" >/dev/null; then
+        echo "FAIL: CER-only selection generated UPER methods"
+        exit 1
+    fi
+    if grep -F 'pub fn decode_cer' "$generated_module" >/dev/null; then
+        echo "FAIL: CER-only selection generated a CER decoder"
+        exit 1
+    fi
+    if ! (cd "$cer_out" && \
+        CARGO_TARGET_DIR="$test_tmp/cer-cargo-target-$selector" \
+        cargo check --offline --manifest-path Cargo.toml) \
+        >"$test_tmp/cer-cargo-check-$selector.log" 2>&1; then
+        cat "$test_tmp/cer-cargo-check-$selector.log"
+        echo "FAIL: generated CER-only Rust crate did not compile"
+        exit 1
+    fi
+done
+
+# BER selection does not alter the separate Rust CER codec mask.
+cer_without_ber="$test_tmp/cer-without-ber"
+"$asn1c_bin" --rust -no-gen-BER -no-gen-UPER -S "$skeletons" \
+    -D "$cer_without_ber" "$test_srcdir/FirstSlice.asn1"
+grep -F 'pub fn encode_cer' "$cer_without_ber/src/first_slice.rs" >/dev/null
+if grep -E 'pub fn (encode|decode)_uper' \
+    "$cer_without_ber/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: --no-gen-BER changed the independent Rust codec mask"
+    exit 1
+fi
+
+# CER-disabled Rust output keeps UPER methods and omits CER encoders.
+uper_only="$test_tmp/uper-only"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$uper_only" \
+    "$test_srcdir/FirstSlice.asn1"
+grep -F 'pub fn encode_uper' "$uper_only/src/first_slice.rs" >/dev/null
+if grep -F 'pub fn encode_cer' "$uper_only/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: -no-gen-CER retained generated CER methods"
+    exit 1
+fi
+if grep -F 'pub fn decode_cer' "$uper_only/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: -no-gen-CER retained a generated CER decoder"
     exit 1
 fi
 
@@ -328,11 +392,60 @@ if [ -e "$c_default/Cargo.toml" ]; then
     exit 1
 fi
 
+# In C mode CER depends on BER, and option order controls that shared backend.
+c_cer_after_ber_off="$test_tmp/c-cer-after-ber-off"
+mkdir "$c_cer_after_ber_off"
+"$asn1c_bin" -no-gen-BER -gen-CER -S "$skeletons" \
+    -D "$c_cer_after_ber_off" "$test_srcdir/CParity.asn1"
+c_cer_after_ber_off_flags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$c_cer_after_ber_off/Makefile.am.libasncodec")
+case "$c_cer_after_ber_off_flags" in
+    *ASN_DISABLE_BER_SUPPORT*|*ASN_DISABLE_CER_SUPPORT*)
+        echo "FAIL: -no-gen-BER -gen-CER did not restore the CER dependency"
+        exit 1
+        ;;
+esac
+
+c_ber_off_after_cer="$test_tmp/c-ber-off-after-cer"
+mkdir "$c_ber_off_after_cer"
+"$asn1c_bin" -gen-CER -no-gen-BER -S "$skeletons" \
+    -D "$c_ber_off_after_cer" "$test_srcdir/CParity.asn1"
+c_ber_off_after_cer_flags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$c_ber_off_after_cer/Makefile.am.libasncodec")
+case "$c_ber_off_after_cer_flags" in
+    *ASN_DISABLE_BER_SUPPORT*ASN_DISABLE_CER_SUPPORT*|\
+    *ASN_DISABLE_CER_SUPPORT*ASN_DISABLE_BER_SUPPORT*) ;;
+    *)
+        echo "FAIL: -gen-CER -no-gen-BER retained the shared CER backend"
+        exit 1
+        ;;
+esac
+
+c_cer_off="$test_tmp/c-cer-off"
+mkdir "$c_cer_off"
+"$asn1c_bin" -no-gen-CER -S "$skeletons" -D "$c_cer_off" \
+    "$test_srcdir/CParity.asn1"
+c_cer_off_flags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$c_cer_off/Makefile.am.libasncodec")
+case "$c_cer_off_flags" in
+    *ASN_DISABLE_CER_SUPPORT*) ;;
+    *)
+        echo "FAIL: -no-gen-CER left the C CER encoder enabled"
+        exit 1
+        ;;
+esac
+case "$c_cer_off_flags" in
+    *ASN_DISABLE_BER_SUPPORT*)
+        echo "FAIL: -no-gen-CER disabled the shared BER/CER decoder"
+        exit 1
+        ;;
+esac
+
 # Build the comparison project from its generated dependency closure, not the
 # repository skeleton archive, so the test cannot link stale compiled objects.
 c_out="$test_tmp/generated-c"
 mkdir "$c_out"
-if ! "$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-BER -no-gen-XER \
+if ! "$asn1c_bin" -S "$skeletons" -gen-UPER -gen-CER -no-gen-XER \
     -no-gen-JER -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
     -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
     -no-gen-example -D "$c_out" "$test_srcdir/CParity.asn1" \
@@ -368,4 +481,4 @@ cp "$test_srcdir/conformance.rs" "$rust_out/tests/conformance.rs"
     cargo test --offline --manifest-path Cargo.toml)
 "$test_tmp/c-reference" --decode-dir "$test_tmp/rust-vectors"
 
-echo "PASS: generated Rust UPER primitive slice"
+echo "PASS: generated Rust UPER/CER primitive slice"

@@ -5,7 +5,7 @@
 
 use asn1c_generated::first_slice::{
     Count, Decoded, Empty, Error as AsnError, Flag, Limits as AsnLimits, Ok as AsnOk,
-    Result as AsnResult, Singleton, Wide,
+    Result as AsnResult, SignBounds, Singleton, Wide,
 };
 use asn1c_runtime::{Error, Limits, Resource};
 use std::path::Path;
@@ -14,7 +14,7 @@ use std::path::Path;
 ///
 /// # Parameters
 /// `actual` is the generated encoding, `bytes` is the independent golden byte
-/// slice, `bit_len` is the golden meaningful-bit count, and `case` names it.
+/// slice, `bit_len` is the golden bit count, and `case` names the vector.
 ///
 /// # Returns
 /// No value; any difference panics and fails the calling integration test.
@@ -26,10 +26,10 @@ use std::path::Path;
 /// # Source, history, and example
 /// Original source: new asn1c generated-Rust integration test. Version/date:
 /// 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: added
-/// with the primitive UPER slice. Example: `check_encoding(&encoded, &[0x80], 1, "TRUE")`.
+/// with the primitive codecs. Example: `check_encoding(&encoded, &[0x80], 1, "UPER TRUE")`.
 fn check_encoding(actual: &asn1c_runtime::Encoded, bytes: &[u8], bit_len: usize, case: &str) {
     assert_eq!(actual.bytes, bytes, "{case} bytes");
-    assert_eq!(actual.bit_len, bit_len, "{case} meaningful bits");
+    assert_eq!(actual.bit_len, bit_len, "{case} bit count");
 }
 
 /// Save generated Rust bytes for a separately compiled C decoder.
@@ -76,6 +76,29 @@ fn read_c_vector(filename: &str) -> Vec<u8> {
         std::env::var_os("ASN1C_C_VECTORS").expect("harness must configure ASN1C_C_VECTORS");
     let path = Path::new(&directory).join(filename);
     std::fs::read(&path).unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()))
+}
+
+/// Check one generated CER vector against an independent vector and live C output.
+///
+/// # Parameters
+/// `filename` is shared between the C and Rust vector directories; `actual` is
+/// Rust output and `expected` is the independent complete CER encoding.
+///
+/// # Returns
+/// No value. The exact bytes are also saved for generic C ATS_CER decoding.
+///
+/// # Errors and panics
+/// Panics if Rust, the C encoder, or the independent expected bytes differ, or
+/// if either test vector directory is missing or unwritable.
+///
+/// # Source, history, and example
+/// Original source: new asn1c CER interoperability fixture. Version/date:
+/// 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: added
+/// for independent and bidirectional CER checks. Example: check `02 02 00 80`.
+fn check_cer_vector(filename: &str, actual: &asn1c_runtime::Encoded, expected: &[u8]) {
+    check_encoding(actual, expected, expected.len() * 8, filename);
+    write_rust_vector(filename, &actual.bytes);
+    assert_eq!(read_c_vector(filename), expected, "C CER bytes: {filename}");
 }
 
 /// Check BOOLEAN values against fixed UPER vectors and prefix consumption.
@@ -133,6 +156,79 @@ fn null_complete_encoding() {
     assert_eq!(decoded.consumed_bytes, 1);
     assert!(Empty::decode_uper(&[], &limits).is_err());
     assert!(Empty::decode_uper(&[0x01], &limits).is_err());
+}
+
+/// Check generated CER encoders against independent canonical TLV vectors.
+///
+/// # Parameters and returns
+/// No parameters or return value. Exercises BOOLEAN, NULL, and signed i64 CER.
+///
+/// # Errors and panics
+/// Panics if generated encoding, minimal INTEGER sign handling, or complete
+/// octet bit counts differ from the expected vectors.
+///
+/// # Source, history, and example
+/// Original source: X.690 CER primitive encoding rules. Version/date:
+/// 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: added
+/// for the Rust CER encoder slice. Example: 128 encodes as `02 02 00 80`.
+#[test]
+fn cer_primitive_golden_vectors() {
+    let limits = Limits::default();
+    check_cer_vector(
+        "cer_bool_false.bin",
+        &Flag::new(false).encode_cer(&limits).unwrap(),
+        &[0x01, 0x01, 0x00],
+    );
+    check_cer_vector(
+        "cer_bool_true.bin",
+        &Flag::new(true).encode_cer(&limits).unwrap(),
+        &[0x01, 0x01, 0xff],
+    );
+    check_cer_vector(
+        "cer_null.bin",
+        &Empty.encode_cer(&limits).unwrap(),
+        &[0x05, 0x00],
+    );
+
+    let vectors: &[(i64, &[u8])] = &[
+        (127, &[0x02, 0x01, 0x7f]),
+        (128, &[0x02, 0x02, 0x00, 0x80]),
+        (-128, &[0x02, 0x01, 0x80]),
+        (-129, &[0x02, 0x02, 0xff, 0x7f]),
+        (i64::MIN, &[0x02, 0x08, 0x80, 0, 0, 0, 0, 0, 0, 0]),
+        (
+            i64::MAX,
+            &[0x02, 0x08, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+        ),
+    ];
+    for (value, expected) in vectors {
+        let encoded = Wide::new(*value).unwrap().encode_cer(&limits).unwrap();
+        check_encoding(&encoded, expected, expected.len() * 8, "CER INTEGER");
+    }
+
+    let sign_vectors: &[(i64, &[u8], &str)] = &[
+        (127, &[0x02, 0x01, 0x7f], "cer_sign_127.bin"),
+        (128, &[0x02, 0x02, 0x00, 0x80], "cer_sign_128.bin"),
+        (-128, &[0x02, 0x01, 0x80], "cer_sign_minus_128.bin"),
+        (-129, &[0x02, 0x02, 0xff, 0x7f], "cer_sign_minus_129.bin"),
+    ];
+    for (value, expected, filename) in sign_vectors {
+        let encoded = SignBounds::new(*value)
+            .unwrap()
+            .encode_cer(&limits)
+            .unwrap();
+        check_cer_vector(filename, &encoded, expected);
+    }
+
+    for (value, expected, filename) in [
+        (-10, &[0x02, 0x01, 0xf6][..], "cer_count_min.bin"),
+        (10, &[0x02, 0x01, 0x0a][..], "cer_count_max.bin"),
+    ] {
+        let encoded = Count::new(value).unwrap().encode_cer(&limits).unwrap();
+        check_cer_vector(filename, &encoded, expected);
+    }
+    let singleton = Singleton::new(5).unwrap().encode_cer(&limits).unwrap();
+    check_cer_vector("cer_singleton.bin", &singleton, &[0x02, 0x01, 0x05]);
 }
 
 /// Ensure generated ASN.1 names can overlap Rust and runtime API names safely.

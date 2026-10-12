@@ -281,3 +281,331 @@ ber_check_tags(const asn_codec_ctx_t *opt_codec_ctx,
 
 	RETURN(RC_OK);
 }
+
+static asn_dec_rval_t ber_tag_result(enum asn_dec_rval_code_e code,
+                                    size_t consumed);
+
+/*
+ * State accumulated while parsing one bounded explicit tag chain.
+ * Original source: New asn1c BER parser, based on X.690 8.1.3 and 8.1.5.
+ * Version/date: 1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History/example: Added to keep explicit-wrapper parsing bounded and resumable.
+ */
+struct ber_explicit_chain_state {
+    const uint8_t *cursor; /* state variable: current header position. */
+    size_t size; /* state variable: bytes readable at cursor. */
+    size_t consumed; /* state variable: header bytes already checked. */
+    ber_tlv_len_t limit_len; /* state variable: remaining definite wrapper size. */
+    ber_tlv_len_t last_length; /* state variable: innermost primitive content. */
+    int eoc_count; /* state variable: indefinite wrappers awaiting EOCs. */
+};
+
+/*
+ * Validate descriptor tags and constructed bits for one explicit-chain layer.
+ * Original source: New asn1c helper, based on X.690 8.1.3.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: td supplies natural tags; index/tag/form identify this layer.
+ * Returns: RC_OK for a matching layer; otherwise RC_FAIL.
+ * Errors: Mismatched natural tags or primitive/constructed form return failure.
+ * Responsible party: asn1c maintainers. History/example: used by explicit parser.
+ */
+static enum asn_dec_rval_code_e
+ber_validate_explicit_tag(const asn_TYPE_descriptor_t *td, int tag_index,
+                          int is_unknown_wrapper, int is_final,
+                          ber_tlv_tag_t tag, int constructed) {
+    if(!is_unknown_wrapper && tag != td->tags[tag_index]) return RC_FAIL;
+    if(is_final && constructed) return RC_FAIL;
+    if(!is_final && !constructed) return RC_FAIL;
+    return RC_OK;
+}
+
+/*
+ * Record an indefinite wrapper after checking its position and tag form.
+ * Original source: New asn1c helper, based on X.690 8.1.5.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: state carries lengths/EOC count; index identifies chain depth.
+ * Returns: RC_OK for an open wrapper; otherwise RC_FAIL.
+ * Errors: Indefinite primitive/final layers and mixed bounded parents fail.
+ * Responsible party: asn1c maintainers. History/example: counts wrapper EOCs.
+ */
+static enum asn_dec_rval_code_e
+ber_accept_indefinite_layer(struct ber_explicit_chain_state *state,
+                            int index, int final_index, int constructed) {
+    if(!constructed) return RC_FAIL;
+    if(state->limit_len != -1) return RC_FAIL;
+    if(index == final_index) return RC_FAIL;
+    state->eoc_count++;
+    return RC_OK;
+}
+
+/*
+ * Check a definite layer length against its parent and EOC position.
+ * Original source: New asn1c helper, based on X.690 8.1.3 and 8.1.5.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: state/index describe the layer; header_len/value_len are lengths.
+ * Returns: RC_OK after recording a bounded value; otherwise RC_FAIL.
+ * Errors: Overflow, inconsistent wrappers, or a nonfinal mixed layer fail.
+ * Responsible party: asn1c maintainers. History/example: bounds nested TLVs.
+ */
+static enum asn_dec_rval_code_e
+ber_accept_definite_layer(struct ber_explicit_chain_state *state, int index,
+                          int final_index, size_t header_len,
+                          ber_tlv_len_t value_len) {
+    size_t total_len;
+    size_t max_length = ((size_t)-1) >> 1;
+
+    if(value_len < 0 || header_len > max_length) return RC_FAIL;
+    if((size_t)value_len > max_length - header_len) return RC_FAIL;
+    if(state->eoc_count && index != final_index) return RC_FAIL;
+    total_len = header_len + (size_t)value_len;
+    if(state->limit_len == -1) {
+        state->limit_len = (ber_tlv_len_t)total_len;
+    } else if((size_t)state->limit_len != total_len) {
+        return RC_FAIL;
+    }
+    state->last_length = value_len;
+    return RC_OK;
+}
+
+/*
+ * Advance past a validated tag header and tighten its definite parent bound.
+ * Original source: New asn1c helper, based on X.690 8.1.3.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: state receives header_len bytes of progress.
+ * Returns: RC_OK after advancing; otherwise RC_FAIL on accounting overflow.
+ * Errors: Header larger than input or consumed-count overflow fails.
+ * Responsible party: asn1c maintainers. History/example: preserves input bounds.
+ */
+static enum asn_dec_rval_code_e
+ber_advance_explicit_header(struct ber_explicit_chain_state *state,
+                            size_t header_len) {
+    if(header_len > state->size) return RC_FAIL;
+    if(header_len > ((size_t)-1) - state->consumed) return RC_FAIL;
+    state->cursor += header_len;
+    state->size -= header_len;
+    state->consumed += header_len;
+    if(state->limit_len != -1) {
+        state->limit_len -= (ber_tlv_len_t)header_len;
+        if(state->size > (size_t)state->limit_len)
+            state->size = (size_t)state->limit_len;
+    }
+    return RC_OK;
+}
+
+/*
+ * Parse and validate a single explicit/natural tag and its length.
+ * Original source: New asn1c BER parser, based on X.690 8.1.3 and 8.1.5.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: td describes tags; state is updated for the indexed layer.
+ * Returns: RC_OK, RC_WMORE, or RC_FAIL without consuming caller input.
+ * Errors: Invalid tag, form, length, or wrapper nesting returns RC_FAIL.
+ * Responsible party: asn1c maintainers. History/example: one parser iteration.
+ */
+static enum asn_dec_rval_code_e
+ber_check_explicit_layer(const asn_TYPE_descriptor_t *td,
+                         struct ber_explicit_chain_state *state, int index,
+                         int layer_count, int tag_mode) {
+    ber_tlv_tag_t tag;
+    ssize_t tag_len = ber_fetch_tag(state->cursor, state->size, &tag);
+    ssize_t len_len;
+    size_t header_len;
+    int constructed;
+    int is_unknown_wrapper = tag_mode != 0 && index == 0;
+    int tag_index = index - (tag_mode == 1);
+    int is_final = index == layer_count - 1;
+    enum asn_dec_rval_code_e code;
+
+    if(tag_len < 0) return RC_FAIL;
+    if(tag_len == 0) return RC_WMORE;
+    constructed = BER_TLV_CONSTRUCTED(state->cursor);
+    code = ber_validate_explicit_tag(td, tag_index, is_unknown_wrapper,
+                                     is_final, tag, constructed);
+    if(code != RC_OK) return code;
+    len_len = ber_fetch_length(constructed,
+                               (const char *)state->cursor + tag_len,
+                               state->size - (size_t)tag_len,
+                               &state->last_length);
+    if(len_len < 0) return RC_FAIL;
+    if(len_len == 0) return RC_WMORE;
+    if(!constructed && ((const uint8_t *)state->cursor)[tag_len] == 0x80)
+        return RC_FAIL;
+    header_len = (size_t)tag_len + (size_t)len_len;
+    if(state->last_length == -1) {
+        code = ber_accept_indefinite_layer(state, index,
+                                           layer_count - 1, constructed);
+    } else {
+        code = ber_accept_definite_layer(state, index,
+                                         layer_count - 1, header_len,
+                                         state->last_length);
+    }
+    if(code != RC_OK) return code;
+    return ber_advance_explicit_header(state, header_len);
+}
+
+/*
+ * Parse a mixed-length explicit chain ending in a primitive TLV.
+ * Original source: New asn1c BER parser, based on X.690 8.1.3 and 8.1.5.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: td provides descriptor tags; ptr/size bound input; tag_mode 1
+ *             adds an unknown wrapper, while -1 skips the first tag identity.
+ *             Outputs report header bytes, primitive content length, and EOCs.
+ * Returns: RC_OK for a valid bounded header chain, RC_WMORE or RC_FAIL.
+ * Errors: Rejects excessive depth, mismatched tags/forms, and bad lengths.
+ * Responsible party: asn1c maintainers. History: Added for explicit scalars.
+ * Example: parses `[5] EXPLICIT INTEGER` with an indefinite `[5]` wrapper.
+ */
+static asn_dec_rval_t
+ber_check_primitive_explicit_tags(const asn_TYPE_descriptor_t *td,
+                                  const void *ptr, size_t size,
+                                  ber_tlv_len_t *last_length,
+                                  int *opt_eoc_count, int tag_mode) {
+    struct ber_explicit_chain_state state; /* state variable: parsed headers. */
+    enum asn_dec_rval_code_e code;
+    int index; /* state variable: current explicit/natural tag layer. */
+    int extra_wrapper = tag_mode == 1;
+    int layer_count;
+
+    if(!td || !td->tags || td->tags_count == 0
+    || td->tags_count
+        > (unsigned)(BER_EXPLICIT_TAG_DEPTH_LIMIT - extra_wrapper)
+    || (!ptr && size))
+        return ber_tag_result(RC_FAIL, 0);
+    layer_count = (int)td->tags_count + extra_wrapper;
+    memset(&state, 0, sizeof(state));
+    state.cursor = (const uint8_t *)ptr;
+    state.size = size;
+    state.limit_len = -1;
+    for(index = 0; index < layer_count; index++) {
+        code = ber_check_explicit_layer(td, &state, index, layer_count,
+                                        tag_mode);
+        if(code != RC_OK) return ber_tag_result(code, 0);
+    }
+    *last_length = state.last_length;
+    *opt_eoc_count = state.eoc_count;
+    return ber_tag_result(RC_OK, state.consumed);
+}
+
+/*
+ * Construct a decoder result without repeating result-field assignments.
+ * Original source: New local BER parser utility.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: code is the BER status; consumed is validated header bytes.
+ * Returns: A complete asn_dec_rval_t value.
+ * Errors: None; the code argument carries the parse outcome.
+ * Responsible party: asn1c maintainers. History: Added for explicit scalars.
+ * Example: returns RC_WMORE with zero consumed bytes for a partial header.
+ */
+static asn_dec_rval_t
+ber_tag_result(enum asn_dec_rval_code_e code, size_t consumed) {
+    asn_dec_rval_t rval;
+    rval.code = code;
+    rval.consumed = consumed;
+    return rval;
+}
+
+/*
+ * Check tags and expose EOC wrappers for primitive decoder families.
+ * Original source: New asn1c BER helper, retaining ber_check_tags ABI.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: Same as ber_check_tags plus opt_eoc_count output.
+ * Returns: Header-check result; last_length is the innermost value length.
+ * Errors: RC_WMORE for partial input; RC_FAIL for invalid wrappers or tags.
+ * Responsible party: asn1c maintainers. History: Added for CER explicit scalars.
+ * Example: returns the payload size and one EOC for `[5] EXPLICIT INTEGER`.
+ */
+asn_dec_rval_t
+ber_check_tags_ex(const asn_codec_ctx_t *opt_codec_ctx,
+                  const asn_TYPE_descriptor_t *td, asn_struct_ctx_t *opt_ctx,
+                  const void *ptr, size_t size, int tag_mode,
+                  int last_tag_form, ber_tlv_len_t *last_length,
+                  int *opt_eoc_count, int *opt_tlv_form) {
+    asn_dec_rval_t rval;
+
+    if(!td || !opt_eoc_count || !last_length || tag_mode < -1 || tag_mode > 1
+    || (!ptr && size))
+        return ber_tag_result(RC_FAIL, 0);
+    *opt_eoc_count = 0;
+    if((tag_mode == 1 || td->tags_count > 0)
+    && last_tag_form == 0 && !opt_ctx) {
+        if(ASN__STACK_OVERFLOW_CHECK(opt_codec_ctx))
+            return ber_tag_result(RC_FAIL, 0);
+        rval = ber_check_primitive_explicit_tags(td, ptr, size, last_length,
+                                                 opt_eoc_count, tag_mode);
+        if(rval.code == RC_OK && opt_tlv_form) *opt_tlv_form = 0;
+        return rval;
+    }
+    rval = ber_check_tags(opt_codec_ctx, td, opt_ctx, ptr, size, tag_mode,
+                          last_tag_form, last_length, opt_tlv_form);
+    if(rval.code == RC_OK && *last_length < 0)
+        *opt_eoc_count = (int)-*last_length;
+    return rval;
+}
+
+/*
+ * Validate EOC octets following a definite primitive value.
+ * Original source: New asn1c BER helper, following X.690 8.1.5.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: ptr/size bound value+suffix; length and count describe them.
+ * Returns: RC_OK after exact zero-pair validation, RC_WMORE or RC_FAIL.
+ * Errors: Negative values, overflow, or nonzero suffix bytes return RC_FAIL.
+ * Responsible party: asn1c maintainers. History: Added for explicit wrappers.
+ * Example: validates `00 00` after a primitive's value octets.
+ */
+enum asn_dec_rval_code_e
+ber_check_eoc_suffix(const void *ptr, size_t size, ber_tlv_len_t length,
+                     int eoc_count, size_t *opt_eoc_size) {
+    const uint8_t *bytes = (const uint8_t *)ptr;
+    size_t value_size;
+    size_t eoc_size;
+    size_t index; /* state variable: current EOC pair being validated. */
+
+    if(opt_eoc_size) *opt_eoc_size = 0;
+    if(!ptr && size) return RC_FAIL;
+    if(length < 0 || eoc_count < 0) return RC_FAIL;
+    value_size = (size_t)length;
+    if(value_size > size) return RC_WMORE;
+    if((size_t)eoc_count > ((size_t)-1) / 2) return RC_FAIL;
+    eoc_size = (size_t)eoc_count * 2;
+    if(eoc_size > size - value_size) return RC_WMORE;
+    for(index = 0; index < eoc_size; index += 2) {
+        if(bytes[value_size + index] != 0
+        || bytes[value_size + index + 1] != 0) return RC_FAIL;
+    }
+    if(opt_eoc_size) *opt_eoc_size = eoc_size;
+    return RC_OK;
+}
+
+/*
+ * Check primitive tags and bound both value and explicit EOC suffix.
+ * Original source: New asn1c BER helper, following X.690 8.1.3/8.1.5.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: ptr/size are advanced to contents; length/eoc_size are outputs.
+ * Returns: Header-byte consumption when all content and EOCs are present.
+ * Errors: RC_WMORE for truncation; RC_FAIL for invalid headers or EOC bytes.
+ * Responsible party: asn1c maintainers. History: Added for primitive wrappers.
+ * Example: common preflight for BOOLEAN, INTEGER, NULL, and REAL decoders.
+ */
+asn_dec_rval_t
+ber_check_primitive_tags(const asn_codec_ctx_t *opt_codec_ctx,
+                         const asn_TYPE_descriptor_t *td, const void **ptr,
+                         size_t *size, int tag_mode,
+                         ber_tlv_len_t *length, size_t *eoc_size) {
+    asn_dec_rval_t rval;
+    int eoc_count = 0;
+    const uint8_t *value_ptr;
+
+    if(!ptr || !size || !length || !eoc_size || (!*ptr && *size))
+        return ber_tag_result(RC_FAIL, 0);
+    rval = ber_check_tags_ex(opt_codec_ctx, td, 0, *ptr, *size, tag_mode, 0,
+                             length, &eoc_count, 0);
+    if(rval.code != RC_OK) return rval;
+    if(rval.consumed > *size || *length < 0)
+        return ber_tag_result(RC_FAIL, 0);
+    value_ptr = (const uint8_t *)*ptr + rval.consumed;
+    rval.code = ber_check_eoc_suffix(value_ptr, *size - rval.consumed,
+                                     *length, eoc_count, eoc_size);
+    if(rval.code != RC_OK) return ber_tag_result(rval.code, 0);
+    *ptr = value_ptr;
+    *size -= rval.consumed;
+    return rval;
+}

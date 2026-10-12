@@ -18,6 +18,7 @@
 #include <ber_decoder.h>
 #include <cbor_decoder.h>
 #include <cbor_encoder.h>
+#include <cer_encoder.h>
 #include <der_encoder.h>
 #include <errno.h>
 #include <oer_decoder.h>
@@ -122,6 +123,8 @@ encode_explicit(enum asn_transfer_syntax syntax, const BOOLEAN_t *value,
     case ATS_BER:
     case ATS_DER:
         return der_encode_to_buffer(&asn_DEF_BOOLEAN, value, buffer, size);
+    case ATS_CER:
+        return cer_encode_to_buffer(0, &asn_DEF_BOOLEAN, value, buffer, size);
     case ATS_BASIC_OER:
     case ATS_CANONICAL_OER:
         return oer_encode_to_buffer(&asn_DEF_BOOLEAN, 0, value, buffer, size);
@@ -168,6 +171,7 @@ decode_explicit(enum asn_transfer_syntax syntax, const void *buffer,
     switch(syntax) {
     case ATS_BER:
     case ATS_DER:
+    case ATS_CER:
         return ber_decode(0, &asn_DEF_BOOLEAN, decoded, buffer, size);
     case ATS_BASIC_OER:
     case ATS_CANONICAL_OER:
@@ -257,7 +261,7 @@ check_binary_case(const struct binary_case *test) {
 }
 
 /*
- * Purpose: Exercise BER, DER, both OER/PER variants, and CBOR dispatch.
+ * Purpose: Exercise BER, DER, CER, both OER/PER variants, and CBOR dispatch.
  * Original source: New binary dispatch regression.
  * Version/date: 1.0, 2026-10-11.
  * Inputs: Independent TRUE/FALSE golden vectors declared above.
@@ -272,6 +276,7 @@ test_binary_dispatch(void) {
     static const struct binary_case cases[] = {
         {ATS_BER, "BER TRUE", 1, bool_true_ber, sizeof(bool_true_ber)},
         {ATS_DER, "DER TRUE", 1, bool_true_ber, sizeof(bool_true_ber)},
+        {ATS_CER, "CER TRUE", 1, bool_true_ber, sizeof(bool_true_ber)},
         {ATS_BASIC_OER, "basic OER TRUE", 1, bool_true_oer, sizeof(bool_true_oer)},
         {ATS_CANONICAL_OER, "canonical OER TRUE", 1, bool_true_oer,
          sizeof(bool_true_oer)},
@@ -286,6 +291,7 @@ test_binary_dispatch(void) {
         {ATS_CBOR, "CBOR TRUE", 1, bool_true_cbor, sizeof(bool_true_cbor)},
         {ATS_BER, "BER FALSE", 0, bool_false_ber, sizeof(bool_false_ber)},
         {ATS_DER, "DER FALSE", 0, bool_false_ber, sizeof(bool_false_ber)},
+        {ATS_CER, "CER FALSE", 0, bool_false_ber, sizeof(bool_false_ber)},
         {ATS_BASIC_OER, "basic OER FALSE", 0, bool_false_oer,
          sizeof(bool_false_oer)},
         {ATS_CANONICAL_OER, "canonical OER FALSE", 0, bool_false_oer,
@@ -316,7 +322,7 @@ test_binary_dispatch(void) {
  * Exceptions: No C++ exceptions; allocated decoded values are freed.
  * Responsible party: asn1c maintainers.
  * History: Added to expose the declared CER decode path and its BER semantics.
- * Example: Called by `main`; CER encoding remains separately unsupported.
+ * Example: Called by `main`; encode dispatch also checks canonical TRUE bytes.
  */
 static void
 test_cer_boolean_dispatch(void) {
@@ -401,8 +407,9 @@ test_cer_boolean_dispatch(void) {
     encode_result = asn_encode_to_buffer(0, ATS_CER, &asn_DEF_BOOLEAN,
                                          &(BOOLEAN_t){1}, output,
                                          sizeof(output));
-    require_condition(encode_result.encoded == -1 && errno == ENOENT,
-                      "CER encode", "CER encoding remains unsupported");
+    require_condition(encode_result.encoded == (ssize_t)sizeof(cer_true)
+                      && memcmp(output, cer_true, sizeof(cer_true)) == 0,
+                      "CER encode", "CER TRUE must use canonical ff contents");
 }
 
 /*

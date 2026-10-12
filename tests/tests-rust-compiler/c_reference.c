@@ -19,6 +19,7 @@
 #include <Count.h>
 #include <Empty.h>
 #include <Flag.h>
+#include <SignBounds.h>
 #include <Singleton.h>
 
 /* Compare a decoded C scalar with the semantic value expected by the fixture. */
@@ -111,6 +112,42 @@ check_encoding(const asn_TYPE_descriptor_t *td, const void *value,
 }
 
 /**
+ * Encode one value with generic ATS_CER and compare its complete TLV bytes.
+ *
+ * Parameters: `td` is the generated descriptor; `value` is its C storage;
+ * `expected` and `octets` are independent complete CER bytes; `name` identifies
+ * failures; `directory` and `filename` save output for the Rust decoder.
+ * Returns zero on exact byte equality and a complete write, otherwise one.
+ * Errors: reports encoder, comparison, or file failures; does not throw.
+ * Source/version/date: new asn1c fixture, 0.1.0, 2026-10-11.
+ * Author: asn1c maintainers. History: added for primitive CER interoperability.
+ * Example: compare TRUE with `{ 0x01, 0x01, 0xff }`.
+ */
+static int
+check_cer_encoding(const asn_TYPE_descriptor_t *td, const void *value,
+                   const unsigned char *expected, size_t octets,
+                   const char *name, const char *directory,
+                   const char *filename) {
+    unsigned char actual[16];
+    asn_enc_rval_t er;
+
+    /* Keep the fixed test buffer large enough for every requested comparison. */
+    if(octets == 0 || octets > sizeof(actual)) {
+        fprintf(stderr, "%s has an invalid CER vector size\n", name);
+        return 1;
+    }
+
+    /* Generic dispatch must return the complete canonical TLV octet count. */
+    er = asn_encode_to_buffer(0, ATS_CER, td, value, actual, sizeof(actual));
+    if(er.encoded < 0 || (size_t)er.encoded != octets
+       || memcmp(actual, expected, octets) != 0) {
+        fprintf(stderr, "%s failed its independent CER vector\n", name);
+        return 1;
+    }
+    return write_vector(directory, filename, actual, octets);
+}
+
+/**
  * Decode one complete vector and compare its semantic value.
  *
  * Parameters: `td` is the generated descriptor; `encoded` and `octets` are
@@ -136,6 +173,36 @@ check_decoding(const asn_TYPE_descriptor_t *td, const unsigned char *encoded,
     if(failed) {
         fprintf(stderr, "%s failed complete-vector decode or value comparison\n",
                 name);
+    }
+    if(decoded) ASN_STRUCT_FREE(*td, decoded);
+    return failed;
+}
+
+/**
+ * Decode one complete CER TLV through the public generic ATS_CER API.
+ *
+ * Parameters: `td` is the generated descriptor; `encoded` and `octets` are
+ * the complete TLV; `matches` checks its semantic result; `expected` is that
+ * value; `name` identifies failures. Returns zero on exact successful decode.
+ * Errors: reports decode, consumption, and comparison failures; frees output.
+ * Source/version/date: new asn1c fixture, 0.1.0, 2026-10-11.
+ * Author: asn1c maintainers. History: added for Rust-to-C ATS_CER decoding.
+ * Example: decode `{ 0x05, 0x00 }` as the ASN.1 NULL value.
+ */
+static int
+check_cer_decoding(const asn_TYPE_descriptor_t *td,
+                   const unsigned char *encoded, size_t octets,
+                   value_matches_f matches, long expected, const char *name) {
+    void *decoded = 0;
+    asn_dec_rval_t rv;
+    int failed;
+
+    /* Require generic ATS_CER to consume this entire independently framed TLV. */
+    rv = asn_decode(0, ATS_CER, td, &decoded, encoded, octets);
+    failed = rv.code != RC_OK || rv.consumed != octets || !decoded
+             || !matches(decoded, expected);
+    if(failed) {
+        fprintf(stderr, "%s failed generic ATS_CER decode or comparison\n", name);
     }
     if(decoded) ASN_STRUCT_FREE(*td, decoded);
     return failed;
@@ -224,7 +291,8 @@ matches_integer(const void *decoded, long expected) {
  *
  * Parameters: `directory` and `filename` locate the Rust-produced vector;
  * `td` is the generated C descriptor; `matches` checks the decoded value;
- * `expected` is its semantic value; `name` identifies failures.
+ * `expected` is its semantic value; `syntax` selects UPER or CER; `name`
+ * identifies failures.
  * Returns zero on valid decoding and semantic equality, otherwise one.
  * Errors: reports file errors and decoder mismatches; partial C values are freed.
  * Source/version/date: new asn1c fixture, 0.1.0, 2026-10-11.
@@ -234,7 +302,8 @@ matches_integer(const void *decoded, long expected) {
 static int
 check_rust_file(const char *directory, const char *filename,
                 const asn_TYPE_descriptor_t *td, value_matches_f matches,
-                long expected, const char *name) {
+                long expected, enum asn_transfer_syntax syntax,
+                const char *name) {
     unsigned char bytes[16];
     char path[1024];
     int path_length;
@@ -266,6 +335,9 @@ check_rust_file(const char *directory, const char *filename,
         fprintf(stderr, "empty Rust vector file %s\n", path);
         return 1;
     }
+    if(syntax == ATS_CER) {
+        return check_cer_decoding(td, bytes, octets, matches, expected, name);
+    }
     return check_decoding(td, bytes, octets, matches, expected, name);
 }
 
@@ -283,22 +355,53 @@ static int
 check_rust_vectors(const char *directory) {
     int failed = 0;
     failed |= check_rust_file(directory, "bool_true.bin", &asn_DEF_Flag,
-                              matches_boolean, 1, "Rust BOOLEAN TRUE");
+                              matches_boolean, 1, ATS_UNALIGNED_BASIC_PER,
+                              "Rust BOOLEAN TRUE");
     failed |= check_rust_file(directory, "bool_false.bin", &asn_DEF_Flag,
-                              matches_boolean, 0, "Rust BOOLEAN FALSE");
+                              matches_boolean, 0, ATS_UNALIGNED_BASIC_PER,
+                              "Rust BOOLEAN FALSE");
     failed |= check_rust_file(directory, "null.bin", &asn_DEF_Empty,
-                              matches_null, 0, "Rust NULL");
+                              matches_null, 0, ATS_UNALIGNED_BASIC_PER,
+                              "Rust NULL");
     failed |= check_rust_file(directory, "count_min.bin", &asn_DEF_Count,
-                              matches_integer, -10, "Rust Count -10");
+                              matches_integer, -10, ATS_UNALIGNED_BASIC_PER,
+                              "Rust Count -10");
     failed |= check_rust_file(directory, "count_minus_one.bin", &asn_DEF_Count,
-                              matches_integer, -1, "Rust Count -1");
+                              matches_integer, -1, ATS_UNALIGNED_BASIC_PER,
+                              "Rust Count -1");
     failed |= check_rust_file(directory, "count_zero.bin", &asn_DEF_Count,
-                              matches_integer, 0, "Rust Count 0");
+                              matches_integer, 0, ATS_UNALIGNED_BASIC_PER,
+                              "Rust Count 0");
     failed |= check_rust_file(directory, "count_max.bin", &asn_DEF_Count,
-                              matches_integer, 10, "Rust Count 10");
+                              matches_integer, 10, ATS_UNALIGNED_BASIC_PER,
+                              "Rust Count 10");
     failed |= check_rust_file(directory, "singleton.bin", &asn_DEF_Singleton,
-                              matches_integer, 5, "Rust Singleton 5");
-    if(!failed) puts("PASS: generated Rust vectors decoded by C");
+                              matches_integer, 5, ATS_UNALIGNED_BASIC_PER,
+                              "Rust Singleton 5");
+    failed |= check_rust_file(directory, "cer_bool_true.bin", &asn_DEF_Flag,
+                              matches_boolean, 1, ATS_CER, "Rust CER BOOLEAN TRUE");
+    failed |= check_rust_file(directory, "cer_bool_false.bin", &asn_DEF_Flag,
+                              matches_boolean, 0, ATS_CER,
+                              "Rust CER BOOLEAN FALSE");
+    failed |= check_rust_file(directory, "cer_null.bin", &asn_DEF_Empty,
+                              matches_null, 0, ATS_CER, "Rust CER NULL");
+    failed |= check_rust_file(directory, "cer_count_min.bin", &asn_DEF_Count,
+                              matches_integer, -10, ATS_CER, "Rust CER Count -10");
+    failed |= check_rust_file(directory, "cer_count_max.bin", &asn_DEF_Count,
+                              matches_integer, 10, ATS_CER, "Rust CER Count 10");
+    failed |= check_rust_file(directory, "cer_singleton.bin", &asn_DEF_Singleton,
+                              matches_integer, 5, ATS_CER, "Rust CER Singleton 5");
+    failed |= check_rust_file(directory, "cer_sign_127.bin", &asn_DEF_SignBounds,
+                              matches_integer, 127, ATS_CER, "Rust CER SignBounds 127");
+    failed |= check_rust_file(directory, "cer_sign_128.bin", &asn_DEF_SignBounds,
+                              matches_integer, 128, ATS_CER, "Rust CER SignBounds 128");
+    failed |= check_rust_file(directory, "cer_sign_minus_128.bin",
+                              &asn_DEF_SignBounds, matches_integer, -128, ATS_CER,
+                              "Rust CER SignBounds -128");
+    failed |= check_rust_file(directory, "cer_sign_minus_129.bin",
+                              &asn_DEF_SignBounds, matches_integer, -129, ATS_CER,
+                              "Rust CER SignBounds -129");
+    if(!failed) puts("PASS: generated Rust UPER/CER vectors decoded by C");
     return failed;
 }
 
@@ -325,10 +428,21 @@ main(int argc, char **argv) {
     static const unsigned char count_max[] = {0xa0};
     static const unsigned char singleton[] = {0x00};
     static const unsigned char count_spare[] = {0xa8};
+    static const unsigned char cer_bool_true[] = {0x01, 0x01, 0xff};
+    static const unsigned char cer_bool_false[] = {0x01, 0x01, 0x00};
+    static const unsigned char cer_null[] = {0x05, 0x00};
+    static const unsigned char cer_count_min[] = {0x02, 0x01, 0xf6};
+    static const unsigned char cer_count_max[] = {0x02, 0x01, 0x0a};
+    static const unsigned char cer_sign_127[] = {0x02, 0x01, 0x7f};
+    static const unsigned char cer_sign_128[] = {0x02, 0x02, 0x00, 0x80};
+    static const unsigned char cer_sign_minus_128[] = {0x02, 0x01, 0x80};
+    static const unsigned char cer_sign_minus_129[] = {0x02, 0x02, 0xff, 0x7f};
+    static const unsigned char cer_singleton[] = {0x02, 0x01, 0x05};
     BOOLEAN_t true_value = 1;
     BOOLEAN_t false_value = 0;
     NULL_t empty_value = 0;
     Count_t count_value = -10L;
+    SignBounds_t sign_value = 127L;
     Singleton_t singleton_value = 5L;
     int failed = 0;
     const char *vector_directory;
@@ -366,6 +480,47 @@ main(int argc, char **argv) {
     failed |= check_encoding(&asn_DEF_Singleton, &singleton_value, singleton, 1, 0,
                              "Singleton 5", vector_directory, "singleton.bin");
 
+    /* CER vectors cover primitive canonical TLVs and signed INTEGER trimming. */
+    failed |= check_cer_encoding(&asn_DEF_Flag, &true_value, cer_bool_true,
+                                 sizeof(cer_bool_true), "CER BOOLEAN TRUE",
+                                 vector_directory, "cer_bool_true.bin");
+    failed |= check_cer_encoding(&asn_DEF_Flag, &false_value, cer_bool_false,
+                                 sizeof(cer_bool_false), "CER BOOLEAN FALSE",
+                                 vector_directory, "cer_bool_false.bin");
+    failed |= check_cer_encoding(&asn_DEF_Empty, &empty_value, cer_null,
+                                 sizeof(cer_null), "CER NULL", vector_directory,
+                                 "cer_null.bin");
+    count_value = -10L;
+    failed |= check_cer_encoding(&asn_DEF_Count, &count_value, cer_count_min,
+                                 sizeof(cer_count_min), "CER Count minimum",
+                                 vector_directory, "cer_count_min.bin");
+    count_value = 10L;
+    failed |= check_cer_encoding(&asn_DEF_Count, &count_value, cer_count_max,
+                                 sizeof(cer_count_max), "CER Count maximum",
+                                 vector_directory, "cer_count_max.bin");
+    failed |= check_cer_encoding(&asn_DEF_Singleton, &singleton_value,
+                                 cer_singleton, sizeof(cer_singleton),
+                                 "CER Singleton", vector_directory,
+                                 "cer_singleton.bin");
+    sign_value = 127L;
+    failed |= check_cer_encoding(&asn_DEF_SignBounds, &sign_value, cer_sign_127,
+                                 sizeof(cer_sign_127), "CER SignBounds 127",
+                                 vector_directory, "cer_sign_127.bin");
+    sign_value = 128L;
+    failed |= check_cer_encoding(&asn_DEF_SignBounds, &sign_value, cer_sign_128,
+                                 sizeof(cer_sign_128), "CER SignBounds 128",
+                                 vector_directory, "cer_sign_128.bin");
+    sign_value = -128L;
+    failed |= check_cer_encoding(&asn_DEF_SignBounds, &sign_value,
+                                 cer_sign_minus_128, sizeof(cer_sign_minus_128),
+                                 "CER SignBounds -128", vector_directory,
+                                 "cer_sign_minus_128.bin");
+    sign_value = -129L;
+    failed |= check_cer_encoding(&asn_DEF_SignBounds, &sign_value,
+                                 cer_sign_minus_129, sizeof(cer_sign_minus_129),
+                                 "CER SignBounds -129", vector_directory,
+                                 "cer_sign_minus_129.bin");
+
     /* Cross-decode the same complete vectors through the C implementation. */
     failed |= check_decoding(&asn_DEF_Flag, true_bits, 1, matches_boolean, 1,
                              "BOOLEAN TRUE");
@@ -389,6 +544,6 @@ main(int argc, char **argv) {
     failed |= check_rejected(&asn_DEF_Count, count_zero, 0, "Count truncation");
     failed |= check_rejected(&asn_DEF_Empty, count_spare, 1, "NULL filler");
 
-    if(!failed) puts("PASS: generated C UPER comparison fixture");
+    if(!failed) puts("PASS: generated C UPER/CER comparison fixture");
     return failed ? 1 : 0;
 }

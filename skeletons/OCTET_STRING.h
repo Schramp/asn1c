@@ -182,19 +182,24 @@ size_t OCTET_STRING_random_length_constrained(
     size_t max_length);
 
 #if !defined(ASN_DISABLE_BER_SUPPORT)
+/*
+ * Per-frame parser state for incremental constructed OCTET/BIT STRING values.
+ * The links form a stack; bits_chopped also stores private explicit-frame state.
+ */
 struct _stack_el {
-    ber_tlv_len_t left;   /* What's left to read (or -1) */
-    ber_tlv_len_t got;    /* What was actually processed */
-    unsigned cont_level;  /* Depth of subcontainment */
-    int want_nulls;       /* Want null "end of content" octets? */
-    int bits_chopped;     /* Flag in BIT STRING mode */
-    ber_tlv_tag_t tag;    /* For debugging purposes */
-    struct _stack_el *prev;
-    struct _stack_el *next;
+    ber_tlv_len_t left; /* State variable: remaining bytes, or -1 for indefinite. */
+    ber_tlv_len_t got; /* State variable: header, child, and content bytes processed. */
+    unsigned cont_level; /* Nesting level used to select expected descriptor tags. */
+    int want_nulls; /* State variable: one EOC pair is required for this frame. */
+    int bits_chopped; /* State variable: BIT prefix consumed, or private wrapper state. */
+    ber_tlv_tag_t tag; /* Parsed tag retained for diagnostic messages. */
+    struct _stack_el *prev; /* Enclosing frame, or NULL for the root. */
+    struct _stack_el *next; /* Allocated child frame available for reuse. */
 };
+/* Own the reusable frame chain and the active incremental decoder position. */
 struct _stack {
-    struct _stack_el *tail;
-    struct _stack_el *cur_ptr;
+    struct _stack_el *tail; /* Last allocated frame in the reusable chain. */
+    struct _stack_el *cur_ptr; /* State variable: currently active frame. */
 };
 #endif  /* !defined(ASN_DISABLE_BER_SUPPORT) */
 

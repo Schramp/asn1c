@@ -25,6 +25,11 @@ check_PROGRAMS =                \
     check-JER                   \
     check-CBOR                  \
     check-binary-dispatch       \
+    check-CER                   \
+    check-CER-limits            \
+    check-CER-resources         \
+    check-CER-work              \
+    check-CER-scratch           \
     check-OER-support           \
     check-OER-INTEGER           \
     check-OER-NativeEnumerated  \
@@ -162,6 +167,34 @@ LDADD_32 = -lm $(top_builddir)/skeletons/libasn1cskeletons_c89_32.la
 endif
 
 check_CBOR_SOURCES=check-CBOR.c
+check_CER_SOURCES = check-CER.c $(top_srcdir)/skeletons/cer_encoder.c
+check_CER_CPPFLAGS = -DASN_CER_MAX_ENCODED_SIZE=4096u
+check_CER_LDADD = $(LDADD)
+check_CER_limits_SOURCES = check-CER-limits.c \
+    $(top_srcdir)/skeletons/cer_encoder.c
+check_CER_limits_CPPFLAGS = \
+    -DASN_CER_MAX_ENCODED_SIZE=2u \
+    -DASN_CER_MAX_SCRATCH_SIZE=4096u \
+    -DASN_CER_MAX_ELEMENTS=16u \
+    -DASN_CER_MAX_WORK_ITEMS=1024u
+check_CER_limits_LDADD = $(LDADD)
+check_CER_resources_SOURCES = check-CER-resources.c
+check_CER_resources_CPPFLAGS = -DASN_CER_MAX_ENCODED_SIZE=4096u
+check_CER_resources_LDADD = $(LDADD)
+check_CER_work_SOURCES = check-CER-resources.c
+check_CER_work_CPPFLAGS = \
+    -DASN_CER_TEST_WORK_LIMIT=1 \
+    -DASN_CER_MAX_ENCODED_SIZE=4096u \
+    -DASN_CER_MAX_SCRATCH_SIZE=4096u \
+    -DASN_CER_MAX_WORK_ITEMS=0u
+check_CER_work_LDADD = $(LDADD)
+check_CER_scratch_SOURCES = check-CER-resources.c
+check_CER_scratch_CPPFLAGS = \
+    -DASN_CER_TEST_SCRATCH_LIMIT=1 \
+    -DASN_CER_MAX_ENCODED_SIZE=4096u \
+    -DASN_CER_MAX_SCRATCH_SIZE=63u \
+    -DASN_CER_MAX_WORK_ITEMS=1024u
+check_CER_scratch_LDADD = $(LDADD)
 
 #Filter out the coverage options from CFLAGS as we don't need
 #code coverage data for the tests executables

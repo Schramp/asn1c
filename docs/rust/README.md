@@ -7,9 +7,11 @@ in C during this stage. The first implementation supplies a safe Rust runtime
 for UPER BOOLEAN, NULL, and bounded INTEGER values; the remaining runtime and
 codec coverage is an incremental conversion target.
 
-The user initially requested a documentation commit, then authorized backend
-implementation on 2026-10-11. The selected mode is `--rust`; coverage includes
-all current codecs incrementally, using safe Rust with `std`.
+The user authorized backend implementation on 2026-10-11. The selected mode is
+`--rust`; codec coverage is incremental and uses safe Rust with `std`. The
+current generated-code slice supports UPER encode/decode for BOOLEAN, NULL,
+and bounded nonextensible INTEGER, plus CER encoding for those types. CER
+decoding and the remaining codecs are not implemented in Rust.
 
 Start with the [architecture decision](architecture.md) and
 [implementation plan](stage-one-plan.md). Supporting designs describe the

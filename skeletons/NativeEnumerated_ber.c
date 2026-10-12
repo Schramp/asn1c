@@ -8,22 +8,47 @@
 #include <NativeEnumerated.h>
 
 /*
- * Decode NativeEnumerated type.
+ * Decode NativeEnumerated and validate explicit wrapper EOCs before mapping.
+ * Original source: Existing asn1c NativeEnumerated BER decoder with CER support.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: opt_codec_ctx bounds decoding; td provides enum metadata;
+ *             nint_ptr is the target; buf_ptr/size bound bytes; tag_mode
+ *             selects implicit, ordinary, or explicit tagging.
+ * Returns: RC_OK with consumed bytes, RC_WMORE for truncation, or RC_FAIL.
+ * Errors: Allocation, integer conversion, invalid tags, and bad EOCs fail.
+ * Responsible party: asn1c maintainers. History: Added primitive EOC checking.
+ * Example: decodes a named enumerated value inside an explicit wrapper.
  */
 asn_dec_rval_t
 NativeEnumerated_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
                          const asn_TYPE_descriptor_t *td, void **nint_ptr,
                          const void *buf_ptr, size_t size, int tag_mode) {
-    const asn_INTEGER_specifics_t *specs =
-        (const asn_INTEGER_specifics_t *)td->specifics;
-    long *native = (long *)*nint_ptr;
+    const asn_INTEGER_specifics_t *specs;
+    long *native;
     const asn_INTEGER_enum_map_t *el;
     asn_dec_rval_t rval;
     ber_tlv_len_t length;
+    size_t eoc_size;
+
+    if(!td || !nint_ptr || !td->specifics || (!buf_ptr && size)) {
+        rval.code = RC_FAIL;
+        rval.consumed = 0;
+        return rval;
+    }
+    specs = (const asn_INTEGER_specifics_t *)td->specifics;
+
+    ASN_DEBUG("Decoding %s as NativeEnumerated (tm=%d)",
+              td->name, tag_mode);
 
     /*
-     * If the structure is not there, allocate it.
+     * Check tags.
      */
+    rval = ber_check_primitive_tags(opt_codec_ctx, td, &buf_ptr, &size,
+                                    tag_mode, &length, &eoc_size);
+    if(rval.code != RC_OK)
+        return rval;
+
+    native = (long *)*nint_ptr;
     if(native == NULL) {
         native = (long *)(*nint_ptr = CALLOC(1, sizeof(*native)));
         if(native == NULL) {
@@ -33,30 +58,11 @@ NativeEnumerated_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
         }
     }
 
-    ASN_DEBUG("Decoding %s as NativeEnumerated (tm=%d)",
-              td->name, tag_mode);
-
-    /*
-     * Check tags.
-     */
-    rval = ber_check_tags(opt_codec_ctx, td, 0, buf_ptr, size,
-                          tag_mode, 0, &length, 0);
-    if(rval.code != RC_OK)
-        return rval;
-
     ASN_DEBUG("%s length is %d bytes", td->name, (int)length);
 
     /*
      * Make sure we have this length.
      */
-    buf_ptr = ((const char *)buf_ptr) + rval.consumed;
-    size -= rval.consumed;
-    if(length > (ber_tlv_len_t)size) {
-        rval.code = RC_WMORE;
-        rval.consumed = 0;
-        return rval;
-    }
-
     /*
      * ASN.1 encoded NativeEnumerated: buf_ptr, length
      * Fill the native, at the same time checking for overflow.
@@ -92,7 +98,7 @@ NativeEnumerated_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
     }
 
     rval.code = RC_OK;
-    rval.consumed += length;
+    rval.consumed += length + eoc_size;
 
     ASN_DEBUG("Took %ld/%ld bytes to encode %s (%ld)",
               (long)rval.consumed, (long)length, td->name, (long)*native);
@@ -101,7 +107,15 @@ NativeEnumerated_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
 }
 
 /*
- * Encode the NativeEnumerated using the standard INTEGER type DER encoder.
+ * Encode a native enumerated value through the INTEGER DER encoder.
+ * Original source: Existing asn1c NativeEnumerated DER adapter.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: td supplies enum metadata; sptr points to its value; tag_mode/tag
+ *             control tags; cb/app_key receive encoded bytes.
+ * Returns: DER encoding result, or failure when the value is unmapped.
+ * Errors: Unknown enum values, invalid tags, and callback failures are reported.
+ * Responsible party: asn1c maintainers. History: Documentation completed.
+ * Example: emits the mapped integer contents for a named enumeration value.
  */
 asn_enc_rval_t
 NativeEnumerated_encode_der(const asn_TYPE_descriptor_t *td, const void *sptr,

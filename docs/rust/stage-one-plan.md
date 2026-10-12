@@ -5,17 +5,19 @@
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`.
 
 The [first implementation](implementation.md) begins M1/M2 with a standalone
-Cargo package, safe UPER BOOLEAN/NULL/bounded INTEGER runtime, and generated-code
-tests. It is a subset of M2; ENUMERATED, strings, and constructed types remain
-pending, along with the subsequent codec families and stage-wide qualification.
+Cargo package, safe UPER BOOLEAN/NULL/bounded INTEGER runtime, encode-only CER
+methods for that primitive slice, and generated-code tests. It is a subset of
+M2; ENUMERATED, strings, and constructed types remain pending, along with the
+subsequent codec families and stage-wide qualification.
 
 The deliverable is an opt-in Rust output target in the C compiler, a native safe
 Rust runtime replacing the role of `skeletons/` for that target, and Rust coverage
 for the applicable existing codec tests. All current codec families are in scope:
-BER decoding/DER encoding, OER, UPER, APER, XER, JER, and the repository's CBOR
-mapping. Canonical variants and individual type/direction support are qualified
-separately. Rust uses `std`; `no_std`, a Rust parser/fixer, and C ABI wrappers are
-deferred. See the [architecture decision](architecture.md).
+BER decoding and CER-compatible BER input, DER and CER encoding, OER, UPER,
+APER, XER, JER, and the repository's CBOR mapping. Canonical variants and
+individual type/direction support are qualified separately. Rust uses `std`;
+`no_std`, a Rust parser/fixer, and C ABI wrappers are deferred. See the
+[architecture decision](architecture.md).
 
 ## Definition of completion
 
@@ -60,9 +62,10 @@ the README encoding table. Preserve known gaps such as PKIX JER open-type
 decoding. Record the repository's CBOR mapping explicitly; a generic CBOR parser
 does not establish ASN.1 mapping parity. For disputed standards behavior, inspect
 the governing primary text and record the rule separately from project policy.
-The binary audit corrected `ATS_CER` dispatch to the existing BER decoder.
-CER-compatible decoding is in scope; a CER encoder and strict canonical
-validation remain separate features without an implemented C baseline.
+The binary audit routes `ATS_CER` input to the existing BER decoder. The C
+runtime now has a descriptor-driven CER encoder. Rust has an encode-only
+primitive slice and no CER decoder. Strict canonical validation is not
+provided by the BER-backed CER input path.
 
 ## Sol and Luna working agreement
 
@@ -171,7 +174,9 @@ libraries. Include generated API documentation and a usage example.
 
 **Exit:** A user can generate and use Rust UPER for the declared slice, with
 repeatable byte/bit results and documented exclusions. Sol reviews the complete
-flow before extending primitives or dispatch interfaces.
+flow before extending primitives or dispatch interfaces. The first delivered
+slice also includes encode-only CER methods for BOOLEAN, NULL, and bounded
+INTEGER; the broader CER matrix remains a later M4 acceptance target.
 
 ### M3: APER and full semantic/type foundations
 
@@ -196,13 +201,17 @@ policies through both generated tests and runtime tests.
 **Exit:** The ledger's qualified PER cells pass positive, malformed, streaming,
 canonical-order, extension, and semantic tests; unsupported cells remain visible.
 
-### M4: BER/DER and OER
+### M4: BER/DER/CER and OER
 
 Port BER TLV parsing, definite/indefinite lengths, tag stacks, incremental state,
 constructed strings, and DER encoding/canonical ordering. Distinguish supported
 BER decoding from a dedicated strict DER decoder; the existing C API uses
 `ber_decode` for DER and CER inputs. Preserve CER-compatible BER decoding and
-unsupported CER encoding; do not claim strict canonical validation.
+the C descriptor-driven CER encoder. The current Rust CER primitive slice is
+encode-only; expand its matrix to every C-supported descriptor/value cell, with
+reviewed exclusions only for forms the C encoder does not support. Keep Rust
+CER decoding and BER-backed input behavior separately qualified. Do not claim
+that BER-backed input performs strict CER canonical validation.
 Port OER length and presence determinants, constraints, open types, and ordering.
 Qualify basic/canonical variants independently, including malformed encodings.
 
@@ -212,8 +221,10 @@ PKIX fixtures, constructed values, long tags/lengths, duplicate root tags, and
 default/SET ordering. Verify cross-language semantics before claiming canonical
 byte equality for any variant.
 
-**Exit:** Ledger cells for BER decoding, DER encoding, and OER pass their complete
-type/feature coverage; resource and streaming gates pass for these codecs.
+**Exit:** Ledger cells for BER/CER-compatible decoding, DER/CER encoding, and
+OER cover the qualified C type/feature matrix and the required Rust counterparts.
+Resource, streaming, and canonical-versus-permissive behavior gates pass for
+these codecs.
 
 ### M5: XER, JER, and CBOR
 

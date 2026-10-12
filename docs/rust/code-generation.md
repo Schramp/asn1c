@@ -1,6 +1,6 @@
 # Rust code generation architecture
 
-**Status:** Implementation in progress; initial UPER slice present
+**Status:** Implementation in progress; initial UPER and CER encoding slices present
 **Date:** 2026-10-11
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`
 **Scope:** An opt-in Rust target that reuses the C parser and fixer, emits a
@@ -16,11 +16,11 @@ current output and option behavior. Add Rust as an opt-in target; its generator
 must produce Rust files and Cargo metadata through a Rust-specific writer and
 runtime rather than reuse the C source emitter or C skeleton dependency list.
 
-The target includes the current C codec families over time: BER decoding and
-DER encoding, UPER, APER, OER, XER, JER, and CBOR. Rust keeps the C target's
+The target includes the current C codec families over time: BER decoding,
+DER/CER encoding, UPER, APER, OER, XER, JER, and CBOR. Rust keeps the C target's
 codec defaults independent. `--rust` selects the Rust backend as a whole;
-starting with the first usable release, it emits every currently qualified
-Rust codec by default, beginning with UPER. An explicit existing codec request
+it emits the currently qualified Rust codecs by default, beginning with UPER
+and encode-only CER support for a primitive subset. An explicit existing codec request
 that Rust cannot satisfy must fail before output is published. As codecs are
 qualified, add them to the Rust default until it covers the C defaults.
 
@@ -37,10 +37,12 @@ option must validate a compatible runtime version and API.
 
 The C compiler defaults to its current codec family set in
 [`asn1c/asn1c.c`](../../asn1c/asn1c.c#L176). Its `-gen-*` parser supports BER,
-XER, JER, CBOR, OER, UPER, and APER; there is no `-gen-DER` or `-gen-CER`
-selector ([`asn1c/asn1c.c`](../../asn1c/asn1c.c#L266)). A generated type's
-operation table has separate decoder and encoder pointers for BER/DER, OER,
-UPER, APER, and CBOR, guarded by build feature macros and generation flags
+CER, XER, JER, CBOR, OER, UPER, and APER; DER remains the BER family's encoder
+rule ([`asn1c/asn1c.c`](../../asn1c/asn1c.c#L266)). CER encoding is selected by
+`-gen-CER` and can be disabled with `-no-gen-CER`. CER shares BER-family
+runtime dependencies. A generated type's operation table has separate decoder
+and encoder pointers for BER/DER, OER, UPER, APER, and CBOR, guarded by build
+feature macros and generation flags
 ([`constr_TYPE.h`](../../skeletons/constr_TYPE.h#L200),
 [`asn1c_C.c`](../../libasn1compiler/asn1c_C.c#L3019)). Thus, codec coverage
 must be measured by type, direction, syntax variant, and feature, not by the
@@ -48,8 +50,8 @@ presence of a family name alone.
 
 | C selector or syntax | Current dispatch and meaning |
 | --- | --- |
-| `-gen-BER`, `ATS_BER` / `ATS_DER` | BER decoder and DER encoder pointers; both labels dispatch through them. |
-| `ATS_CER` | `asn_decode` routes to the BER decoder; `asn_encode` rejects it. |
+| `-gen-BER`, `ATS_BER` / `ATS_DER` | BER decoder and DER encoder paths. |
+| `-gen-CER`, `ATS_CER` | Descriptor-driven CER encoder; CER input uses the BER decoder. |
 | `ATS_BASIC_OER` / `ATS_CANONICAL_OER` | Both labels call the same OER encoder or decoder. |
 | UPER basic / canonical | Both labels call the same UPER encoder or complete decoder. |
 | APER basic / canonical | Both labels call the same APER encoder or complete decoder. |
@@ -61,14 +63,16 @@ These shared branches are in the generic transfer-syntax dispatcher at
 [`asn_application.c`](../../skeletons/asn_application.c#L473), and
 [`asn_application.c`](../../skeletons/asn_application.c#L563).
 
-The API table in [`README.md`](../../README.md#L70) advertises
-`ber_decode()` for BER, DER, and CER-shaped input, with no CER encoder. The
-generic syntax dispatcher now routes `ATS_CER` through the BER decoder
-([`asn_application.c`](../../skeletons/asn_application.c#L555)); the generated
-converter's `-icer` selector reaches the same decoder
-([`converter-example.c`](../../skeletons/converter-example.c#L160)). This
-provides BER-backed decoding, not strict CER canonical-form validation. CER
-encoding remains unsupported.
+The C runtime provides `cer_encode()` and generic `asn_encode(ATS_CER, ...)`;
+the generated converter accepts `-ocer`. For input, `ATS_CER` and `-icer`
+route to the BER decoder. This accepts BER-compatible encodings and does not
+validate strict CER canonical form. `ASN_DISABLE_CER_SUPPORT` disables the CER
+encoder independently while leaving BER-backed CER input available.
+
+The Rust backend currently adds encode-only CER methods for BOOLEAN, NULL, and
+finite nonextensible INTEGER ranges fitting `i64`. Its `--rust` defaults to
+UPER and CER for these supported types. Other Rust schema forms, CER decoding,
+and the remaining codec families are still outside the implemented slice.
 
 The example converter's baseline inputs are BER, OER, PER/UPER, APER, XER,
 JER, and CBOR; outputs are DER, OER, PER/UPER, APER, XER, JER, CBOR, text,
@@ -230,13 +234,15 @@ integer-width heuristics.
 | Type reference | module-qualified reference | Use public newtypes for aliases that add constraints or API identity. |
 | ANY / open type | runtime `OpenType` or generated typed enum | Preserve unknowns; use IOC metadata when resolved. |
 
-The current generated UPER slice supports BOOLEAN as a public newtype over
-`bool`, NULL as a public unit struct, and a bounded, nonextensible INTEGER as
-a public newtype over `i64`. INTEGER must have one effective finite PER range
-that fits `i64`; `new(value)` returns `Result` and checks that range. The
-BOOLEAN constructor is infallible. Reject aliases, imports, tags, constructed
-types, unsupported constraints, and all other types before creating output.
-ENUMERATED, OCTET STRING, and BIT STRING remain future increments.
+The current generated Rust slice supports top-level BOOLEAN as a public
+newtype over `bool`, NULL as a public unit struct, and a bounded,
+nonextensible INTEGER as a public newtype over `i64`. These types have UPER
+encode/decode methods and encode-only CER methods. INTEGER must have one
+effective finite PER range that fits `i64`; `new(value)` returns `Result` and
+checks that range. The BOOLEAN constructor is infallible. Reject aliases,
+imports, tags, constructed types, unsupported constraints, and all other types
+before creating output. ENUMERATED, OCTET STRING, and BIT STRING remain future
+increments.
 
 Use a safe, `std`-only runtime crate at `rust/asn1c-runtime/`, package name
 `asn1c-runtime`, import name `asn1c_runtime`, and Cargo edition 2021. Make no
@@ -245,7 +251,9 @@ MSRV claim beyond the Rust toolchain actually tested. Its initial public API is
 `Encoded { bytes: Vec<u8>, bit_len: usize }`, and
 `Decoded<T> { value, consumed_bits, consumed_bytes }`; `Decoded::map` transforms
 a decoded value without changing consumption. `Encoded.bit_len` records
-meaningful bits. For NULL and any zero-width complete encoding, return
+meaningful UPER bits; CER reports all encoded TLV octets as bits. The runtime
+also exposes `encode_boolean_cer`, `encode_null_cer`, and
+`encode_integer_cer`. For NULL and any zero-width UPER complete encoding, return
 `bytes == [0]` and `bit_len == 0`.
 
 The primitive functions have these signatures:
@@ -342,13 +350,13 @@ C target and its defaults. Exact `--rust` parsing is extracted from the short
 option parser; the option is recognized only before `--`. It cannot be used as
 the operand of `-D` or `-S`. Existing `-gen-*` spellings remain unchanged.
 
-Rust defaults independently to its qualified codecs. In this first slice,
-`--rust` alone selects UPER. Explicit `-gen-BER`, `-gen-APER`, `-gen-OER`,
-`-gen-XER`, `-gen-JER`, or `-gen-CBOR` requests fail before output is created.
-Explicitly disabling UPER also fails rather than writing a type-only crate.
-As codecs are qualified, add them
-to the Rust default until it covers the current C codec set. The CLI keeps the
-C defaults unchanged.
+Rust defaults independently to its qualified codecs. In the current slice,
+`--rust` alone selects UPER and CER encoding. `-no-gen-UPER` selects CER-only
+output, while `-no-gen-CER` leaves UPER selected. Explicit requests for BER,
+DER, APER, OER, XER, JER, or CBOR fail before output is created. Disabling both
+UPER and CER or selecting an unsupported ASN.1 form also fails before output
+is published. As codecs are qualified, add them to the Rust default until it
+covers the current C codec set. The CLI keeps the C defaults unchanged.
 
 Validate all flags and the complete schema before creating output files. An
 unsupported CLI combination is an `EX_USAGE` diagnostic; an unsupported
@@ -362,7 +370,7 @@ The current Rust option handling is:
 | Option family | Rust handling |
 | --- | --- |
 | `-D` | Selects the output directory; Rust defaults to `asn1c-rust`. |
-| `-gen-*`, `-no-gen-*` | UPER is qualified; other explicit codec requests fail. |
+| `-gen-*`, `-no-gen-*` | UPER and CER are qualified for the primitive slice; other explicit requests fail. |
 | C storage/layout/output flags | Fail as incompatible with `--rust`. |
 | `-S` | Selects standard modules and resolves the matching runtime assets. |
 | `-P`, `-R`, C helper/example flags | Fail as incompatible with `--rust`. |
@@ -422,10 +430,10 @@ fixtures, required negative cases, commands, and evidence. See the detailed
 [stage-one plan](stage-one-plan.md) for the assignment template and owners.
 
 Keep `--rust` opt-in and C behavior on the existing path. `--rust` alone
-currently generates UPER for the qualified primitive slice. Explicitly
-requested codecs and unsupported schema features fail before publishing a
-crate. Do not expose a user-facing type-only crate as a fallback. The first
-generated UPER slice is present; it is not full M2 qualification.
+currently selects UPER and CER encoding for the qualified primitive slice.
+Explicitly requested codecs and unsupported schema features fail before
+publishing a crate. Do not expose a user-facing type-only crate as a fallback.
+The initial UPER and CER slices do not complete the broader parity milestones.
 
 ## Milestones and completion gates
 
@@ -457,10 +465,10 @@ generated UPER slice is present; it is not full M2 qualification.
    in bounded feature assignments.
 5. **M4, BER/DER and OER:** Add Rust BER decoding, DER encoding, BER TLV and
    length handling, constructed strings, canonical ordering, and OER
-   encode/decode. Qualify supported basic and canonical variants independently.
-   Preserve the existing C BER-backed decode path for CER-compatible input.
-   This means permissive BER decoding only; there is no CER encoder or strict
-   CER canonical validator in the current C API to port.
+   encode/decode. Expand C and Rust CER encoding beyond their current slices as
+   each supported type matrix is qualified. Preserve the C BER-backed decode
+   path for CER-compatible input; it is permissive and is not a strict CER
+   canonical validator.
 6. **M5, XER/JER/CBOR:** Add bounded tokenization, escaping, names, supported
    encoding controls, exact integer handling, object-member policy, and the
    repository's CBOR mapping. Keep canonical output and permissive decoding

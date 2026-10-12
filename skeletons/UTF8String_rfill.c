@@ -7,13 +7,21 @@
 #include <UTF8String.h>
 
 /*
- * Biased function for randomizing UTF-8 sequences.
+ * Select a valid UTF-8 sequence biased toward code point boundaries.
+ * Original source: Existing asn1c random-fill helper.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: b receives bytes; size is the available maximum sequence width.
+ * Returns: The number of bytes written, or zero when size is zero.
+ * Errors: No allocation or exceptions; the caller supplies at least four bytes.
+ * Responsible party: asn1c maintainers. History: Documented for CER closure.
+ * Example: UTF8String__random_char(buffer, 4) returns a valid 1-4 byte sequence.
  */
 static size_t
 UTF8String__random_char(uint8_t *b, size_t size) {
+    /* Struct describing one known-valid sample sequence and its byte width. */
     static const struct rnd_value {
-        const char *value;
-        size_t size;
+        const char *value; /* Sample UTF-8 bytes, including embedded NUL if any. */
+        size_t size; /* Number of bytes to copy from value. */
     } values[] = {{"\0", 1},
                   {"\x01", 1},
                   {"\x7f", 1},
@@ -27,7 +35,6 @@ UTF8String__random_char(uint8_t *b, size_t size) {
 
     switch(size) {
     case 0:
-        assert(size != 0);
         return 0;
     case 1:
         max_idx = 2;
@@ -46,6 +53,16 @@ UTF8String__random_char(uint8_t *b, size_t size) {
     return v->size;
 }
 
+/*
+ * Encode one Unicode scalar value into a UTF-8 byte sequence.
+ * Original source: Existing asn1c random-fill helper.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: b receives output bytes; code is a candidate Unicode code point.
+ * Returns: Number of UTF-8 bytes written; invalid scalar values use U+FFFD.
+ * Errors: No allocation or exceptions; b must have four writable bytes.
+ * Responsible party: asn1c maintainers. History: Documented for CER closure.
+ * Example: UTF8String__encode_codepoint(buffer, 0x20ac) writes three bytes.
+ */
 static size_t
 UTF8String__encode_codepoint(uint8_t *b, uint32_t code) {
     if(code <= 0x7f) {
@@ -74,18 +91,163 @@ UTF8String__encode_codepoint(uint8_t *b, uint32_t code) {
     }
 }
 
+#if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
+/*
+ * Select caller-provided PER constraints or the descriptor's constraints.
+ * Original source: Existing asn1c random-fill helper.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: td supplies defaults; constraints optionally override them.
+ * Returns: Selected PER constraints or NULL when neither source has any.
+ * Errors: No allocation or exceptions.
+ * Responsible party: asn1c maintainers. History: Guarded for CER-only builds.
+ * Example: used by UTF8String_random_fill() when a PER codec is enabled.
+ */
 static const asn_per_constraints_t *
 UTF8String__per_constraints(const asn_TYPE_descriptor_t *td,
                             const asn_encoding_constraints_t *constraints) {
-#if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
     if(constraints && constraints->per_constraints)
         return constraints->per_constraints;
     if(td->encoding_constraints.per_constraints)
         return td->encoding_constraints.per_constraints;
+    return 0;
+}
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
+
+/*
+ * State used to choose code points under optional PER alphabet constraints.
+ */
+typedef struct UTF8String_rfill_config_s {
+    uint32_t value_lb; /* state variable: lowest permitted code point. */
+    uint32_t value_ub; /* state variable: highest permitted code point. */
+    int has_value_constraint; /* state variable: whether bounds are active. */
+    int force_single_octets; /* state variable: whether generated chars stay ASCII. */
+} UTF8String_rfill_config_t;
+
+/*
+ * Derive code-point and byte-width choices from active PER constraints.
+ * Original source: Existing asn1c random-fill policy, refactored 2026-10-11.
+ * Parameters: td/constraints supply PER bounds; config receives generation state.
+ * Returns: No value; config is initialized even when PER support is disabled.
+ * Errors: None; no allocation or exceptions.
+ * Responsible party: asn1c maintainers. History: Split to bound complexity.
+ * Example: called once before generating randomized UTF-8 content.
+ */
+static void
+UTF8String__configure_rfill(const asn_TYPE_descriptor_t *td,
+                            const asn_encoding_constraints_t *constraints,
+                            UTF8String_rfill_config_t *config) {
+    config->value_lb = 0;
+    config->value_ub = 0x7f;
+    config->has_value_constraint = 0;
+    config->force_single_octets = 0;
+#if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
+    {
+        const asn_per_constraints_t *pc =
+            UTF8String__per_constraints(td, constraints);
+        if(pc) {
+            if((pc->value.flags & APC_CONSTRAINED) &&
+               pc->value.lower_bound >= 0 &&
+               pc->value.lower_bound <= pc->value.upper_bound &&
+               pc->value.lower_bound <= 0x10ffff) {
+                config->value_lb = (uint32_t)pc->value.lower_bound;
+                config->value_ub = pc->value.upper_bound > 0x10ffff
+                    ? 0x10ffff : (uint32_t)pc->value.upper_bound;
+                config->has_value_constraint = 1;
+            }
+            if(pc->size.flags & APC_CONSTRAINED) {
+                config->force_single_octets = 1;
+            }
+        }
+    }
+#else
+    (void)td;
+    (void)constraints;
+#endif
+    if(config->has_value_constraint && config->force_single_octets) {
+        if(config->value_lb > 0x7f) {
+            config->force_single_octets = 0;
+        } else if(config->value_ub > 0x7f) {
+            config->value_ub = 0x7f;
+        }
+    }
+}
+
+/*
+ * Fill a preallocated buffer with valid randomized UTF-8 characters.
+ * Original source: Existing asn1c random-fill loop, refactored 2026-10-11.
+ * Parameters: buf has four bytes per character plus a terminator; count selects
+ *   the character count; config contains optional code-point bounds.
+ * Returns: The address of the generated NUL terminator.
+ * Errors: No allocation or exceptions; caller allocates a sufficiently large buf.
+ * Responsible party: asn1c maintainers. History: Split to bound complexity.
+ * Example: called after CALLOC(4, count + 1).
+ */
+static uint8_t *
+UTF8String__generate_rfill(uint8_t *buf, size_t count,
+                           const UTF8String_rfill_config_t *config) {
+    uint8_t *b = buf; /* state variable: next output byte. */
+    uint8_t *bend = &buf[4 * count]; /* state variable: maximum output boundary. */
+    size_t idx; /* state variable: number of characters produced. */
+
+    for(idx = 0; idx < count; idx++) {
+        if(config->has_value_constraint) {
+            uint32_t code = (uint32_t)asn_random_between(config->value_lb,
+                                                          config->value_ub);
+            b += UTF8String__encode_codepoint(b, code);
+        } else if(config->force_single_octets) {
+            b += UTF8String__random_char(b, 1);
+        } else {
+            b += UTF8String__random_char(b, (size_t)(bend - b));
+        }
+    }
+    *b = 0;
+    return b;
+}
+
+/*
+ * Install generated bytes into existing or newly allocated UTF8String storage.
+ * Original source: Existing asn1c random-fill ownership path.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: sptr is the value slot; buf is owned generated storage; end marks
+ *   the terminator; count is the generated character count.
+ * Returns: 0 after transfer, -1 if a value structure cannot be allocated.
+ * Errors: Allocation failure returns -1 and frees buf; no exceptions.
+ * Responsible party: asn1c maintainers. History: Split to bound complexity.
+ * Example: called after UTF8String__generate_rfill().
+ */
+static int
+UTF8String__install_rfill(void **sptr, uint8_t *buf, uint8_t *end,
+                          size_t count) {
+    UTF8String_t *st;
+
+    if(*sptr) {
+        st = *sptr;
+        FREEMEM(st->buf);
+    } else {
+        st = (UTF8String_t *)CALLOC(1, sizeof(*st));
+        if(!st) {
+            FREEMEM(buf);
+            return -1;
+        }
+        *sptr = st;
+    }
+    st->buf = buf;
+    st->size = (size_t)(end - buf);
+    assert(UTF8String_length(st) == (ssize_t)count);
     return 0;
 }
 
+/*
+ * Create a randomized UTF-8 value satisfying available PER alphabet bounds.
+ * Original source: Existing asn1c random-fill implementation.
+ * Version/date: 1.1, 2026-10-11.
+ * Parameters: td describes UTF8String; sptr receives/reuses its value;
+ *   constraints supplies optional bounds; max_length limits generated bytes.
+ * Returns: ARFILL_OK, ARFILL_FAILED, or ARFILL_SKIPPED with character count.
+ * Errors: Allocation failure returns ARFILL_FAILED; no exceptions are thrown.
+ * Responsible party: asn1c maintainers. History: Guarded for CER-only builds.
+ * Example: called by the random-fill API with asn_DEF_UTF8String.
+ */
 asn_random_fill_result_t
 UTF8String_random_fill(const asn_TYPE_descriptor_t *td, void **sptr,
                        const asn_encoding_constraints_t *constraints,
@@ -94,95 +256,20 @@ UTF8String_random_fill(const asn_TYPE_descriptor_t *td, void **sptr,
     asn_random_fill_result_t result_failed = {ARFILL_FAILED, 0};
     asn_random_fill_result_t result_skipped = {ARFILL_SKIPPED, 0};
     uint8_t *buf;
-    uint8_t *bend;
-    uint8_t *b;
+    uint8_t *end;
     size_t rnd_len;
-    size_t idx;
-    UTF8String_t *st;
-    const asn_per_constraints_t *pc;
-    uint32_t value_lb = 0;
-    uint32_t value_ub = 0x7f;
-    int has_value_constraint = 0;
-    int force_single_octets = 0;
+    UTF8String_rfill_config_t config;
 
     if(max_length == 0 && !*sptr) return result_skipped;
+    UTF8String__configure_rfill(td, constraints, &config);
 
-    pc = UTF8String__per_constraints(td, constraints);
-    if(pc) {
-        if((pc->value.flags & APC_CONSTRAINED)
-                && pc->value.lower_bound >= 0
-                && pc->value.lower_bound <= pc->value.upper_bound
-                && pc->value.lower_bound <= 0x10ffff) {
-            value_lb = (uint32_t)pc->value.lower_bound;
-            value_ub = pc->value.upper_bound > 0x10ffff
-                     ? 0x10ffff : (uint32_t)pc->value.upper_bound;
-            has_value_constraint = 1;
-        }
-
-        /*
-         * UTF8String is encoded through OCTET STRING helpers.  When a PER
-         * SIZE constraint is present, the encoder checks the number of
-         * octets.  Keep randomized values single-octet unless a permitted
-         * alphabet constraint explicitly asks for another range.
-         */
-        if(pc->size.flags & APC_CONSTRAINED)
-            force_single_octets = 1;
-    }
-
-    /*
-     * When both a value constraint and a SIZE constraint are present,
-     * restrict generation to code points in the value range that also
-     * fit in a single octet (0..0x7f).  If the value range does not
-     * intersect 0..0x7f at all, lift the single-octet restriction and
-     * generate from the full value range.
-     */
-    if(has_value_constraint && force_single_octets) {
-        if(value_lb > 0x7f) {
-            /* Value range is entirely outside ASCII; allow multi-byte. */
-            force_single_octets = 0;
-        } else {
-            /* Clamp value range to single-octet region. */
-            if(value_ub > 0x7f)
-                value_ub = 0x7f;
-        }
-    }
-
-    /* Figure out how far we should go */
     rnd_len = OCTET_STRING_random_length_constrained(td, constraints,
                                                      max_length / 4);
 
     buf = CALLOC(4, rnd_len + 1);
     if(!buf) return result_failed;
-
-    bend = &buf[4 * rnd_len];
-
-    for(b = buf, idx = 0; idx < rnd_len; idx++) {
-        if(has_value_constraint) {
-            uint32_t code = (uint32_t)asn_random_between(value_lb, value_ub);
-            b += UTF8String__encode_codepoint(b, code);
-        } else if(force_single_octets) {
-            b += UTF8String__random_char(b, 1);
-        } else {
-            b += UTF8String__random_char(b, (bend - b));
-        }
-    }
-    *(uint8_t *)b = 0;
-
-    if(*sptr) {
-        st = *sptr;
-        FREEMEM(st->buf);
-    } else {
-        st = (OCTET_STRING_t *)(*sptr = CALLOC(1, sizeof(UTF8String_t)));
-        if(!st) {
-            FREEMEM(buf);
-            return result_failed;
-        }
-    }
-
-    st->buf = buf;
-    st->size = b - buf;
-
-    assert(UTF8String_length(st) == (ssize_t)rnd_len);
+    end = UTF8String__generate_rfill(buf, rnd_len, &config);
+    if(UTF8String__install_rfill(sptr, buf, end, rnd_len)) return result_failed;
 
     return result_ok;
 }

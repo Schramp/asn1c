@@ -792,6 +792,37 @@ ber_check_tags(const asn_codec_ctx_t *opt_codec_ctx,
     return rv;
 }
 
+/*
+ * Reject primitive decoding requests in the unber-only support translation unit.
+ * Original source: Local stub; unber inspects raw TLVs and does not decode values.
+ * Version/date: 1.0, 2026-10-11.
+ * Parameters: opt_codec_ctx/td describe a decoder; ptr/size bound input;
+ *             tag_mode selects tagging; length/eoc_size are optional outputs.
+ * Returns: RC_FAIL with zero consumed bytes; this stub never decodes input.
+ * Errors: No state or output parameters are modified.
+ * Responsible party: asn1c maintainers. History: Added for primitive BER helpers.
+ * Example: embedded unused primitive codecs fail safely without affecting unber.
+ */
+asn_dec_rval_t
+ber_check_primitive_tags(const asn_codec_ctx_t *opt_codec_ctx,
+                         const asn_TYPE_descriptor_t *td, const void **ptr,
+                         size_t *size, int tag_mode,
+                         ber_tlv_len_t *length, size_t *eoc_size) {
+    asn_dec_rval_t rv;
+
+    /* The raw-TLV inspector does not support typed primitive decoding. */
+    (void)opt_codec_ctx;
+    (void)td;
+    (void)ptr;
+    (void)size;
+    (void)tag_mode;
+    (void)length;
+    (void)eoc_size;
+    rv.code = RC_FAIL;
+    rv.consumed = 0;
+    return rv;
+}
+
 ssize_t
 der_write_tags(const asn_TYPE_descriptor_t *td, size_t slen, int tag_mode,
                int last_tag_form, ber_tlv_tag_t tag,

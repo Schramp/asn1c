@@ -1,4 +1,4 @@
-//! Safe, bounded UPER primitives for generated ASN.1 Rust code.
+//! Safe, bounded UPER and CER primitives for generated ASN.1 Rust code.
 //!
 //! This initial crate covers BOOLEAN, NULL, and bounded signed INTEGER values.
 //! It uses only the Rust standard library and applies caller-configurable input,
@@ -20,21 +20,22 @@ pub const DEFAULT_MAX_INPUT_BYTES: usize = 1024 * 1024;
 /// Default maximum number of output bytes produced by one operation (1 MiB).
 pub const DEFAULT_MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 
-/// Default maximum number of UPER bits processed by one operation (8 MiBits).
+/// Default maximum number of wire bits processed by one operation (8 MiBits).
 pub const DEFAULT_MAX_WORK_BITS: usize = 8 * 1024 * 1024;
 
 /// Resource ceilings applied by each primitive operation.
 ///
 /// The byte limits apply to the complete provided input slice and the complete
-/// encoded output buffer. `max_work_bits` bounds meaningful UPER bits processed
-/// by one operation. These finite defaults are configurable by each caller.
+/// encoded output buffer. `max_work_bits` bounds meaningful UPER bits or total
+/// CER output bits processed by one operation. These finite defaults are
+/// configurable by each caller.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Limits {
     /// Maximum size of the entire input slice accepted by a decode operation.
     pub max_input_bytes: usize,
     /// Maximum size of an encoded output buffer, including padding bytes.
     pub max_output_bytes: usize,
-    /// Maximum number of meaningful UPER bits read or written per operation.
+    /// Maximum UPER bits or CER output bits processed per operation.
     pub max_work_bits: usize,
 }
 
@@ -45,20 +46,19 @@ pub enum Resource {
     InputBytes,
     /// Encoded output bytes exceeded `Limits::max_output_bytes`.
     OutputBytes,
-    /// Meaningful UPER work bits exceeded `Limits::max_work_bits`.
+    /// Codec work bits exceeded `Limits::max_work_bits`.
     WorkBits,
 }
 
 /// A bounded encoding and the number of meaningful bits it contains.
 ///
-/// Bits are written from most significant to least significant within each
-/// byte. Low-order bits in the final byte are zero padding and are excluded
-/// from `bit_len`.
+/// For UPER, `bit_len` counts meaningful bits and excludes final-byte padding.
+/// For CER, `bit_len` counts every bit in the complete octet-aligned TLV.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Encoded {
-    /// Encoded bytes, including a zero byte for complete zero-width values.
+    /// Encoded bytes, including codec-specific complete-value framing.
     pub bytes: Vec<u8>,
-    /// Number of meaningful bits; padding in the final byte is not counted.
+    /// UPER meaningful bits or total octet-aligned CER wire bits.
     pub bit_len: usize,
 }
 
@@ -218,7 +218,9 @@ impl fmt::Display for Error {
                 formatter,
                 "need {required_bytes} bytes, only {available_bytes} are available"
             ),
-            Self::InvalidEncoding { reason } => write!(formatter, "invalid UPER: {reason}"),
+            Self::InvalidEncoding { reason } => {
+                write!(formatter, "invalid ASN.1 encoding: {reason}")
+            }
             Self::LimitExceeded {
                 resource,
                 limit,
@@ -434,6 +436,131 @@ pub fn encode_integer(
     // The range shape proves that this fixed-width offset fits in the output.
     let mut bytes = allocate_zeroed(byte_len, limits)?;
     write_bits(&mut bytes, offset, bit_len)?;
+    Ok(Encoded { bytes, bit_len })
+}
+
+/// Encode one BOOLEAN as a complete CER TLV.
+///
+/// # Parameters
+/// `value` is the ASN.1 boolean; `limits` bounds output bytes and wire-bit work.
+///
+/// # Returns
+/// The minimal BOOLEAN TLV (`01 01 00` or `01 01 FF`) with total wire bits.
+///
+/// # Errors and exceptions
+/// Returns a configured limit, checked-size, or allocation error. It raises no
+/// exception and allocates only after both resource limits have been checked.
+///
+/// # Source, version, history, and example
+/// Original source: CER primitive encoding contract in X.690 and the asn1c
+/// BER primitive encoder. Version/date: Rust CER slice, 2026-10-11.
+/// Responsible party: asn1c maintainers. History: initial CER encoder slice.
+/// Example: `encode_boolean_cer(true, &Limits::default())?`.
+pub fn encode_boolean_cer(value: bool, limits: &Limits) -> Result<Encoded, Error> {
+    let contents = [if value { 0xff } else { 0x00 }];
+    encode_cer_tlv(0x01, &contents, limits)
+}
+
+/// Encode one NULL as its complete CER TLV.
+///
+/// # Parameters
+/// `limits` bounds output bytes and total wire-bit work.
+///
+/// # Returns
+/// The canonical NULL TLV `05 00` with `bit_len` equal to 16.
+///
+/// # Errors and exceptions
+/// Returns a configured limit, checked-size, or allocation error. It raises no
+/// exception and allocates only after both resource limits have been checked.
+///
+/// # Source, version, history, and example
+/// Original source: CER primitive encoding contract in X.690 and the asn1c
+/// BER primitive encoder. Version/date: Rust CER slice, 2026-10-11.
+/// Responsible party: asn1c maintainers. History: initial CER encoder slice.
+/// Example: `encode_null_cer(&Limits::default())?`.
+pub fn encode_null_cer(limits: &Limits) -> Result<Encoded, Error> {
+    encode_cer_tlv(0x05, &[], limits)
+}
+
+/// Encode a bounded signed INTEGER as a minimal CER TLV.
+///
+/// # Parameters
+/// `value` is the signed value; `lower` and `upper` are inclusive ASN.1 bounds;
+/// `limits` bounds output bytes and total wire-bit work.
+///
+/// # Returns
+/// The INTEGER tag, minimal short-form length, and shortest signed two's-
+/// complement content, with `bit_len` equal to the complete TLV size in bits.
+///
+/// # Errors and exceptions
+/// Returns `InvalidBounds`, `ValueOutOfRange`, a configured limit, checked-size,
+/// or allocation error. It raises no exception and allocates after validation.
+///
+/// # Source, version, history, and example
+/// Original source: CER INTEGER rules in X.690 and the asn1c BER integer
+/// encoder. Version/date: Rust CER slice, 2026-10-11. Responsible party:
+/// asn1c maintainers. History: initial i64 CER encoder slice. Example:
+/// `encode_integer_cer(-129, i64::MIN, i64::MAX, &Limits::default())?`.
+pub fn encode_integer_cer(
+    value: i64,
+    lower: i64,
+    upper: i64,
+    limits: &Limits,
+) -> Result<Encoded, Error> {
+    validate_integer(value, lower, upper)?;
+
+    // Retain only the shortest signed two's-complement representation.
+    let full = value.to_be_bytes();
+    // state variable: marks the first byte of the minimal signed representation.
+    let mut first = 0;
+    while first + 1 < full.len() {
+        let current = full[first];
+        let next = full[first + 1];
+        if (current == 0x00 && next & 0x80 == 0) || (current == 0xff && next & 0x80 != 0) {
+            first += 1;
+        } else {
+            break;
+        }
+    }
+
+    encode_cer_tlv(0x02, &full[first..], limits)
+}
+
+/// Assemble a short-form CER TLV and enforce output and work ceilings.
+///
+/// # Parameters
+/// `tag` is the one-octet identifier; `contents` is the primitive payload;
+/// `limits` supplies maximum output bytes and wire work bits.
+///
+/// # Returns
+/// A complete TLV with a short-form definite length and total bits in `bit_len`.
+///
+/// # Errors and exceptions
+/// Returns `InvalidEncoding` for content requiring a different length form,
+/// `SizeOverflow`, `LimitExceeded`, or `AllocationFailed`. It raises no
+/// exception; length and work arithmetic is checked before allocation.
+///
+/// # Source, version, history, and example
+/// Original source: new safe Rust helper for CER primitive encoders.
+/// Version/date: Rust CER slice, 2026-10-11. Responsible party: asn1c
+/// maintainers. History: initial CER encoder slice. Example:
+/// `encode_cer_tlv(0x05, &[], limits)` returns `[05 00]`.
+fn encode_cer_tlv(tag: u8, contents: &[u8], limits: &Limits) -> Result<Encoded, Error> {
+    if contents.len() > 127 {
+        return Err(Error::InvalidEncoding {
+            reason: "CER primitive content requires a longer length form",
+        });
+    }
+
+    // Compute and charge the complete octet-aligned TLV before allocation.
+    let byte_len = contents.len().checked_add(2).ok_or(Error::SizeOverflow)?;
+    let bit_len = byte_len.checked_mul(8).ok_or(Error::SizeOverflow)?;
+    check_work_limit(bit_len, limits)?;
+    let mut bytes = allocate_zeroed(byte_len, limits)?;
+    bytes[0] = tag;
+    bytes[1] = u8::try_from(contents.len()).map_err(|_| Error::SizeOverflow)?;
+    bytes[2..].copy_from_slice(contents);
+
     Ok(Encoded { bytes, bit_len })
 }
 
@@ -1026,6 +1153,137 @@ mod tests {
         assert!(matches!(
             validate_integer(6, 0, 5),
             Err(Error::ValueOutOfRange { .. })
+        ));
+    }
+
+    /// Test canonical CER BOOLEAN and NULL encodings and their wire-bit counts.
+    ///
+    /// Original source: X.690 CER primitive encoding rules. Version/date:
+    /// 2026-10-11. Inputs: both BOOLEAN values and NULL. Returns: no value;
+    /// assertions fail on mismatch. Errors: none expected. Responsible party:
+    /// asn1c maintainers. History: added with the CER primitive slice.
+    /// Example: TRUE must encode with content octet `FF`.
+    #[test]
+    fn cer_boolean_and_null_vectors() {
+        let limits = Limits::default();
+        let true_value = encode_boolean_cer(true, &limits).unwrap();
+        assert_eq!(true_value.bytes, [0x01, 0x01, 0xff]);
+        assert_eq!(true_value.bit_len, 24);
+        let false_value = encode_boolean_cer(false, &limits).unwrap();
+        assert_eq!(false_value.bytes, [0x01, 0x01, 0x00]);
+        assert_eq!(false_value.bit_len, 24);
+        let null_value = encode_null_cer(&limits).unwrap();
+        assert_eq!(null_value.bytes, [0x05, 0x00]);
+        assert_eq!(null_value.bit_len, 16);
+    }
+
+    /// Test minimal CER INTEGER content at sign-boundary and i64 endpoints.
+    ///
+    /// Original source: X.690 CER INTEGER encoding rules. Version/date:
+    /// 2026-10-11. Inputs: 0, signed-byte boundaries, and both i64 endpoints.
+    /// Returns: no value; assertions fail on mismatch. Errors: none expected.
+    /// Responsible party: asn1c maintainers. History: added with CER support.
+    /// Example: 128 requires a leading zero content octet.
+    #[test]
+    fn cer_integer_minimal_signed_vectors() {
+        let limits = Limits::default();
+        let vectors: &[(i64, &[u8])] = &[
+            (0, &[0x02, 0x01, 0x00]),
+            (127, &[0x02, 0x01, 0x7f]),
+            (128, &[0x02, 0x02, 0x00, 0x80]),
+            (-128, &[0x02, 0x01, 0x80]),
+            (-129, &[0x02, 0x02, 0xff, 0x7f]),
+            (-1, &[0x02, 0x01, 0xff]),
+            (i64::MIN, &[0x02, 0x08, 0x80, 0, 0, 0, 0, 0, 0, 0]),
+            (
+                i64::MAX,
+                &[0x02, 0x08, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+            ),
+        ];
+
+        // Every fixture also checks that complete wire octets determine bit_len.
+        for (value, expected) in vectors {
+            let encoded = encode_integer_cer(*value, i64::MIN, i64::MAX, &limits)
+                .expect("encode CER INTEGER");
+            assert_eq!(encoded.bytes, *expected, "value {value}");
+            assert_eq!(encoded.bit_len, expected.len() * 8, "value {value}");
+        }
+    }
+
+    /// Test CER INTEGER bounds and exact output/work ceilings.
+    ///
+    /// Original source: runtime constraint checks and CER resource contract.
+    /// Version/date: 2026-10-11. Inputs: invalid bounds, out-of-range values,
+    /// and exact or insufficient limits. Returns: no value; assertions fail on
+    /// mismatch. Errors: typed constraint and resource errors are expected.
+    /// Responsible party: asn1c maintainers. History: added with CER support.
+    /// Example: a three-byte BOOLEAN succeeds with 24 work bits.
+    #[test]
+    fn cer_validation_and_resource_limits() {
+        let limits = Limits {
+            max_input_bytes: 0,
+            max_output_bytes: 3,
+            max_work_bits: 32,
+        };
+        assert_eq!(encode_boolean_cer(true, &limits).unwrap().bit_len, 24);
+        assert!(matches!(
+            encode_null_cer(&limits),
+            Ok(Encoded { bit_len: 16, .. })
+        ));
+        assert!(matches!(
+            encode_integer_cer(128, i64::MIN, i64::MAX, &limits),
+            Err(Error::LimitExceeded {
+                resource: Resource::OutputBytes,
+                limit: 3,
+                requested: 4,
+            })
+        ));
+        assert!(matches!(
+            encode_integer_cer(2, 3, 1, &limits),
+            Err(Error::InvalidBounds { .. })
+        ));
+        assert!(matches!(
+            encode_integer_cer(6, 0, 5, &limits),
+            Err(Error::ValueOutOfRange { .. })
+        ));
+
+        // Charge work for the complete TLV, including tag and length octets.
+        let too_little_work = Limits {
+            max_work_bits: 23,
+            ..limits.clone()
+        };
+        assert!(matches!(
+            encode_boolean_cer(true, &too_little_work),
+            Err(Error::LimitExceeded {
+                resource: Resource::WorkBits,
+                requested: 24,
+                ..
+            })
+        ));
+        let too_little_integer_work = Limits {
+            max_output_bytes: 4,
+            max_work_bits: 31,
+            ..limits.clone()
+        };
+        assert!(matches!(
+            encode_integer_cer(128, i64::MIN, i64::MAX, &too_little_integer_work),
+            Err(Error::LimitExceeded {
+                resource: Resource::WorkBits,
+                requested: 32,
+                ..
+            })
+        ));
+        let no_null_output = Limits {
+            max_output_bytes: 1,
+            ..limits
+        };
+        assert!(matches!(
+            encode_null_cer(&no_null_output),
+            Err(Error::LimitExceeded {
+                resource: Resource::OutputBytes,
+                requested: 2,
+                ..
+            })
         ));
     }
 }
