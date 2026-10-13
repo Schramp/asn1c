@@ -95,6 +95,7 @@ libasn1cskeletons_la_SOURCES =                  \
     constr_TYPE.c constr_TYPE.h                 \
     constraints.c constraints.h                 \
     der_encoder.c der_encoder.h                 \
+    cer_decoder.c cer_decoder.h                 \
     cer_encoder.c cer_encoder.h                 \
     oer_decoder.c oer_decoder.h                 \
     oer_encoder.c oer_encoder.h                 \

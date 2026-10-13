@@ -52,35 +52,30 @@
       "feature": "primitive, nonextensible",
       "codec": "CER",
       "variants": ["canonical FALSE 00", "canonical TRUE FF"],
-      "directions": ["encode"],
-      "status": "tested_against_fixed_golden_vectors",
-      "evidence": "conformance.rs; asn1c-runtime unit tests"
+      "directions": ["encode", "strict decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
     },
     {
       "asn1_type": "NULL",
       "feature": "primitive, nonextensible",
       "codec": "CER",
       "variants": ["empty primitive content"],
-      "directions": ["encode"],
-      "status": "tested_against_fixed_golden_vectors",
-      "evidence": "conformance.rs; asn1c-runtime unit tests"
+      "directions": ["encode", "strict decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
     },
     {
       "asn1_type": "INTEGER",
       "feature": "finite signed i64, minimal two's-complement content",
       "codec": "CER",
       "variants": ["127", "128", "-128", "-129", "i64::MIN", "i64::MAX"],
-      "directions": ["encode"],
-      "status": "tested_against_fixed_golden_vectors",
-      "evidence": "conformance.rs; asn1c-runtime unit tests"
+      "directions": ["encode", "strict decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
     }
   ],
   "not_yet_implemented_by_this_Rust_slice": [
-    {
-      "family": "CER decoding",
-      "status": "not_implemented",
-      "note": "This slice generates CER encoders only; it has no Rust CER decoder."
-    },
     {
       "family": "BER/DER",
       "status": "not_implemented",
@@ -114,7 +109,7 @@
     {
       "family": "canonical syntax-specific API behavior",
       "status": "outside_first_slice",
-      "note": "UPER and CER methods are selected independently; CER decoding is absent."
+      "note": "UPER and CER methods are selected independently; CER decoding is strict (canonical input only)."
     }
   ],
   "comparison_policy": {

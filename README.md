@@ -71,7 +71,7 @@ Encoding       | API function               | Understood by | API function
 -------------- | -------------------------- | ------------- | -------------
 BER            | der_encode()               | BER           | ber_decode()
 DER            | der_encode()               | DER, BER      | ber_decode()
-CER            | cer_encode()               | BER-family input | ber_decode()
+CER            | cer_encode()               | CER           | cer_decode()
 BASIC-OER      | oer_encode()               | *-OER         | oer_decode()
 CANONICAL-OER  | oer_encode()               | *-OER         | oer_decode()
 BASIC-UPER     | uper_encode()              | *-UPER        | uper_decode()
@@ -92,13 +92,15 @@ CER encoding is available through `cer_encode()`, `asn_encode(ATS_CER, ...)`,
 and the generated converter's `-ocer` output selector. The default C target
 generates CER support together with BER support; `-gen-CER` enables its
 BER-family dependencies, `-no-gen-CER` omits CER encoding, and `-no-gen-BER`
-omits the shared family. CER decoding remains BER-backed:
-`asn_decode(ATS_CER, ...)` and the
-converter's `-icer` input selector accept BER-family input without validating
-that it satisfies CER canonical restrictions. As with the other generated
-codecs, availability depends on the generated descriptor kinds and canonical
-value forms handled by the encoder. `ASN_DISABLE_CER_SUPPORT` disables CER
-encoding at build time while preserving BER-backed CER input. See the
+omits the shared family. CER decoding is strict: `cer_decode()`,
+`asn_decode(ATS_CER, ...)`, and the converter's `-icer` input selector decode
+with the BER decoder, re-encode the value with `cer_encode()`, and reject input
+that is not byte-identical to the canonical CER encoding (for example long-form
+lengths, definite-length constructed values, or unsorted SET OF). `-icer`
+requires CER generation and buffers the whole input. As with the other
+generated codecs, availability depends on the generated descriptor kinds and
+canonical value forms handled by the encoder. `ASN_DISABLE_CER_SUPPORT`
+disables both CER encoding and strict CER decoding at build time. See the
 [binary codec support audit](docs/binary-codec-support.md) for the current
 descriptor, value, and resource boundaries.
 
@@ -110,7 +112,8 @@ containers under the bounds described in that audit.
 In Rust output mode, the current CER encoder supports top-level BOOLEAN, NULL,
 and finite, nonextensible INTEGER values whose bounds fit signed 64-bit
 integers. Rust CER output is selected by default with UPER; `-no-gen-UPER`
-selects CER-only output. Rust CER decoding is not implemented. See
+selects CER-only output. Generated Rust types also provide a strict
+`decode_cer()` that accepts only the canonical short-form CER TLV. See
 [Rust output usage and limits](docs/rust/implementation.md).
 
 Basic/canonical OER, UPER, and APER selectors share each family's decoder;

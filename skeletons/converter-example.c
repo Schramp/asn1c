@@ -158,7 +158,7 @@ static syntax_selector input_encodings[] = {
     {"der", ATS_DER, CODEC_OFFSET(ber_decoder),
      "Input is in DER (BER-compatible decoding, no canonical validation)"},
     {"cer", ATS_CER, CODEC_OFFSET(ber_decoder),
-     "Input is in CER (BER-compatible decoding, no canonical validation)"},
+     "Input is in CER (strict: noncanonical encodings are rejected)"},
     {"oer", ATS_BASIC_OER, CODEC_OFFSET(oer_decoder),
      "Input is in OER (Octet Encoding Rules)"},
     {"per", ATS_UNALIGNED_BASIC_PER, CODEC_OFFSET(uper_decoder),
@@ -663,7 +663,8 @@ is_syntax_PER(enum asn_transfer_syntax syntax) {
 
 static int
 restartability_supported(enum asn_transfer_syntax syntax) {
-    return !is_syntax_PER(syntax);
+    /* Strict CER validates a complete value, so it restarts from scratch. */
+    return !is_syntax_PER(syntax) && syntax != ATS_CER;
 }
 
 static void *

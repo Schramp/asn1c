@@ -50,7 +50,7 @@ END
 ASN1
 
 # Build real generated descriptors, with only the codecs used by this test.
-mkdir -p "$test_directory/enabled" "$test_directory/disabled" "$test_directory/no-ber"
+mkdir -p "$test_directory/enabled" "$test_directory/disabled" "$test_directory/no-ber" "$test_directory/strict"
 "$test_build_root/asn1c/asn1c" -S "$test_source_root/skeletons" \
     -D "$test_directory/enabled" -pdu=all -gen-CER \
     -no-gen-UPER -no-gen-APER -no-gen-OER -no-gen-JER -no-gen-CBOR \
@@ -289,16 +289,47 @@ for decode_case in choice mixed triple tagged tagged-long bag tchoice nchoice de
     cmp "$test_directory/$decode_case.expected" "$test_directory/$decode_case.reencoded"
 done
 
-# Disabling the encoder retains CER-compatible input decoding through BER.
+# Strict CER decoding accepts canonical input and rejects BER-only spellings.
 printf 'FlagModule DEFINITIONS ::= BEGIN Flag ::= BOOLEAN END\n' > "$test_directory/flag.asn1"
 printf '\001\001\377' > "$test_directory/true.bin"
+printf '\001\001\001' > "$test_directory/noncanonical.bin"
+printf '\001\201\001\377' > "$test_directory/long-length.bin"
+"$test_build_root/asn1c/asn1c" -S "$test_source_root/skeletons" \
+    -D "$test_directory/strict" -pdu=Flag -gen-CER \
+    -no-gen-UPER -no-gen-APER -no-gen-OER -no-gen-JER -no-gen-CBOR \
+    "$test_directory/flag.asn1"
+"${MAKE:-make}" -C "$test_directory/strict" -f converter-example.mk \
+    CC="${CC:-cc}"
+"$test_directory/strict/converter-example" -icer -ocer \
+    "$test_directory/true.bin" > "$test_directory/strict.out"
+cmp "$test_directory/true.bin" "$test_directory/strict.out"
+for strict_case in noncanonical long-length; do
+    if "$test_directory/strict/converter-example" -icer -ocer \
+        "$test_directory/$strict_case.bin" > "$test_directory/strict.out" \
+        2> "$test_directory/strict.err"; then
+        echo "FAIL: strict CER decoder accepted $strict_case input" >&2
+        exit 1
+    fi
+    "$test_directory/strict/converter-example" -iber -ocer \
+        "$test_directory/$strict_case.bin" > "$test_directory/strict.out"
+    cmp "$test_directory/true.bin" "$test_directory/strict.out"
+done
+
+# Disabling CER generation rejects both directions: strict decoding needs
+# the CER encoder to validate canonical form, while BER input stays available.
 "$test_build_root/asn1c/asn1c" -S "$test_source_root/skeletons" \
     -D "$test_directory/disabled" -pdu=Flag -no-gen-CER \
     -no-gen-UPER -no-gen-APER -no-gen-OER -no-gen-JER -no-gen-CBOR \
     "$test_directory/flag.asn1"
 "${MAKE:-make}" -C "$test_directory/disabled" -f converter-example.mk \
     CC="${CC:-cc}"
-"$test_directory/disabled/converter-example" -icer -oder \
+if "$test_directory/disabled/converter-example" -icer -oder \
+    "$test_directory/true.bin" > "$test_directory/decoded.der" \
+    2> "$test_directory/decoded.err"; then
+    echo 'FAIL: converter accepted CER input with CER support disabled' >&2
+    exit 1
+fi
+"$test_directory/disabled/converter-example" -iber -oder \
     "$test_directory/true.bin" > "$test_directory/decoded.der"
 cmp "$test_directory/true.bin" "$test_directory/decoded.der"
 if "$test_directory/disabled/converter-example" -iber -ocer "$test_directory/true.bin" \

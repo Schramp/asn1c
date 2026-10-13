@@ -1,6 +1,6 @@
 # ADR: Generate Rust codecs while retaining the C frontend
 
-**Status:** Accepted conversion direction; initial UPER and CER encoding slices implemented.
+**Status:** Accepted conversion direction; initial UPER and CER slices implemented.
 **Date:** 2026-10-11.
 **Deciders:** Repository maintainer; Sol supervises Luna implementation agents.
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`.
@@ -31,11 +31,12 @@ every type, direction, or canonical variant is implemented. For example,
 [CI](../../.github/workflows/c-cpp.yml) explicitly limits PKIX JER testing to
 encoding because of ANY open types.
 
-The C [BER decoder](../../skeletons/ber_decoder.h) accepts CER-compatible
-input, and `ATS_CER` uses that decoder without strict canonical-form checks.
-The C runtime now also provides a descriptor-driven CER encoder. Rust adds an
-initial encode-only CER slice for BOOLEAN, NULL, and bounded nonextensible
-INTEGER values fitting `i64`; it does not add a CER decoder. See the
+The C [BER decoder](../../skeletons/ber_decoder.h) remains permissive for
+`ATS_BER` and `ATS_DER`. `ATS_CER` uses the strict
+[CER decoder](../../skeletons/cer_decoder.h), which re-encodes with the
+descriptor-driven CER encoder and requires byte-identical input. Rust adds an
+initial CER encoding and strict decoding slice for BOOLEAN, NULL, and bounded
+nonextensible INTEGER values fitting `i64`. See the
 [binary audit](../binary-codec-support.md).
 
 ## Decision
@@ -47,9 +48,9 @@ separate. Extract small language-neutral semantic helpers where existing helpers
 combine semantic analysis with C emission; do not make Rust parse generated C.
 
 Create a native Rust runtime at `rust/asn1c-runtime/`. The initial UPER
-primitive implementation and encode-only CER support for BOOLEAN, NULL, and
-bounded nonextensible `i64` INTEGER values are present; remaining coverage is a
-conversion target. It implements codec behavior without calling C codecs.
+primitive implementation and CER encoding and strict decoding for BOOLEAN,
+NULL, and bounded nonextensible `i64` INTEGER values are present; remaining
+coverage is a conversion target. It implements codec behavior without calling C codecs.
 Keep the C runtime as the compatibility baseline and differential test
 participant.
 Generated Rust should use typed structs/enums, checked semantic metadata, and

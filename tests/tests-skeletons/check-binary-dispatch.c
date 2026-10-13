@@ -18,6 +18,7 @@
 #include <ber_decoder.h>
 #include <cbor_decoder.h>
 #include <cbor_encoder.h>
+#include <cer_decoder.h>
 #include <cer_encoder.h>
 #include <der_encoder.h>
 #include <errno.h>
@@ -171,8 +172,9 @@ decode_explicit(enum asn_transfer_syntax syntax, const void *buffer,
     switch(syntax) {
     case ATS_BER:
     case ATS_DER:
-    case ATS_CER:
         return ber_decode(0, &asn_DEF_BOOLEAN, decoded, buffer, size);
+    case ATS_CER:
+        return cer_decode(0, &asn_DEF_BOOLEAN, decoded, buffer, size);
     case ATS_BASIC_OER:
     case ATS_CANONICAL_OER:
         return oer_decode(0, &asn_DEF_BOOLEAN, decoded, buffer, size);
@@ -314,14 +316,15 @@ test_binary_dispatch(void) {
 }
 
 /*
- * Purpose: Verify generic CER decode delegates to BER without strict checking.
+ * Purpose: Verify generic CER decode is strict and rejects BER-only forms.
  * Original source: New regression for the ATS_CER dispatcher.
  * Version/date: 1.0, 2026-10-11.
  * Inputs: CER BOOLEAN, BER-only noncanonical BOOLEAN, truncation, and bad tag.
  * Returns: No value; any mismatch exits the test executable.
  * Exceptions: No C++ exceptions; allocated decoded values are freed.
  * Responsible party: asn1c maintainers.
- * History: Added to expose the declared CER decode path and its BER semantics.
+ * History: Added to expose the declared CER decode path; updated when ATS_CER
+ *          moved from BER delegation to strict cer_decode().
  * Example: Called by `main`; encode dispatch also checks canonical TRUE bytes.
  */
 static void
@@ -355,7 +358,7 @@ test_cer_boolean_dispatch(void) {
     generic_value = 0;
     explicit_value = 0;
 
-    /* This BER-valid form is not CER-canonical; acceptance records BER routing. */
+    /* This BER-valid form is not CER-canonical, so strict CER must reject it. */
     generic_result = asn_decode(0, ATS_CER, &asn_DEF_BOOLEAN,
                                 (void **)&generic_value,
                                 ber_noncanonical_true,
@@ -364,12 +367,12 @@ test_cer_boolean_dispatch(void) {
                                  (void **)&explicit_value,
                                  ber_noncanonical_true,
                                  sizeof(ber_noncanonical_true));
-    require_condition(generic_result.code == RC_OK && generic_value
-                      && explicit_result.code == RC_OK && explicit_value,
-                      "CER permissiveness", "generic CER must match BER decoder");
-    require_condition(!!*generic_value && !!*explicit_value,
-                      "CER permissiveness", "BER-only TRUE decoded incorrectly");
-    ASN_STRUCT_FREE(asn_DEF_BOOLEAN, generic_value);
+    require_condition(generic_result.code == RC_FAIL
+                      && generic_result.consumed == 0 && generic_value == 0,
+                      "CER strictness", "generic CER accepted BER-only TRUE");
+    require_condition(explicit_result.code == RC_OK && explicit_value
+                      && !!*explicit_value,
+                      "CER strictness", "BER decoder rejected BER-only TRUE");
     ASN_STRUCT_FREE(asn_DEF_BOOLEAN, explicit_value);
 
     generic_value = 0;
@@ -382,8 +385,7 @@ test_cer_boolean_dispatch(void) {
                                  sizeof(cer_true) - 1);
     require_condition(generic_result.code != RC_OK
                       && generic_result.code == explicit_result.code
-                      && generic_result.consumed == explicit_result.consumed
-                      && generic_result.consumed <= sizeof(cer_true) - 1,
+                      && generic_result.consumed == 0 && generic_value == 0,
                       "CER truncation", "truncated BOOLEAN must fail safely");
     if(generic_value) ASN_STRUCT_FREE(asn_DEF_BOOLEAN, generic_value);
     if(explicit_value) ASN_STRUCT_FREE(asn_DEF_BOOLEAN, explicit_value);
@@ -398,7 +400,7 @@ test_cer_boolean_dispatch(void) {
                                  sizeof(wrong_tag));
     require_condition(generic_result.code == RC_FAIL
                       && generic_result.code == explicit_result.code
-                      && generic_result.consumed == explicit_result.consumed,
+                      && generic_result.consumed == 0 && generic_value == 0,
                       "CER malformed tag", "wrong BOOLEAN tag must fail");
     if(generic_value) ASN_STRUCT_FREE(asn_DEF_BOOLEAN, generic_value);
     if(explicit_value) ASN_STRUCT_FREE(asn_DEF_BOOLEAN, explicit_value);
@@ -487,9 +489,7 @@ test_cer_constructed_octets(void) {
                                  (void **)&explicit_value, wire, input_size - 1);
     require_condition(generic_result.code != RC_OK
                       && generic_result.code == explicit_result.code
-                      && generic_result.consumed == explicit_result.consumed
-                      && explicit_result.code != RC_OK
-                      && generic_result.consumed <= input_size - 1
+                      && generic_result.consumed == 0 && generic_value == 0
                       && explicit_result.consumed <= input_size - 1,
                       "CER EOC truncation", "truncated value must not over-consume");
     if(generic_value) ASN_STRUCT_FREE(asn_DEF_OCTET_STRING, generic_value);
@@ -516,8 +516,9 @@ test_cer_constructed_octets(void) {
                                      sizeof(huge_length));
         require_condition(generic_result.code != RC_OK
                           && generic_result.code == explicit_result.code
-                          && generic_result.consumed == explicit_result.consumed
-                          && generic_result.consumed <= sizeof(huge_length),
+                          && generic_result.consumed == 0
+                          && generic_value == 0
+                          && explicit_result.consumed <= sizeof(huge_length),
                           "CER huge length", "header-only input must stay bounded");
         if(generic_value) ASN_STRUCT_FREE(asn_DEF_OCTET_STRING, generic_value);
         if(explicit_value) ASN_STRUCT_FREE(asn_DEF_OCTET_STRING, explicit_value);

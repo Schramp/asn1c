@@ -231,6 +231,107 @@ fn cer_primitive_golden_vectors() {
     check_cer_vector("cer_singleton.bin", &singleton, &[0x02, 0x01, 0x05]);
 }
 
+/// Decode live C CER vectors with generated strict decoders and reject noncanonical TLVs.
+///
+/// # Parameters and returns
+/// No parameters or return value. Exercises generated `decode_cer` methods.
+///
+/// # Errors and panics
+/// Panics if a canonical C vector does not decode to its value with full-TLV
+/// consumption, or if a noncanonical, truncated, or out-of-range TLV decodes.
+///
+/// # Source, history, and example
+/// Original source: X.690 CER primitive rules and the strict C `cer_decode`
+/// contract. Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c
+/// maintainers. History: added with the Rust CER decoder slice. Example:
+/// `01 01 01` is rejected because CER TRUE must be `FF`.
+#[test]
+fn cer_strict_decode_interop() {
+    let limits = Limits::default();
+    for (filename, value) in [("cer_bool_false.bin", false), ("cer_bool_true.bin", true)] {
+        let bytes = read_c_vector(filename);
+        let decoded = Flag::decode_cer(&bytes, &limits).unwrap();
+        assert_eq!(decoded.value.value(), value, "{filename}");
+        assert_eq!(decoded.consumed_bytes, bytes.len());
+        assert_eq!(decoded.consumed_bits, bytes.len() * 8);
+    }
+    let null_bytes = read_c_vector("cer_null.bin");
+    assert_eq!(Empty::decode_cer(&null_bytes, &limits).unwrap().consumed_bytes, 2);
+
+    for (filename, value) in [("cer_count_min.bin", -10), ("cer_count_max.bin", 10)] {
+        let bytes = read_c_vector(filename);
+        let decoded = Count::decode_cer(&bytes, &limits).unwrap();
+        assert_eq!(decoded.value.value(), value, "{filename}");
+        assert_eq!(decoded.consumed_bytes, bytes.len());
+    }
+    for (filename, value) in [
+        ("cer_sign_127.bin", 127),
+        ("cer_sign_128.bin", 128),
+        ("cer_sign_minus_128.bin", -128),
+        ("cer_sign_minus_129.bin", -129),
+    ] {
+        let bytes = read_c_vector(filename);
+        assert_eq!(
+            SignBounds::decode_cer(&bytes, &limits).unwrap().value.value(),
+            value,
+            "{filename}"
+        );
+    }
+    let singleton = read_c_vector("cer_singleton.bin");
+    assert_eq!(Singleton::decode_cer(&singleton, &limits).unwrap().value.value(), 5);
+
+    // Full-range i64 boundaries round-trip through the generated encoder.
+    for value in [i64::MIN, -1, 0, 1, i64::MAX] {
+        let encoded = Wide::new(value).unwrap().encode_cer(&limits).unwrap();
+        let decoded = Wide::decode_cer(&encoded.bytes, &limits).unwrap();
+        assert_eq!(decoded.value.value(), value);
+        assert_eq!(decoded.consumed_bytes, encoded.bytes.len());
+    }
+
+    // Trailing bytes are not consumed, matching C `cer_decode`.
+    let prefixed = Flag::decode_cer(&[0x01, 0x01, 0xff, 0x05, 0x00], &limits).unwrap();
+    assert!(prefixed.value.value());
+    assert_eq!(prefixed.consumed_bytes, 3);
+
+    for hostile in [
+        &[0x01, 0x01, 0x01][..],
+        &[0x01, 0x81, 0x01, 0xff][..],
+        &[0x01, 0x80, 0xff, 0x00, 0x00][..],
+        &[0x21, 0x01, 0xff][..],
+        &[0x01, 0x02, 0xff, 0xff][..],
+        &[0x01, 0x01][..],
+        &[][..],
+    ] {
+        assert!(Flag::decode_cer(hostile, &limits).is_err(), "{hostile:02x?}");
+    }
+    assert!(Empty::decode_cer(&[0x05, 0x01, 0x00], &limits).is_err());
+    assert!(Empty::decode_cer(&[0x05, 0x81, 0x00], &limits).is_err());
+    for hostile in [
+        &[0x02, 0x00][..],
+        &[0x02, 0x02, 0x00, 0x05][..],
+        &[0x02, 0x02, 0xff, 0xf6][..],
+        &[0x02, 0x01, 0x0b][..],
+        &[0x02, 0x01, 0xf5][..],
+        &[0x0a, 0x01, 0x00][..],
+    ] {
+        assert!(Count::decode_cer(hostile, &limits).is_err(), "{hostile:02x?}");
+    }
+    assert!(Singleton::decode_cer(&[0x02, 0x01, 0x06], &limits).is_err());
+    assert!(Wide::decode_cer(&[0x02, 0x09, 0, 0x80, 0, 0, 0, 0, 0, 0, 0], &limits).is_err());
+
+    let tight = Limits {
+        max_input_bytes: 2,
+        ..Limits::default()
+    };
+    assert!(matches!(
+        Flag::decode_cer(&[0x01, 0x01, 0xff], &tight),
+        Err(Error::LimitExceeded {
+            resource: Resource::InputBytes,
+            ..
+        })
+    ));
+}
+
 /// Ensure generated ASN.1 names can overlap Rust and runtime API names safely.
 ///
 /// # Parameters and returns

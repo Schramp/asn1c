@@ -2612,13 +2612,12 @@ cer_check_top_level_constructed_strings(void) {
         &asn_DEF_OCTET_STRING, decoded, ASFM_FREE_EVERYTHING);
     decoded = NULL;
 
+    /* Strict CER requires primitive form for strings of 1000 octets or less. */
     result = asn_decode(NULL, ATS_CER, &asn_DEF_OCTET_STRING, &decoded,
                         constructed_octets, sizeof(constructed_octets));
-    failed |= cer_require(result.code == RC_OK
-                          && result.consumed == sizeof(constructed_octets)
-                          && decoded && ((OCTET_STRING_t *)decoded)->size == 1
-                          && ((OCTET_STRING_t *)decoded)->buf[0] == 'Z',
-                          "generic top-level constructed OCTET STRING");
+    failed |= cer_require(result.code == RC_FAIL && result.consumed == 0
+                          && decoded == NULL,
+                          "strict CER rejects short constructed OCTET STRING");
     if(decoded) asn_DEF_OCTET_STRING.op->free_struct(
         &asn_DEF_OCTET_STRING, decoded, ASFM_FREE_EVERYTHING);
     decoded = NULL;

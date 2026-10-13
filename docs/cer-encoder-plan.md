@@ -11,13 +11,13 @@
 Add a native CER encoder to the C runtime and CER encoding to the Rust output
 mode. Keep the existing C parser and semantic frontend. The initial Rust types
 remain BOOLEAN, NULL, and finite, nonextensible INTEGER ranges within signed
-64-bit storage. Rust CER decoding, strings, collections, open types, and the
-remaining codec families are later increments in the [conversion plan](rust/stage-one-plan.md).
+64-bit storage. Rust strings, collections, open types, and the remaining codec
+families are later increments in the [conversion plan](rust/stage-one-plan.md).
 
-C CER decoding already uses the BER decoder, including constructed indefinite
-lengths. It accepts compatible BER and does not verify every canonical CER rule.
-The new encoder must produce canonical bytes; permissive decoding is not evidence
-that an encoder is canonical. The [codec ledger](binary-codec-support.md) records
+C CER decoding originally used the permissive BER decoder. A later increment,
+described in [Strict CER decoding](#strict-cer-decoding-implemented), adds
+strict C and Rust CER decoders. The new encoder must produce canonical bytes;
+permissive decoding is not evidence that an encoder is canonical. The [codec ledger](binary-codec-support.md) records
 the qualified directions and limitations.
 
 The governing rules reviewed for this increment are in
@@ -49,8 +49,9 @@ cer_encode(opt_codec_ctx, td, sptr, callback, application_key);
 cer_encode_to_buffer(opt_codec_ctx, td, sptr, buffer, buffer_size);
 ```
 
-Route generic `ATS_CER` encoding and converter `-ocer` to this encoder. Existing
-BER decoding remains the route for generic CER input and converter `-icer`.
+Route generic `ATS_CER` encoding and converter `-ocer` to this encoder. Generic
+CER input and converter `-icer` initially used BER decoding; they now use the
+strict `cer_decode()` described below.
 
 Keep tag wrappers, constructed lengths, string segmentation, SET ordering, and
 SET OF sorting inside the CER walker. Existing DER primitive encoders may supply
@@ -86,7 +87,7 @@ supported special and canonical binary content is checked before emission.
 
 Place CER skeleton assets in the existing BER dependency closure. CER encoding
 depends on the shared BER/DER substrate. `ASN_DISABLE_CER_SUPPORT` independently
-disables the encoder; disabling only CER encoding retains BER-based CER decoding.
+disables the encoder and the strict CER decoder; BER input remains available.
 Code with BER disabled must not reference unavailable CER symbols.
 
 ### BER-family decoder integration
@@ -110,8 +111,8 @@ assets in the BER dependency closure when CER encoding is disabled.
 Independent decoder regressions cover one-shot and incremental input, definite
 BER wrappers and strings, nested indefinite CER wrappers, retagged universal
 fragments, wrong tags/forms, duplicate explicit children, and truncated or
-malformed EOCs. CER input continues to use permissive BER decoding; these fixes
-do not introduce a strict canonical CER validator.
+malformed EOCs. These fixes did not themselves introduce a strict canonical CER
+validator; that is the later strict decoding increment.
 
 NativeInteger metadata may be absent or use a zero field width for its default
 native `long` storage. Preserve those valid cases and accept supported explicit
@@ -139,8 +140,9 @@ limits before fallible allocation. Runtime and generated crates forbid unsafe.
 Generate `encode_cer` only when CER is selected and UPER methods only when UPER is
 selected. Preserve fully qualified runtime/core paths, output preflight, staging,
 ownership manifests, and offline Cargo packaging. Unsupported schema features
-or codecs fail before publishing output. No Rust CER decode method is exposed in
-this increment.
+or codecs fail before publishing output. The initial increment exposed no Rust
+CER decode method; the strict decoding increment adds `decode_cer` alongside
+`encode_cer`.
 
 `--rust` switches the entire output mode to Rust, including types, codec methods,
 runtime sources, and Cargo metadata. C remains the default output mode.
@@ -149,9 +151,9 @@ runtime sources, and Cargo metadata. C remains the default output mode.
 | --- | --- | --- |
 | Default | Existing defaults plus CER encoder | UPER and CER |
 | `-gen-CER` | Enable CER and its BER substrate | Enable CER |
-| `-no-gen-CER` | Disable CER encoder; retain BER decoder | Disable CER |
+| `-no-gen-CER` | Disable CER encoder and strict decoder; retain BER decoder | Disable CER |
 | `-no-gen-BER` | Disable BER substrate and CER encoder | BER selection only; does not disable CER |
-| `--rust -no-gen-UPER` | Switch output mode | CER encoding only |
+| `--rust -no-gen-UPER` | Switch output mode | CER encoding and decoding only |
 | `--rust -no-gen-CER` | Switch output mode | UPER encoding and decoding |
 | Rust with no supported codec selected | Not applicable | Diagnostic, no published project |
 
@@ -358,16 +360,35 @@ Its failure output at 12:37:16 UTC matches the local reproduction. The fixed
 script passes locally, including the environment that reproduced this error;
 a hosted CI run of the patch has not yet been performed.
 
+## Strict CER decoding (implemented)
+
+`skeletons/cer_decoder.{c,h}` provides `cer_decode()`, used by
+`asn_decode(ATS_CER, ...)` and converter `-icer`. It runs `ber_decode()`,
+re-encodes the value with `cer_encode()`, and requires a byte-identical match
+with the consumed input prefix; mismatches return `RC_FAIL` with `EBADF`.
+Coverage equals the C CER encoder's supported types. The decoder is compiled
+only when BER and CER support are both enabled; otherwise a stub returns
+`RC_FAIL` with `ENOENT`. `-icer` requires CER generation and buffers the whole
+input. `ATS_BER` and `ATS_DER` input remain permissive.
+
+The Rust runtime adds strict `decode_boolean_cer`, `decode_null_cer`, and
+`decode_integer_cer`, and generated BOOLEAN, NULL, and bounded INTEGER types
+gain `decode_cer` whenever CER is selected. They accept only the exact
+universal tag, short-form definite length, and canonical content, and enforce
+`Limits`. Tests cover skeleton vectors, smoke strict and disabled builds, Rust
+runtime vectors and limits, and Rust decoding of live C CER output.
+
 ## Residual limits and next increments
 
-The shared BER decoder accepts compatible noncanonical input under `ATS_CER`.
-It can still reject scalar chains that mix definite and indefinite lengths among
+The permissive BER decoder accepts compatible noncanonical input under
+`ATS_BER` and `ATS_DER`; strict `ATS_CER` decoding runs it first. It can still
+reject scalar chains that mix definite and indefinite lengths among
 nested constructed wrapper layers; this is the pre-existing tag-checker limit.
 Canonical CER wrapper chains and tested all-definite BER chains are covered by
-this increment. Strict CER canonical validation is a separate future feature.
+this increment.
 
 The C encoder rejects opaque ANY, unresolved open types, unknown primitive
 operations, and unsupported raw REAL/time forms described in the codec ledger.
 Resource ceilings are intentional API limits. Rust CER remains the primitive
-encoding slice described above; broader types and CER decoding follow the staged
-conversion plan. These boundaries must remain explicit in every support table.
+encoding and strict decoding slice described above; broader types follow the
+staged conversion plan. These boundaries must remain explicit in every support table.

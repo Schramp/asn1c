@@ -9,6 +9,7 @@
 #include <errno.h>
 #if !defined(ASN_DISABLE_BER_SUPPORT) && !defined(ASN_DISABLE_CER_SUPPORT)
 #include <cer_encoder.h>
+#include <cer_decoder.h>
 #endif
 #if !defined(ASN_DISABLE_APER_SUPPORT)
 #include <aper_decoder.h>
@@ -903,7 +904,8 @@ asn_encode_internal(const asn_codec_ctx_t *opt_codec_ctx,
  * Errors/exceptions: Sets ENOENT for unsupported or disabled syntax; C has no
  *   exceptions, and malformed or incomplete input is reported in the result.
  * Author/responsible party: asn1c maintainers.
- * History: 2026-10-11 routes ATS_CER through ber_decode when BER is enabled.
+ * History: 2026-10-11 routes ATS_CER through the strict cer_decode, which
+ *   rejects noncanonical input and is not restartable (see cer_decoder.h).
  * Example: asn_decode(ctx, ATS_CER, &asn_DEF_Type, &value, input, input_size).
  */
 asn_dec_rval_t
@@ -938,9 +940,16 @@ asn_decode(const asn_codec_ctx_t *opt_codec_ctx,
         ASN__DECODE_FAILED;
 #endif  /* !defined(ASN_DISABLE_RFILL_SUPPORT) */
 
+    case ATS_CER:
+#if !defined(ASN_DISABLE_BER_SUPPORT) && !defined(ASN_DISABLE_CER_SUPPORT)
+        return cer_decode(opt_codec_ctx, td, sptr, buffer, size);
+#else
+        errno = ENOENT;
+        ASN__DECODE_FAILED;
+#endif  /* !ASN_DISABLE_BER_SUPPORT && !ASN_DISABLE_CER_SUPPORT */
+
     case ATS_DER:
     case ATS_BER:
-    case ATS_CER:
 #if !defined(ASN_DISABLE_BER_SUPPORT)
         return ber_decode(opt_codec_ctx, td, sptr, buffer, size);
 #else

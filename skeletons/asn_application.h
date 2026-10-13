@@ -36,7 +36,7 @@ enum asn_transfer_syntax {
      */
     ATS_BER,
     ATS_DER,
-    ATS_CER, /* BER-compatible decode; canonical CER encode when generated. */
+    ATS_CER, /* Strict canonical CER decode and encode when generated. */
     /*
      * X.696:
      * OER: Octet Encoding Rules.

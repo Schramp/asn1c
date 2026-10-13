@@ -8,7 +8,7 @@ blanket support for every ASN.1 type or proof of canonical conformance.
 | --- | --- | --- |
 | `ATS_BER` | DER encoder; valid BER output | `ber_decode` |
 | `ATS_DER` | `der_encode` | `ber_decode` |
-| `ATS_CER` | `cer_encode` | `ber_decode` |
+| `ATS_CER` | `cer_encode` | `cer_decode` (strict) |
 | Basic/canonical OER | `oer_encode` | `oer_decode` |
 | Basic/canonical UPER | UPER encoder | `uper_decode_complete` |
 | Basic/canonical APER | APER encoder | `aper_decode_complete` |
@@ -24,18 +24,35 @@ handled by that walker.
 
 [ber_decoder.h](../skeletons/ber_decoder.h) advertises decoding BER, DER, and
 CER. The implementation handles indefinite-length constructed values,
-end-of-contents markers, and segmented strings. `asn_decode(ATS_CER, ...)`
-uses this BER decoder; it does not check that input follows CER's canonical
-restrictions. The generated converter accepts `-icer` for the same BER-family
-input path.
+end-of-contents markers, and segmented strings. `ATS_BER` and `ATS_DER` input
+use this permissive decoder.
+
+[cer_decoder.h](../skeletons/cer_decoder.h) provides strict `cer_decode()`,
+which `asn_decode(ATS_CER, ...)` and the converter's `-icer` selector use. It
+runs `ber_decode()`, re-encodes the value with `cer_encode()`, and requires the
+re-encoding to be byte-identical to the consumed input prefix. Noncanonical
+input is rejected: long-form lengths where short form applies, definite-length
+constructed values, BOOLEAN TRUE other than `FF`, non-minimal INTEGER, unsorted
+`SET OF`, unsegmented strings over 1000 octets, and similar forms. Coverage
+matches the descriptor kinds supported by the CER encoder.
+
+Invalid arguments return `RC_FAIL` with `EINVAL`. A BER result other than
+`RC_OK` (`RC_WMORE` or `RC_FAIL`) is returned with zero bytes consumed. A
+re-encoding mismatch returns `RC_FAIL` with `EBADF`. On failure, a structure
+allocated by the decoder is freed and caller-provided storage is reset.
+Trailing bytes after the first TLV are not consumed. The decoder is compiled
+only when neither `ASN_DISABLE_BER_SUPPORT` nor `ASN_DISABLE_CER_SUPPORT` is
+defined; otherwise a stub returns `RC_FAIL` with `ENOENT`. `-icer` requires
+CER generation, is rejected under `-no-gen-CER`, and buffers the whole input
+because it is not restartable.
 
 For scalar descriptors with explicit or named tags, CER input with indefinite
 constructed wrappers ending in a definite primitive is supported. Tested BER
 compatibility also includes a definite constructed child. A nested scalar
 wrapper chain that mixes definite and indefinite lengths among its constructed
 layers can still be rejected by the pre-existing `ber_check_tags` limitation.
-This is a BER-family input limitation, not strict CER canonical validation; it
-does not restrict CER encoder output.
+This is a BER-family input limitation; it does not restrict CER encoder
+output.
 
 Opaque `ANY` input retains the existing BER decoder's permissive byte-container
 behavior, including empty or multiple-TLV explicit containers. This is runtime
@@ -50,8 +67,8 @@ documents this distinction and the character-string fragment-tag correction.
 
 The C runtime provides `cer_encode()` and `asn_encode(ATS_CER, ...)`, and the
 generated converter accepts `-ocer`. The C target enables CER encoding by
-default alongside BER support. `-no-gen-CER` disables CER encoding support;
-it need not remove the CER skeleton source from the shared BER-family
+default alongside BER support. `-no-gen-CER` disables CER encoding and
+strict decoding support; it need not remove the CER skeleton source from the shared BER-family
 dependency closure. `-no-gen-BER` also disables the shared BER-family
 dependencies. The encoder walks generated type descriptors; support is limited
 to descriptor kinds and canonical value forms that the walker implements. It
@@ -118,7 +135,8 @@ returns `ENOSPC`, and allocation or callback failures are reported as `ENOMEM`
 or `EIO`.
 
 The Rust backend currently emits CER encoding for top-level BOOLEAN, NULL, and
-finite nonextensible INTEGER ranges that fit in `i64`. It has no CER decoder.
+finite nonextensible INTEGER ranges that fit in `i64`, plus a strict
+`decode_cer()` that accepts only the canonical short-form TLV.
 Rust codec defaults include UPER and CER; `-no-gen-UPER` selects CER-only
 generation. Other Rust types and codecs remain outside this implemented slice.
 
@@ -127,15 +145,15 @@ CER is a constrained form of BER. The primary
 specifies indefinite lengths for constructed encodings, segmented string
 forms, tag ordering for `SET` components, and ordering of complete `SET OF`
 encodings. String fragments use the 1000-content-octet boundary. CER encoding
-implements these rules for its supported descriptors. Input remains permissive
-BER decoding, not strict CER canonical-form validation.
+implements these rules for its supported descriptors, and strict CER decoding
+rejects input that does not match them.
 
 ## Other binary families
 
 No additional mismatch was found between the generic binary selectors and their
 implemented codec families. Basic/canonical OER and PER decode selectors share
-the same family entrypoint. DER and CER decode selectors share the BER decoder;
-the selector alone is not a strict canonicality check.
+the same family entrypoint. The DER decode selector shares the permissive BER
+decoder and is not a strict canonicality check; the CER selector is strict.
 
 CBOR uses a separate repository mapping for ASN.1 values. It is not an ASN.1
 encoding rule. Claims of complete deterministic encoding require checking more
@@ -143,8 +161,8 @@ than shortest integer/length forms, including floating-point choices and map
 ordering under [RFC 8949 section 4.2](https://www.rfc-editor.org/rfc/rfc8949.html#section-4.2).
 This change does not establish blanket deterministic-CBOR conformance.
 
-The generated converter accepts `-iber`, `-ider`, and `-icer` as BER-family
-input selectors. Output supports `-oder` and `-ocer` for their respective
+The generated converter accepts `-iber` and `-ider` as permissive BER-family
+input selectors and `-icer` as the strict CER input selector. Output supports `-oder` and `-ocer` for their respective
 encoding rules.
 
 ## Verification
@@ -174,8 +192,13 @@ variants, including direct generated multi-wrapper vectors and CER re-decoding.
 All 28 generated smoke tests and the installed-toolchain qualification also
 pass. Source-distribution qualification passed with all 13 required assets
 present. The randomized driver is wired to feed BER-decoded corpus values to
-generic `ATS_CER` encoding. The generic BER decoder remains permissive under the
-CER selector; applications that need strict canonical validation must validate
-that requirement separately.
+generic `ATS_CER` encoding. At that time `ATS_CER` input used the permissive
+BER decoder; it now uses strict `cer_decode()`.
+
+Strict CER decoding is covered by
+[check-CER-decode.c](../tests/tests-skeletons/check-CER-decode.c), updated
+`check-CER.c` and `check-binary-dispatch.c` skeleton tests, and strict and
+disabled-build cases in
+[check-CER.sh](../tests/tests-asn1c-smoke/check-CER.sh).
 
 [x690]: https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.690-201508-S%21%21PDF-E&lang=e&type=items

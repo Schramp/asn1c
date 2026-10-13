@@ -1,4 +1,15 @@
 Changes since v1.5.3:
+	* Added a strict C CER decoder, cer_decode(), which runs ber_decode(),
+	  re-encodes the value with cer_encode(), and rejects input (EBADF) that
+	  is not byte-identical to the consumed TLV. asn_decode(ATS_CER) and the
+	  generated converter's -icer now use it; ATS_BER and ATS_DER remain
+	  permissive. -icer requires CER generation, is rejected under
+	  -no-gen-CER, and buffers the whole input. ASN_DISABLE_BER_SUPPORT or
+	  ASN_DISABLE_CER_SUPPORT builds a stub failing with ENOENT. The Rust
+	  runtime adds strict decode_boolean_cer, decode_null_cer, and
+	  decode_integer_cer, and generated Rust types emit decode_cer alongside
+	  encode_cer whenever CER is selected. Added skeleton, smoke, and Rust
+	  runtime/interop regressions, including live C-generated CER vectors.
 	* Skip unused randomized corpus generation when LibFuzzer is disabled.
 	  Added GENERATE_CORPUS=auto/yes/no and a local-only check-corpus target
 	  that splits bundles into parallel cases without timed fuzzing. Inner

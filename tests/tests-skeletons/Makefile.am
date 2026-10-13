@@ -26,6 +26,7 @@ check_PROGRAMS =                \
     check-CBOR                  \
     check-binary-dispatch       \
     check-CER                   \
+    check-CER-decode            \
     check-CER-limits            \
     check-CER-resources         \
     check-CER-work              \
@@ -170,6 +171,8 @@ check_CBOR_SOURCES=check-CBOR.c
 check_CER_SOURCES = check-CER.c $(top_srcdir)/skeletons/cer_encoder.c
 check_CER_CPPFLAGS = -DASN_CER_MAX_ENCODED_SIZE=4096u
 check_CER_LDADD = $(LDADD)
+check_CER_decode_SOURCES = check-CER-decode.c
+check_CER_decode_LDADD = $(LDADD)
 check_CER_limits_SOURCES = check-CER-limits.c \
     $(top_srcdir)/skeletons/cer_encoder.c
 check_CER_limits_CPPFLAGS = \

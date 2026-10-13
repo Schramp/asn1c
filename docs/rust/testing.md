@@ -52,7 +52,7 @@ The randomized C driver covers BER, DER, canonical OER, basic PER, canonical
 UPER, canonical APER, canonical XER, and JER. CBOR is absent from that driver.
 When CER encoding is enabled, successfully decoded BER-family corpus values also
 feed the generic `ATS_CER` encoder. This exercises encoding over corpus inputs;
-it is not a long fuzz campaign and does not make CER input decoding canonical.
+it is not a long fuzz campaign; strict CER decoding has dedicated tests.
 Separate CBOR tests live in `tests/tests-skeletons/check-CBOR.c`,
 `tests/tests-c-compiler/check-src/check-202.-gen-CBOR.c`, and the PKIX job in
 `.github/workflows/c-cpp.yml`. Track CBOR as the repository's ASN.1-to-CBOR
@@ -67,15 +67,18 @@ canonical XER, JER, minified JER, and CBOR. Qualify each type/direction cell
 against actual descriptor operations and enabled features; a syntax enum or
 codec source file alone does not establish support.
 
-The binary-dispatch regression routes `ATS_CER` input to the existing BER
-decoder. CER-compatible input decoding remains permissive; test valid
-indefinite/segmented encodings, incomplete and malformed input, and the shared
-BER decoder's input behavior. C CER encoding now has a separate native
-descriptor walker. Its tests cover canonical string fragments and ordering for
-`SET` and `SET OF`; decoder selector acceptance still does not establish strict
-canonical validation. Rust currently implements CER encoding only for
-BOOLEAN, NULL, and bounded nonextensible INTEGER values fitting `i64`, with no
-CER decoder. See [the binary audit](../binary-codec-support.md).
+The binary-dispatch regression routes `ATS_CER` input to strict
+`cer_decode`, which accepts canonical CER and rejects noncanonical input with
+`EBADF`; `ATS_BER` and `ATS_DER` input remain permissive. C CER encoding has a
+native descriptor walker. Its tests cover canonical string fragments and
+ordering for `SET` and `SET OF`. `tests/tests-skeletons/check-CER-decode.c`
+covers strict decoding, and `tests/tests-asn1c-smoke/check-CER.sh` checks the
+strict `-icer` converter and the disabled build. Rust implements CER encoding
+and strict decoding for BOOLEAN, NULL, and bounded nonextensible INTEGER
+values fitting `i64`; runtime tests `cer_strict_decode_vectors` and
+`cer_decode_resource_limits` and the `cer_strict_decode_interop` conformance
+test, which decodes live C-generated vectors and rejects hostile input, cover
+it. See [the binary audit](../binary-codec-support.md).
 
 CI runs GCC `make check`, `make distcheck`, and Clang sanitizer `make check`.
 Each configures with `--disable-test-fuzzer`. Normal CI therefore runs randomized
@@ -110,8 +113,8 @@ temporary directories below `tests/tests-randomized`.
 
 The current primitive slice is recorded in
 [`tests/tests-rust-compiler/coverage.json`](../../tests/tests-rust-compiler/coverage.json).
-It covers the qualified UPER BOOLEAN/NULL/INTEGER cases, encode-only CER
-primitive vectors, codec-selection boundaries, and compiler/output safety
+It covers the qualified UPER BOOLEAN/NULL/INTEGER cases, CER primitive encode
+and strict decode vectors, codec-selection boundaries, and compiler/output safety
 checks. It is not a stage-wide map of the existing C runtime.
 
 Before expanding beyond this first slice, materialize the planned stage-wide
@@ -390,10 +393,10 @@ and no earlier coverage is lost.
    tags, defaults, open types, IOC, and CONTAINING. Prioritize 126, 548, 550,
    552, 561, 563, and 569 plus the APER skeleton tests. Include malformed
    metadata and strict/permissive extension policies.
-4. **M4: BER/DER/CER and OER.** Add BER decode and CER-compatible input,
+4. **M4: BER/DER/CER and OER.** Add BER decode, strict CER decode,
    DER/CER encoding, lengths, tags, ordering, OER variants, extensions, open
    types, nested collection limits, and issues 570/575. Map the complete
-   C-supported CER encoder domain to Rust or reviewed exclusions. Test decode
+   C-supported CER codec domain to Rust or reviewed exclusions. Test decode
    success separately from constraint failure and keep BER permissiveness
    distinct from strict canonical validation.
 5. **M5: XER, JER, and CBOR.** Add basic/canonical XER, JER and minified JER,

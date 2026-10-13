@@ -106,19 +106,21 @@ instead of inferring complete coverage from a family-level filename.
 | Codec family | Current modes | Main C source anchors |
 | --- | --- | --- |
 | BER / DER | BER decode; DER encode | ber_decoder.c, der_encoder.c |
-| CER | BER-compatible decode; C encode; Rust encode-only primitive slice | ber_decoder.c, cer_encoder.c |
+| CER | Strict C decode and encode; Rust strict primitive encode/decode slice | cer_decoder.c, cer_encoder.c |
 | PER | UPER / APER, each basic and canonical | per_*.c, uper_*.c, aper_*.c |
 | OER | Basic and canonical | oer_*.c |
 | XER | Basic and canonical | xer_*.c |
 | JER | Regular and minified | jer_*.c |
 | CBOR | CBOR | cbor_*.c |
 
-The binary audit found that `ber_decode` accepts CER-compatible input and the
-dispatcher routes `ATS_CER` through it. The C runtime also supplies a
-descriptor-driven CER encoder. The current Rust runtime implements CER
-encoding only for BOOLEAN, NULL, and finite nonextensible INTEGER ranges that
-fit `i64`; it has no CER decoder. `ATS_CER` input remains BER-backed and does
-not provide strict canonical validation.
+The dispatcher routes `ATS_CER` input to strict `cer_decode`, which decodes
+with `ber_decode`, re-encodes with the descriptor-driven CER encoder, and
+rejects input that is not byte-identical to the canonical encoding. `ATS_BER`
+and `ATS_DER` input remain permissive. The current Rust runtime implements CER
+encoding and strict decoding only for BOOLEAN, NULL, and finite nonextensible
+INTEGER ranges that fit `i64` (`decode_boolean_cer`, `decode_null_cer`,
+`decode_integer_cer`). These accept only the exact universal tag, a short-form
+definite length, and canonical content, and enforce `Limits`.
 See [the binary audit](../binary-codec-support.md).
 
 The C encoder already exposes a byte callback, while decoder entry points accept
@@ -232,7 +234,7 @@ the runtime buildable and should add its tests and support matrix entries.
 3. APER plus constructed and recursive types, including optional/default
    members, CHOICE, SET, OF collections, extensions, open types, and limits.
 4. Remaining BER/DER and OER families, including the supported BER behavior
-   and CER-compatible BER decoding; expand the existing C and Rust CER encoder
+   and permissive BER decoding; expand the existing C and Rust CER codec
    matrices before making wider claims.
 5. XER, JER, and CBOR. These may proceed in parallel after shared value,
    descriptor, error, and I/O interfaces stabilize.

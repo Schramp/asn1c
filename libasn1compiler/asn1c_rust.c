@@ -992,6 +992,20 @@ rust_write_boolean(FILE *stream, const char *name, uint64_t codecs) {
                  "        ::asn1c_runtime::encode_boolean_cer(self.0, limits)\n"
                  "    }\n", stream) == EOF)
             return -1;
+        if(rust_write_method_doc(stream,
+                "Strictly decode one CER BOOLEAN TLV and report prefix consumption.",
+                "`input` is the encoded prefix; `limits` bounds input and work.",
+                "Returns the value and consumed bit and byte counts.",
+                "Returns an error for truncated, noncanonical, malformed, or over-limit input.",
+                "`let decoded = Type::decode_cer(input, &Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn decode_cer(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::decode_boolean_cer(input, limits)\n"
+                 "            .map(|decoded| decoded.map(Self))\n    }\n",
+                 stream) == EOF)
+            return -1;
     }
     if(fputs("}\n\n", stream) == EOF) return -1;
     return 0;
@@ -1051,6 +1065,20 @@ rust_write_null(FILE *stream, const char *name, uint64_t codecs) {
                  "::asn1c_runtime::Error> {\n"
                  "        ::asn1c_runtime::encode_null_cer(limits)\n"
                  "    }\n", stream) == EOF)
+            return -1;
+        if(rust_write_method_doc(stream,
+                "Strictly decode one CER NULL TLV and report prefix consumption.",
+                "`input` is the encoded prefix; `limits` bounds input and work.",
+                "Returns the value and consumed bit and byte counts.",
+                "Returns an error for truncated, noncanonical, malformed, or over-limit input.",
+                "`let decoded = Type::decode_cer(input, &Default::default())?;"))
+            return -1;
+        if(fputs("    pub fn decode_cer(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
+                 "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
+                 "::asn1c_runtime::Error> {\n"
+                 "        ::asn1c_runtime::decode_null_cer(input, limits)\n"
+                 "            .map(|decoded| decoded.map(|()| Self))\n    }\n",
+                 stream) == EOF)
             return -1;
     }
     if(fputs("}\n\n", stream) == EOF) return -1;
@@ -1137,6 +1165,20 @@ rust_write_integer(FILE *stream, const char *name, int64_t lower,
             "::asn1c_runtime::Error> {\n"
             "        ::asn1c_runtime::encode_integer_cer(self.0, %s, %s, limits)\n"
             "    }\n", low, high) < 0)
+            return -1;
+        if(rust_write_method_doc(stream,
+                "Strictly decode one CER INTEGER TLV and report prefix consumption.",
+                "`input` is the encoded prefix; `limits` bounds input and work.",
+                "Returns the value and consumed bit and byte counts.",
+                "Returns an error for truncated, noncanonical, malformed, or over-limit input.",
+                "`let decoded = Type::decode_cer(input, &Default::default())?;"))
+            return -1;
+        if(fprintf(stream,
+            "    pub fn decode_cer(input: &[u8], limits: &::asn1c_runtime::Limits) ->\n"
+            "        ::core::result::Result<::asn1c_runtime::Decoded<Self>, "
+            "::asn1c_runtime::Error> {\n"
+            "        ::asn1c_runtime::decode_integer_cer(input, %s, %s, limits)\n"
+            "            .map(|decoded| decoded.map(Self))\n    }\n", low, high) < 0)
             return -1;
     }
     if(fputs("}\n\n", stream) == EOF) return -1;

@@ -76,10 +76,7 @@ for generated in Cargo.toml src/lib.rs src/first_slice.rs runtime/Cargo.toml \
 done
 grep -F 'pub fn encode_cer' "$rust_out/src/first_slice.rs" >/dev/null
 grep -F 'pub fn encode_uper' "$rust_out/src/first_slice.rs" >/dev/null
-if grep -F 'pub fn decode_cer' "$rust_out/src/first_slice.rs" >/dev/null; then
-    echo "FAIL: Rust backend unexpectedly generated a CER decoder"
-    exit 1
-fi
+grep -F 'pub fn decode_cer' "$rust_out/src/first_slice.rs" >/dev/null
 cp -R "$rust_out" "$test_tmp/first-generation"
 "$asn1c_bin" --rust -S "$skeletons" -D "$rust_out" \
     "$test_srcdir/FirstSlice.asn1"
@@ -156,7 +153,7 @@ fi
 grep -F 'pub fn encode_uper' "$explicit_uper/src/first_slice.rs" >/dev/null
 grep -F 'pub fn encode_cer' "$explicit_uper/src/first_slice.rs" >/dev/null
 
-# CER-only selection emits CER encoders and omits every UPER method.
+# CER-only selection emits CER encoders and decoders and omits every UPER method.
 for selector in default explicit; do
     cer_out="$test_tmp/cer-only-$selector"
     if [ "$selector" = default ]; then
@@ -172,10 +169,7 @@ for selector in default explicit; do
         echo "FAIL: CER-only selection generated UPER methods"
         exit 1
     fi
-    if grep -F 'pub fn decode_cer' "$generated_module" >/dev/null; then
-        echo "FAIL: CER-only selection generated a CER decoder"
-        exit 1
-    fi
+    grep -F 'pub fn decode_cer' "$generated_module" >/dev/null
     if ! (cd "$cer_out" && \
         CARGO_TARGET_DIR="$test_tmp/cer-cargo-target-$selector" \
         cargo check --offline --manifest-path Cargo.toml) \
@@ -430,13 +424,13 @@ c_cer_off_flags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
 case "$c_cer_off_flags" in
     *ASN_DISABLE_CER_SUPPORT*) ;;
     *)
-        echo "FAIL: -no-gen-CER left the C CER encoder enabled"
+        echo "FAIL: -no-gen-CER left the C CER encoder/decoder enabled"
         exit 1
         ;;
 esac
 case "$c_cer_off_flags" in
     *ASN_DISABLE_BER_SUPPORT*)
-        echo "FAIL: -no-gen-CER disabled the shared BER/CER decoder"
+        echo "FAIL: -no-gen-CER disabled the independent BER decoder"
         exit 1
         ;;
 esac

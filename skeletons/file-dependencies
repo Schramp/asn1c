@@ -65,6 +65,9 @@ CODEC-BER:			# THIS IS A SPECIAL SECTION
 ber_decoder.h
 der_encoder.h
 cer_encoder.h
+cer_decoder.h
+cer_decoder.h cer_decoder.c
+cer_decoder.c ber_decoder.h cer_encoder.h asn_internal.h
 cer_encoder.h cer_encoder.c
 cer_encoder.c OCTET_STRING.h BIT_STRING.h BOOLEAN.h NULL.h
 cer_encoder.c NativeInteger.h NativeEnumerated.h NativeReal.h

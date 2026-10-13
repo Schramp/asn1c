@@ -564,6 +564,187 @@ fn encode_cer_tlv(tag: u8, contents: &[u8], limits: &Limits) -> Result<Encoded, 
     Ok(Encoded { bytes, bit_len })
 }
 
+/// Strictly decode one CER BOOLEAN TLV prefix.
+///
+/// # Parameters
+/// `input` holds the encoding, which may be followed by unrelated bytes;
+/// `limits` bounds the complete input slice and the TLV wire-bit work.
+///
+/// # Returns
+/// The boolean value with `consumed_bytes == 3` and `consumed_bits == 24`.
+/// Trailing bytes after the TLV are left unconsumed, matching C `cer_decode`.
+///
+/// # Errors and exceptions
+/// Returns `NeedMoreBytes` for truncation, `InvalidEncoding` for a wrong tag,
+/// non-short or wrong length, or a content octet other than `00`/`FF` (BER
+/// accepts any nonzero octet, CER does not), or a configured limit error. It
+/// raises no exception and allocates no memory.
+///
+/// # Source, version, history, and example
+/// Original source: X.690 clauses 8.2 and 11.1 and the asn1c strict C
+/// `cer_decode`. Version/date: Rust CER decoder slice, 2026-10-11. Responsible
+/// party: asn1c maintainers. History: initial CER decoder slice. Example:
+/// `decode_boolean_cer(&[0x01, 0x01, 0xff], &Limits::default())?`.
+pub fn decode_boolean_cer(input: &[u8], limits: &Limits) -> Result<Decoded<bool>, Error> {
+    let (contents, decoded) = decode_cer_tlv(0x01, input, limits)?;
+    let value = match contents {
+        [0x00] => false,
+        [0xff] => true,
+        [_] => {
+            return Err(Error::InvalidEncoding {
+                reason: "CER BOOLEAN TRUE must use content octet FF",
+            })
+        }
+        _ => {
+            return Err(Error::InvalidEncoding {
+                reason: "CER BOOLEAN content must be exactly one octet",
+            })
+        }
+    };
+    Ok(decoded.map(|()| value))
+}
+
+/// Strictly decode one CER NULL TLV prefix.
+///
+/// # Parameters
+/// `input` holds the encoding, which may be followed by unrelated bytes;
+/// `limits` bounds the complete input slice and the TLV wire-bit work.
+///
+/// # Returns
+/// The unit value with `consumed_bytes == 2` and `consumed_bits == 16`.
+///
+/// # Errors and exceptions
+/// Returns `NeedMoreBytes`, `InvalidEncoding` for a wrong tag or any length
+/// other than short-form zero, or a configured limit error. It raises no
+/// exception and allocates no memory.
+///
+/// # Source, version, history, and example
+/// Original source: X.690 clause 8.8 and the asn1c strict C `cer_decode`.
+/// Version/date: Rust CER decoder slice, 2026-10-11. Responsible party:
+/// asn1c maintainers. History: initial CER decoder slice. Example:
+/// `decode_null_cer(&[0x05, 0x00], &Limits::default())?`.
+pub fn decode_null_cer(input: &[u8], limits: &Limits) -> Result<Decoded<()>, Error> {
+    let (contents, decoded) = decode_cer_tlv(0x05, input, limits)?;
+    if !contents.is_empty() {
+        return Err(Error::InvalidEncoding {
+            reason: "CER NULL content must be empty",
+        });
+    }
+    Ok(decoded)
+}
+
+/// Strictly decode one bounded CER INTEGER TLV prefix.
+///
+/// # Parameters
+/// `input` holds the encoding, which may be followed by unrelated bytes;
+/// `lower` and `upper` are inclusive ASN.1 bounds; `limits` bounds the complete
+/// input slice and the TLV wire-bit work.
+///
+/// # Returns
+/// The signed value and its whole-TLV consumption in bytes and bits.
+///
+/// # Errors and exceptions
+/// Returns `InvalidBounds`; `NeedMoreBytes` for truncation; `InvalidEncoding`
+/// for a wrong tag, non-short length, empty content, more than eight content
+/// octets, or a redundant leading `00`/`FF` octet; `ValueOutOfRange`; or a
+/// configured limit error. It raises no exception and allocates no memory.
+///
+/// # Source, version, history, and example
+/// Original source: X.690 clause 8.3 and the asn1c strict C `cer_decode`.
+/// Version/date: Rust CER decoder slice, 2026-10-11. Responsible party:
+/// asn1c maintainers. History: initial i64 CER decoder slice. Example:
+/// `decode_integer_cer(&[0x02, 0x02, 0x00, 0x80], 0, 255, &Limits::default())?`.
+pub fn decode_integer_cer(
+    input: &[u8],
+    lower: i64,
+    upper: i64,
+    limits: &Limits,
+) -> Result<Decoded<i64>, Error> {
+    if lower > upper {
+        return Err(Error::InvalidBounds { lower, upper });
+    }
+    let (contents, decoded) = decode_cer_tlv(0x02, input, limits)?;
+    if contents.is_empty() {
+        return Err(Error::InvalidEncoding {
+            reason: "CER INTEGER content must not be empty",
+        });
+    }
+    if contents.len() > 8 {
+        return Err(Error::InvalidEncoding {
+            reason: "CER INTEGER content exceeds the 64-bit runtime range",
+        });
+    }
+    if contents.len() > 1
+        && ((contents[0] == 0x00 && contents[1] & 0x80 == 0)
+            || (contents[0] == 0xff && contents[1] & 0x80 != 0))
+    {
+        return Err(Error::InvalidEncoding {
+            reason: "CER INTEGER content has a redundant leading octet",
+        });
+    }
+
+    // Sign-extend the minimal two's-complement content into an i64.
+    let fill = if contents[0] & 0x80 != 0 { 0xff } else { 0x00 };
+    let mut full = [fill; 8];
+    full[8 - contents.len()..].copy_from_slice(contents);
+    let value = i64::from_be_bytes(full);
+    validate_integer(value, lower, upper)?;
+    Ok(decoded.map(|()| value))
+}
+
+/// Split one short-form primitive CER TLV prefix and charge its resources.
+///
+/// # Parameters
+/// `tag` is the expected one-octet identifier; `input` is the encoded prefix;
+/// `limits` supplies the input-slice and work-bit ceilings.
+///
+/// # Returns
+/// The content octets and a unit `Decoded` describing the TLV consumption.
+///
+/// # Errors and exceptions
+/// Returns `LimitExceeded`, `NeedMoreBytes`, `InvalidEncoding` for a wrong tag
+/// or a long-form/indefinite length (never minimal for these primitives), or
+/// `SizeOverflow`. It raises no exception and allocates no memory.
+///
+/// # Source, version, history, and example
+/// Original source: new safe Rust helper mirroring `encode_cer_tlv`.
+/// Version/date: Rust CER decoder slice, 2026-10-11. Responsible party: asn1c
+/// maintainers. History: initial CER decoder slice. Example:
+/// `decode_cer_tlv(0x05, &[0x05, 0x00], limits)` returns empty contents.
+fn decode_cer_tlv<'a>(
+    tag: u8,
+    input: &'a [u8],
+    limits: &Limits,
+) -> Result<(&'a [u8], Decoded<()>), Error> {
+    check_input_limit(input, limits)?;
+    require_bytes(input, 2)?;
+    if input[0] != tag {
+        return Err(Error::InvalidEncoding {
+            reason: "CER identifier octet does not match the expected type",
+        });
+    }
+    if input[1] & 0x80 != 0 {
+        return Err(Error::InvalidEncoding {
+            reason: "CER primitive length must use the minimal short form",
+        });
+    }
+
+    let byte_len = usize::from(input[1])
+        .checked_add(2)
+        .ok_or(Error::SizeOverflow)?;
+    require_bytes(input, byte_len)?;
+    let bit_len = byte_len.checked_mul(8).ok_or(Error::SizeOverflow)?;
+    check_work_limit(bit_len, limits)?;
+    Ok((
+        &input[2..byte_len],
+        Decoded {
+            value: (),
+            consumed_bits: bit_len,
+            consumed_bytes: byte_len,
+        },
+    ))
+}
+
 /// Decode a constrained signed INTEGER prefix from UPER.
 ///
 /// # Parameters
@@ -1282,6 +1463,142 @@ mod tests {
             Err(Error::LimitExceeded {
                 resource: Resource::OutputBytes,
                 requested: 2,
+                ..
+            })
+        ));
+    }
+
+    /// Test strict CER decoding of BOOLEAN, NULL, and INTEGER prefixes.
+    ///
+    /// Original source: X.690 CER rules and the strict C `cer_decode`.
+    /// Version/date: 2026-10-11. Inputs: canonical TLVs, trailing bytes, and
+    /// noncanonical, truncated, mistagged, and out-of-range encodings. Returns:
+    /// no value; assertions fail on mismatch. Errors: typed errors expected for
+    /// rejected inputs. Responsible party: asn1c maintainers. History: added
+    /// with the CER decoder slice. Example: `01 01 01` is rejected.
+    #[test]
+    fn cer_strict_decode_vectors() {
+        let limits = Limits::default();
+        let t = decode_boolean_cer(&[0x01, 0x01, 0xff, 0x99], &limits).unwrap();
+        assert_eq!((t.value, t.consumed_bytes, t.consumed_bits), (true, 3, 24));
+        assert!(
+            !decode_boolean_cer(&[0x01, 0x01, 0x00], &limits)
+                .unwrap()
+                .value
+        );
+        for bad in [
+            &[0x01, 0x01, 0x01][..],
+            &[0x01, 0x81, 0x01, 0xff],
+            &[0x01, 0x02, 0xff, 0xff],
+            &[0x01, 0x00],
+            &[0x02, 0x01, 0xff],
+            &[0x01, 0x80, 0xff, 0x00, 0x00],
+        ] {
+            assert!(
+                matches!(
+                    decode_boolean_cer(bad, &limits),
+                    Err(Error::InvalidEncoding { .. })
+                ),
+                "{bad:02x?}"
+            );
+        }
+        assert!(matches!(
+            decode_boolean_cer(&[0x01, 0x01], &limits),
+            Err(Error::NeedMoreBytes {
+                required_bytes: 3,
+                available_bytes: 2
+            })
+        ));
+        assert!(matches!(
+            decode_boolean_cer(&[0x01], &limits),
+            Err(Error::NeedMoreBytes { .. })
+        ));
+
+        let n = decode_null_cer(&[0x05, 0x00, 0x05], &limits).unwrap();
+        assert_eq!((n.consumed_bytes, n.consumed_bits), (2, 16));
+        assert!(matches!(
+            decode_null_cer(&[0x05, 0x01, 0x00], &limits),
+            Err(Error::InvalidEncoding { .. })
+        ));
+        assert!(matches!(
+            decode_null_cer(&[0x05, 0x81, 0x00], &limits),
+            Err(Error::InvalidEncoding { .. })
+        ));
+
+        // Every canonical encoder output must round-trip through the decoder.
+        for value in [0, 1, 127, 128, -128, -129, -1, 255, 256, i64::MIN, i64::MAX] {
+            let encoded = encode_integer_cer(value, i64::MIN, i64::MAX, &limits).unwrap();
+            let decoded = decode_integer_cer(&encoded.bytes, i64::MIN, i64::MAX, &limits).unwrap();
+            assert_eq!(decoded.value, value);
+            assert_eq!(decoded.consumed_bytes, encoded.bytes.len());
+            assert_eq!(decoded.consumed_bits, encoded.bit_len);
+        }
+        for bad in [
+            &[0x02, 0x02, 0x00, 0x7f][..],
+            &[0x02, 0x02, 0xff, 0x80],
+            &[0x02, 0x00],
+            &[0x02, 0x81, 0x01, 0x00],
+            &[0x02, 0x09, 0x00, 0x80, 0, 0, 0, 0, 0, 0, 0],
+            &[0x0a, 0x01, 0x00],
+        ] {
+            assert!(
+                matches!(
+                    decode_integer_cer(bad, i64::MIN, i64::MAX, &limits),
+                    Err(Error::InvalidEncoding { .. })
+                ),
+                "{bad:02x?}"
+            );
+        }
+        assert!(matches!(
+            decode_integer_cer(&[0x02, 0x02, 0x00, 0x80], 0, 127, &limits),
+            Err(Error::ValueOutOfRange { value: 128, .. })
+        ));
+        assert!(matches!(
+            decode_integer_cer(&[0x02, 0x01, 0x00], 3, 1, &limits),
+            Err(Error::InvalidBounds { .. })
+        ));
+        assert!(matches!(
+            decode_integer_cer(&[0x02, 0x02, 0x00], 0, 255, &limits),
+            Err(Error::NeedMoreBytes { .. })
+        ));
+    }
+
+    /// Test CER decoder input-slice and work ceilings at their exact edges.
+    ///
+    /// Original source: runtime resource contract. Version/date: 2026-10-11.
+    /// Inputs: exact and insufficient limits. Returns: no value; assertions
+    /// fail on mismatch. Errors: `LimitExceeded` expected below the edge.
+    /// Responsible party: asn1c maintainers. History: added with the CER
+    /// decoder slice. Example: a BOOLEAN needs 24 work bits.
+    #[test]
+    fn cer_decode_resource_limits() {
+        let exact = Limits {
+            max_input_bytes: 3,
+            max_output_bytes: 0,
+            max_work_bits: 24,
+        };
+        assert!(
+            decode_boolean_cer(&[0x01, 0x01, 0xff], &exact)
+                .unwrap()
+                .value
+        );
+        assert!(matches!(
+            decode_boolean_cer(&[0x01, 0x01, 0xff, 0x00], &exact),
+            Err(Error::LimitExceeded {
+                resource: Resource::InputBytes,
+                requested: 4,
+                ..
+            })
+        ));
+        let low_work = Limits {
+            max_work_bits: 23,
+            ..exact
+        };
+        assert!(matches!(
+            decode_boolean_cer(&[0x01, 0x01, 0xff], &low_work),
+            Err(Error::LimitExceeded {
+                resource: Resource::WorkBits,
+                requested: 24,
                 ..
             })
         ));

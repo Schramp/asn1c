@@ -9,7 +9,7 @@ The matching runtime uses `std`, forbids unsafe Rust, and has no dependencies.
 
 `--rust` selects the complete Rust output mode. It generates a Cargo package
 with typed Rust bindings and a local copy of the Rust runtime. The current
-defaults are UPER and CER encoding. An explicit request for an unavailable
+defaults are UPER and CER. An explicit request for an unavailable
 codec or unsupported ASN.1 form fails before publishing output; the C
 compiler's default codec set does not select Rust codecs.
 
@@ -18,7 +18,7 @@ asn1c --rust -D generated schema.asn1
 cargo check --offline --manifest-path generated/Cargo.toml
 ```
 
-To generate only CER encoding, disable UPER explicitly:
+To generate only CER encoding and decoding, disable UPER explicitly:
 
 ```sh
 asn1c --rust -no-gen-UPER -D generated schema.asn1
@@ -51,21 +51,24 @@ fresh directory after adding application code or running Cargo there.
 | Direct bounded INTEGER | Nonextensible finite signed i64 range; UPER codecs |
 | Top-level BOOLEAN, NULL, bounded INTEGER | CER encoding; INTEGER bounds are finite, nonextensible, and fit `i64` |
 | Runtime limits | Input bytes, output bytes, and meaningful bit work |
-| CER decoding | Unavailable; no strict CER decoder is provided |
+| Top-level BOOLEAN, NULL, bounded INTEGER | Strict CER decoding; canonical short-form TLV only |
 | BER/DER decoding or encoding, OER, APER, XER, JER, CBOR | Planned; unavailable in Rust mode |
 | Collections, strings, ENUMERATED, aliases, imports, tagged types | Planned; rejected in this slice |
 | Encoding controls, information objects, parameterized types | Planned; rejected in this slice |
 
 BOOLEAN and INTEGER wrappers expose constructors, value getters, and the
 methods selected during generation. UPER methods encode and prefix-decode the
-supported primitives. CER adds encode-only methods for BOOLEAN, NULL, and
-bounded INTEGER. NULL is a unit struct. INTEGER construction checks the
+supported primitives. CER adds `encode_cer` and strict `decode_cer` methods for
+BOOLEAN, NULL, and bounded INTEGER. NULL is a unit struct. INTEGER construction checks the
 declared range. Codecs return typed errors for malformed values, invalid
 constraints, exceeded limits, or allocation failure.
 
 CER methods emit complete TLV byte strings. `Encoded.bit_len` is the encoded
-byte length multiplied by eight. Generated Rust currently has no CER decoding
-method, and an `ATS_CER` C decode remains BER-backed and permissive.
+byte length multiplied by eight. `decode_cer` accepts only the exact universal
+tag, a short-form definite length, and canonical content; it rejects long-form
+or indefinite lengths, BOOLEAN content other than `00`/`FF`, non-empty NULL,
+and non-minimal or out-of-range INTEGER. Trailing bytes are left unconsumed.
+The C `ATS_CER` decoder is likewise strict.
 
 `Encoded` carries output bytes and meaningful bit length. `Decoded<T>` carries
 the value and consumed bits and bytes. Prefix decoding may leave a suffix;

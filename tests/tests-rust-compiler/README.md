@@ -6,8 +6,10 @@ singleton INTEGER, and a full `i64`-range INTEGER with UPER. It checks CER
 encodings for BOOLEAN, NULL, and bounded signed `i64` INTEGER against fixed
 vectors; selected `Count`, `Singleton`, and `SignBounds` values are also
 compared with a separately generated C encoder. Rust-produced CER TLVs are
-passed to the generated C decoder for semantic checks. Rust emits no CER
-decoder. The Rust crate builds offline with its copied runtime.
+passed to the generated C decoder for semantic checks, and the
+`cer_strict_decode_interop` case decodes live C-generated CER vectors with
+the generated Rust `decode_cer` and checks hostile rejections. The Rust crate
+builds offline with its copied runtime.
 
 The harness covers codec selection as well as wire behavior. The default Rust
 mask contains UPER and CER; `-gen-UPER` retains both, `-no-gen-UPER` selects
@@ -15,7 +17,8 @@ CER-only output, and `-no-gen-CER` leaves UPER enabled. CER-only generation is
 also checked with explicit `-gen-CER -no-gen-UPER`, and `-no-gen-BER` does not
 change the independent Rust codec mask. Disabling both codecs and requesting
 unsupported codecs are rejected before output publication. The generated
-dual-codec, CER-only, and UPER-only APIs are each checked to omit `decode_cer`.
+dual-codec and CER-only APIs are checked to contain `decode_cer`, and the
+`-no-gen-CER` output is checked to omit it.
 
 C remains a comparison implementation rather than a protocol oracle. Fixed
 vectors and Rust-side malformed-input checks provide independent checks. The
