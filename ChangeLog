@@ -1,4 +1,9 @@
 Changes since v1.5.3:
+	* Skip unused randomized corpus generation when LibFuzzer is disabled.
+	  Added GENERATE_CORPUS=auto/yes/no and a local-only check-corpus target
+	  that splits bundles into parallel cases without timed fuzzing. Inner
+	  builds share the caller's job budget. Corpus/fuzz success markers are
+	  separate, and policy/failure regressions run in the ordinary checks.
 	* Corrected CER restricted-character-string fragments to use universal
 	  OCTET STRING tags, preserving the outer string type tag. BER decoding
 	  no longer accepts a character-type tag in a nested OCTET STRING-only

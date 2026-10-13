@@ -4,3 +4,62 @@ tests-c-compiler     - C code compiles and runs, and produces expected result
 tests-skeletons      - "skeletons" code primitives are correct
 tests-randomized     - fuzz-testing of DER/OER/PER/XER codecs
 
+Randomized corpus coverage (local, opt-in)
+----------------------------------------
+Ordinary randomized checks keep encode/decode and copy tests, but skip corpus
+files when LibFuzzer is disabled. GENERATE_CORPUS=auto is the default: fuzzing
+automatically generates its seeds. GENERATE_CORPUS=yes also tests generation
+without fuzzing; GENERATE_CORPUS=no is rejected when LibFuzzer is enabled.
+
+From a configured build tree, run all corpus cases with a shared job budget:
+
+    make -C tests/tests-randomized -j12 check-corpus
+
+This local-only target splits every bundle into one-line cases, runs their
+round-trip/copy and corpus-generation checks, and disables timed fuzzing even
+in a fuzzer-enabled build. It retains both existing compiler-mode passes and
+any configured 32-bit pass. Cases and inner builds share the caller's job
+budget; they do not each start another 12-job pool. On the 10-core machine,
+compare -j10, -j12, and -j20 using fresh invocations. No fixed speedup is promised.
+
+Runtime conjecture for the Intel i9-10910 (10 physical / 20 logical CPUs,
+64 GiB RAM): initially budget about 3-6 hours at -j12 for the complete corpus
+target, and allow up to 8 hours for the first measured run. This is an unverified
+planning estimate, not a benchmark or a timeout. The October 12 baseline spent
+about 5 hours 27 minutes in randomized tests with -j8, including corpus
+generation. More evenly scheduled individual cases and shared parallel builds
+should shorten the serial tail, but large collection cases, sanitizers, filesystem
+overhead, and repeated runtime compilation still cost time. There are currently
+289 source cases (578 native-mode executions before any optional 32-bit passes).
+An enabled 32-bit pass increases the work; compiler caching and other future
+build fixes can change the estimate substantially. The focused two-bundle command
+below checks setup but is not representative of the large collection cases.
+
+Measure the complete target independently of the rest of the test suite:
+
+    time make -C tests/tests-randomized -j12 check-corpus
+
+Record the compiler, sanitizer settings, job limit, cache state, and elapsed
+time alongside the retained logs before replacing this conjecture with a measured
+budget. Do not infer a 20/12 speedup from using 20 logical CPUs.
+
+A focused run is available by selecting bundles:
+
+    make -C tests/tests-randomized -j12 check-corpus \
+        TESTS='bundles/00-NULL-bundle.txt bundles/08-OBJECT-IDENTIFIER-bundle.txt'
+
+Each invocation creates unique cases and logs in .tmp.corpus-cases.* below the
+randomized build directory, avoiding cached results from ordinary checks.
+Generated seed files remain in the corresponding .tmp.corpus-* case directories
+(the final compiler-mode pass is retained). Use make clean to remove these files.
+The target is not part of make check or the standard GitHub workflows. Cheap
+mock-tool policy regressions still run as part of ordinary make check.
+
+For the usual bundle-based tests, GENERATE_CORPUS=yes can also be supplied to
+make check. Success markers distinguish corpus and fuzz modes, so a prior
+non-corpus result cannot satisfy a corpus or fuzz request. Automake's existing
+make check path reruns the drivers, which then check the matching success marker.
+The local check-corpus target always creates fresh case names.
+For a standalone check-bundles.sh invocation, -j N explicitly selects inner
+build parallelism; otherwise it inherits the calling make jobserver.
+

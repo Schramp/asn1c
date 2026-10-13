@@ -38,6 +38,28 @@ FUZZ_TIME="${FUZZ_TIME:-10}"
 FUZZ_TARGETS="${FUZZ_TARGETS:-all}"
 FUZZ_MAX_CORPUS_BYTES="${FUZZ_MAX_CORPUS_BYTES:-0}"
 
+# Decide corpus generation before any cached result is used.
+# Fuzzing requires seeds; ordinary checks can omit the unused filesystem work.
+fuzz_enabled=0  # state variable: whether this run has a timed fuzzer consumer.
+if echo "${LIBFUZZER_CFLAGS:-}" | grep -i "[a-z]" > /dev/null; then
+    fuzz_enabled=1
+fi
+generate_corpus="${GENERATE_CORPUS:-auto}"  # state variable: requested/effective seed policy.
+case "${generate_corpus}" in
+    auto) generate_corpus="${fuzz_enabled}" ;;
+    yes) generate_corpus=1 ;;
+    no)
+        if [ "${fuzz_enabled}" = 1 ]; then
+            echo "GENERATE_CORPUS=no cannot be used with LibFuzzer" >&2
+            exit 1
+        fi
+        generate_corpus=0
+        ;;
+    *) echo "GENERATE_CORPUS must be auto, yes, or no" >&2; exit 1 ;;
+esac
+# state variable: completed corpus/fuzz mode; ordinary results cannot satisfy it.
+success_marker="all-tests-succeeded-corpus-${generate_corpus}-fuzz-${fuzz_enabled}"
+
 #
 # Bound AddressSanitizer's runtime memory footprint.
 #
@@ -100,7 +122,7 @@ stop_after_failed=1  # We stop after 3 failures.
 need_clean_before_bundle=1  # Clean before testing a bundle file
 need_clean_before_test=0    # Before each line in a bundle file
 encodings=""    # Default is to verify all supported ASN.1 transfer syntaxes
-parallelism=1
+parallelism=""  # State variable: empty inherits the parent's shared job budget.
 asn1c_flags=""
 
 make_clean_before_bundle() {
@@ -191,8 +213,18 @@ verify_asn_type() {
     fi
 }
 
+# Purpose: Run generated-project make without overriding a shared jobserver.
+# Source: asn1c randomized harness. Version/date: 2026-10-12.
+# Inputs: arguments are make targets/options; parallelism is an optional -j limit.
+# Returns: make's exit status. Exceptions: none; command failures are propagated.
+# Responsible party: asn1c maintainers. History: inherited jobs replace default -j1.
+# Example: Make fuzz; standalone callers may select './check-bundles.sh -j 8 ...'.
 Make() {
-    ${MAKE} -j "${parallelism}" "$@" || return $?
+    if [ -n "${parallelism}" ]; then
+        ${MAKE} -j "${parallelism}" "$@" || return $?
+    else
+        ${MAKE} "$@" || return $?
+    fi
 }
 
 get_param() {
@@ -203,8 +235,14 @@ get_param() {
     "${abs_builddir}/test-param-helper" "${param}" "${default}" "${asn}"
 }
 
-# compile_and_test "<text>" "<where found>"
-# This function is executed in the temporary test directory ${RNDTEMP}.
+# Purpose: Compile one case, verify round trips/copies, and optionally create seeds/fuzz.
+# Source: asn1c randomized harness. Version/date: 2026-10-12.
+# Inputs: $1 is ASN.1 text; $2 is its diagnostic location. Corpus/fuzzer policy
+# and compiler settings come from the validated harness environment.
+# Returns: zero on success; 1-5 on generation, compilation, codec, or fuzz failure.
+# Exceptions: none; tool errors propagate. Runs in the temporary case directory.
+# Responsible party: asn1c maintainers. History: corpus generation became opt-in
+# for non-fuzz runs. Example: compile_and_test 'T ::= BOOLEAN' 'Boolean case'.
 compile_and_test() {
     asn="$1"
     where="$2"
@@ -255,6 +293,12 @@ compile_and_test() {
         return 3
     fi
 
+    # Preserve round-trip and copy coverage above, but avoid unused corpora.
+    if [ "${generate_corpus}" = 0 ]; then
+        echo "Skipping corpus generation (no fuzzer or explicit corpus check)"
+        return 0
+    fi
+
     echo "Generating new random data"
     rm -rf random-data
     cmd="${ASAN_ENV_FLAGS} UBSAN_OPTIONS=print_stacktrace=1"
@@ -265,6 +309,11 @@ compile_and_test() {
     else
         { echo "RETRY:"; cat .test-reproduce ; }
         return 4
+    fi
+
+    # Explicit local corpus checks exercise generation without timed fuzzing.
+    if [ "${fuzz_enabled}" = 0 ]; then
+        return 0
     fi
 
     # Do a LibFuzzer based testing
@@ -441,7 +490,7 @@ asn_compile() {
     echo "random-test-driver.o: random-test-driver.c"
     printf "\t\$(CC) \$(CFLAGS) \$(DEPFLAGS) -DASN1_TEXT='\$(ASN1_TEXT)' -o \$@ -c \$<\n"
     echo
-    echo "all-tests-succeeded: ${abs_top_builddir}/asn1c/asn1c \$(ASN_PROGRAM_SRCS) \\"
+    echo "${success_marker}: ${abs_top_builddir}/asn1c/asn1c \$(ASN_PROGRAM_SRCS) \\"
     echo "    \$(ASN_MODULE_SRCS) \$(ASN_MODULE_HDRS)"
     echo "	@rm -f \$@"
     echo "	@echo Previous try did not go correctly. To reproduce:"
@@ -459,6 +508,13 @@ asn_compile() {
 #   -m64   | -fwide-types
 #   -m32   | -fwide-types
 # *) Of course, -m64 and -fnative-types are just implied.
+# Purpose: Run a case/bundle callback in the existing compiler and word-size modes.
+# Source: asn1c randomized harness. Version/date: 2026-10-12.
+# Inputs: $1 is the callback function; remaining arguments are passed to it.
+# Returns: callback failure status where propagated; final failure counters also
+# determine the script status. Exceptions: none; tool failures are reported.
+# Responsible party: asn1c maintainers. History: auto mode skips non-fuzz m32 corpora.
+# Example: test_drive verify_asn_types_in_file bundles/00-NULL-bundle.txt.
 test_drive() {
     func="$1"
     shift
@@ -487,8 +543,12 @@ test_drive() {
         # -m32 doesn't support fuzzing (no such library), so we remove fuzzer.
         # -m32 doesn't support leak sanitizing (it hangs), so we remove
         # ASAN_ENV_FLAGS which enable leak check in runtime.
+        # The non-fuzz 32-bit pass only generates corpora when explicitly asked.
+        corpus_m32=0  # state variable: effective seed policy for the 32-bit pass.
+        if [ "${GENERATE_CORPUS:-auto}" = yes ]; then corpus_m32=1; fi
         CFLAGS="${CFLAGS} ${CFLAGS_M32}" CFLAGS_M32="" \
-        LIBFUZZER_CFLAGS="" ASAN_ENV_FLAGS="" \
+        LIBFUZZER_CFLAGS="" ASAN_ENV_FLAGS="" fuzz_enabled=0 \
+        generate_corpus="${corpus_m32}" \
             ${func} "$@"
     fi
 }
@@ -509,13 +569,13 @@ while :; do
         --bundle)
             shift
 
-            # Look for the transcript in bundles/NN-*-bundles.txt.log
+            # Look for the transcript in bundles/NN-*-bundle.log.
             set -x
 
             base=`basename "$1" | sed -e 's/.txt$//'`
             RNDTEMP=".tmp.${base}"
 
-            if Make -C "${RNDTEMP}" all-tests-succeeded >/dev/null 2>&1 ; then
+            if Make -C "${RNDTEMP}" "${success_marker}" >/dev/null 2>&1 ; then
                 echo "Test succeeded before. Not rechecking."
                 tests_succeeded=1
                 break
@@ -523,7 +583,7 @@ while :; do
 
             test_drive verify_asn_types_in_file "$@"
 
-            touch "${RNDTEMP}/all-tests-succeeded"
+            touch "${RNDTEMP}/${success_marker}"
 
             break
             ;;
@@ -534,7 +594,15 @@ while :; do
             continue
             ;;
         -e) encodings="${encodings} -e $2"; shift 2; continue;;
-        -j) parallelism="$2"; shift 2; continue;;
+        -j)
+            case "${2:-}" in
+                ''|*[!0-9]*) echo "-j requires a positive integer" >&2; exit 1 ;;
+            esac
+            case "$2" in
+                *[1-9]*) ;;
+                *) echo "-j requires a positive integer" >&2; exit 1 ;;
+            esac
+            parallelism="$2"; shift 2; continue;;
         -t)
             test_drive verify_asn_type "full" "$2" "(command line)" || exit 1 ;;
         "")

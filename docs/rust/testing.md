@@ -79,7 +79,10 @@ CER decoder. See [the binary audit](../binary-codec-support.md).
 
 CI runs GCC `make check`, `make distcheck`, and Clang sanitizer `make check`.
 Each configures with `--disable-test-fuzzer`. Normal CI therefore runs randomized
-round trips but skips optional LibFuzzer campaigns. Keep required tests
+round trips and copy checks but skips unused corpus files and optional LibFuzzer
+campaigns. Local `make -C tests/tests-randomized -j12 check-corpus` explicitly
+tests corpus generation with individual cases sharing the parallel job budget;
+see [the test README](../../tests/README). Keep required tests
 deterministic and bounded; run time-based fuzzing in a separate opt-in job.
 
 Useful current C commands from a configured build tree are:
