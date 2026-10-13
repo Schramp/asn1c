@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Verify generated descriptor semantics and converter CER codec selection.
 # Source: new asn1c regression, independently derived X.690 sections 9/11 bytes.
-# Version/date: 2026-10-11. Responsible: asn1c maintainers.
+# Version/date: 2026-10-13. Responsible: asn1c maintainers.
 # Inputs: top_builddir/top_srcdir, CC, MAKE from the Automake environment.
 # Returns/errors: zero when all comparisons pass; build/codec failures are fatal.
-# History: initial native CER encoder integration. No external dependencies.
+# History: initial native CER encoder integration; 2026-10-13 locale-safe byte fixture.
 # Example: make check TESTS=check-CER.sh
 set -eu
 
@@ -173,7 +173,9 @@ cmp "$test_directory/bmp-long.expected" "$test_directory/bmp-long.actual"
 awk 'BEGIN { printf "<RetagBits>"; for (i=0; i<8000; i++) printf "1"; print "</RetagBits>" }' \
     > "$test_directory/rbits-long.xml"
 { printf '\044\200\003\202\003\350\000';
-  awk 'BEGIN { for (i=0; i<999; i++) printf "%c", 255 }';
+  # An explicit octal escape keeps payload octets independent of awk's locale.
+  # The loop index is a state variable counting the first fragment's 999 bytes.
+  for ((i=0; i<999; i++)); do printf '\377'; done
   printf '\003\002\000\377\000\000'; } > "$test_directory/rbits-long.expected"
 "$test_directory/enabled/converter-example" -p RetagBits -ixer -ocer \
     "$test_directory/rbits-long.xml" > "$test_directory/rbits-long.actual"

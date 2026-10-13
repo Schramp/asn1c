@@ -290,6 +290,74 @@ all 60 reviewed changed files match the main checkout after the plan refresh.
 A failing gate keeps its implementation under revision; it does not justify a
 broader support claim.
 
+### 2026-10-13 CER smoke-test locale incident
+
+The reported Ubuntu/GCC build-and-check job prompted a portability review of
+`tests/tests-asn1c-smoke/check-CER.sh`. Its long retagged BIT STRING expected
+vector contains 999 payload octets with value `0xff`. GNU awk on the local
+investigation machine emitted `c3 bf` for `printf "%c", 255` under
+`LC_ALL=en_US.UTF-8`, and `ff` under `LC_ALL=C`. The UTF-8 output is the
+two-byte encoding of U+00FF, which shifts the expected vector away from the
+single byte required for each payload octet.
+
+The authenticated GitHub job log confirms that the generated converter compiled
+and linked successfully before the test failed at this comparison:
+
+```text
+rbits-long.expected rbits-long.actual differ: byte 8, line 1
+FAIL check-CER.sh (exit status: 1)
+```
+
+This is the same first-payload-byte failure reproduced locally. The fixture's
+locale-sensitive character conversion explains that failure and is corrected
+by the byte-oriented output below. The CI log does not record the selected awk
+implementation or locale, so those exact runner settings remain unverified.
+
+The single-octet behavior can be checked directly with:
+
+```sh
+LC_ALL=en_US.UTF-8 gawk 'BEGIN { printf "%c", 255 }' | od -An -tx1
+LC_ALL=C gawk 'BEGIN { printf "%c", 255 }' | od -An -tx1
+```
+
+The complete pre-fix smoke test used a PATH wrapper to select GNU awk, with
+`LC_ALL=en_US.UTF-8`, `CC=clang`, and `CFLAGS=-O0`. From the configured
+smoke-test build directory, it exited at the `rbits-long.expected` /
+`rbits-long.actual` comparison and reported a difference at character 8, the
+first payload octet after the seven-byte header. The test command was:
+
+```sh
+awk_wrapper=$(mktemp -d "${TMPDIR:-/tmp}/asn1c-awk.XXXXXX")
+ln -s "$(command -v gawk)" "$awk_wrapper/awk"
+git show 8367a5cf:tests/tests-asn1c-smoke/check-CER.sh > "$awk_wrapper/check-CER-before.sh"
+LC_ALL=en_US.UTF-8 PATH="$awk_wrapper:$PATH" CC=clang CFLAGS=-O0 \
+    bash "$awk_wrapper/check-CER-before.sh"
+```
+
+The command extracts the original script from the investigated commit and
+requires GNU awk and the named UTF-8 locale to be installed. The fixture now emits each
+payload byte with Bash's explicit octal `printf '\377'` escape, avoiding
+locale-sensitive character conversion. The existing full-vector `cmp`
+remains the regression check.
+
+Post-fix qualification on 2026-10-13:
+
+- The configured `make -C tests/tests-asn1c-smoke check TESTS=check-CER.sh`
+  passes with the local Clang build (1 test, 0 failures).
+- The complete smoke test with GNU awk, `LC_ALL=en_US.UTF-8`, Clang, and
+  `CFLAGS=-O0` passes all byte comparisons, round trips, malformed-fragment
+  rejection, invalid open-type selectors, and disabled-codec checks.
+- `bash -n tests/tests-asn1c-smoke/check-CER.sh` and `git diff --check` pass.
+- A local GCC 15 attempt stopped before running the vectors because the macOS
+  toolchain could not find `threads.h`. This is a qualification limitation;
+  the Ubuntu/GCC execution has not been reproduced locally.
+
+The associated [GitHub Actions job 115297086973](https://github.com/mouse07410/asn1c/actions/runs/38397712490/job/115297086973)
+was inspected on 2026-10-13 after authenticated log access became available.
+Its failure output at 12:37:16 UTC matches the local reproduction. The fixed
+script passes locally, including the environment that reproduced this error;
+a hosted CI run of the patch has not yet been performed.
+
 ## Residual limits and next increments
 
 The shared BER decoder accepts compatible noncanonical input under `ATS_CER`.

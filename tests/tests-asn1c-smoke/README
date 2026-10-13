@@ -1,2 +1,16 @@
-Test that asn1c compiler produces compilable code for basic ASN.1 types,
+Test that the asn1c compiler produces compilable code for basic ASN.1 types,
 while trying to disable different codecs and vary other compiler flags.
+
+`check-CER.sh` generates real C descriptors and verifies CER encoder and
+decoder behavior for primitive values, constructed strings, tagged values,
+sets, choices, and selected open types. It also checks how CER interacts with
+disabled codecs and compiler flags.
+
+Run it from the smoke-test directory with `make check TESTS=check-CER.sh`.
+The script uses Bash, the configured C compiler and make, and standard tools
+such as `awk`, `cmp`, and `mktemp`. Its expected long BIT STRING vector writes
+payload octets with Bash's explicit `printf '\377'` escape so byte values do
+not depend on `awk` character conversion or the active locale.
+
+The locale-sensitive expected-vector issue found during the 2026-10-13
+investigation is recorded in [docs/cer-encoder-plan.md](../../docs/cer-encoder-plan.md).
