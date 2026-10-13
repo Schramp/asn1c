@@ -28,7 +28,7 @@ DER, CER, PER, XER, OER, JER, CBOR and other encoding rules. Its optional
 The **--rust** mode generates a standalone Cargo project with a safe runtime
 using the Rust 2021 edition. The current subset provides UPER encoding and
 decoding, and strict CER encoding and decoding, for top-level BOOLEAN, NULL,
-and finite nonextensible INTEGER ranges fitting `i64`. Other types and codec
+and finite non-extensible INTEGER ranges fitting `i64`. Other types and codec
 families produce a diagnostic until implemented.
 
 # OPTIONS
@@ -320,14 +320,15 @@ encoder and the strict decoder. The generated converter's `-iber` and `-ider`
 selectors use the permissive BER decoder. `cer_decode()`,
 `asn_decode(ATS_CER, ...)`, and the `-icer` selector decode with the BER
 decoder, re-encode the value with `cer_encode()`, and fail with `EBADF` unless
-the re-encoding is byte-identical to the consumed input. Noncanonical input
+the re-encoding is byte-identical to the consumed input. Non-canonical input
 such as long-form lengths, definite-length constructed values, non-minimal
 INTEGER, unsorted SET OF, or unsegmented long strings is rejected. Trailing
 bytes after the first TLV are not consumed. `-icer` requires CER generation
-and buffers the whole input rather than decoding incrementally. Type support depends on the generated descriptor and canonical
+and buffers the whole input rather than decoding incrementally. Type support
+depends on the generated descriptor and canonical
 value forms supported by the encoder. Opaque ANY and unresolved standalone
 open types are rejected. Raw REAL accepts zero, special values, and minimal
-base-2 forms with exponents of at most eight octets; decimal or noncanonical
+base-2 forms with exponents of at most eight octets; decimal or non-canonical
 raw forms are rejected. UTCTime is normalized to UTC seconds. GeneralizedTime
 requires an explicit zone and supports at most nine fractional-second digits;
 comma input is normalized to a period.
@@ -348,7 +349,7 @@ The generated converter can read BER and write CER with
 `./converter-example -iber -ocer input.ber > output.cer`.
 
 The Rust backend currently encodes CER for BOOLEAN, NULL, and bounded
-nonextensible INTEGER ranges fitting `i64`, and generates a strict
+non-extensible INTEGER ranges fitting `i64`, and generates a strict
 `decode_cer()` that accepts only the canonical short-form TLV. Its UPER and
 CER codecs are enabled by default. To generate only the CER methods, pass
 `--rust -no-gen-UPER`.
