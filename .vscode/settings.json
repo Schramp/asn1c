@@ -119,5 +119,9 @@
         "Yann",
         "ybuf",
         "zhouvlia"
-    ]
+    ],
+    "chat.tools.terminal.autoApprove": {
+        "git remote": true,
+        "git fetch": true
+    }
 }
