@@ -1,4 +1,16 @@
 Changes since v1.5.3:
+	* Fixed builds generated with -no-gen-UPER (APER only). The PER range
+	  helpers per_{long,imax,umax}_range_{rebase,unrebase}() used by both
+	  INTEGER_aper.c and INTEGER_uper.c were defined only in uper_support.[ch],
+	  which asn1c emits for the CODEC-UPER section alone. APER-only projects
+	  therefore failed to compile with "call to undeclared function". The
+	  helpers now live in per_support.[ch], which both CODEC-UPER and
+	  CODEC-APER emit. -no-gen-UPER/-no-gen-APER still omit every file of
+	  the disabled flavor. Added the check-PER-single-flavor.sh smoke test.
+	  It builds APER-only and UPER-only converters, checks that no file of the
+	  disabled flavor is emitted, round-trips constrained INTEGERs and checks
+	  that the bytes match a combined build. This fixes the 17 asn1c-smoke
+	  failures.
 	* Added a strict C CER decoder, cer_decode(), which runs ber_decode(),
 	  re-encodes the value with cer_encode(), and rejects input (EBADF) that
 	  is not byte-identical to the consumed TLV. asn_decode(ATS_CER) and the
@@ -115,7 +127,7 @@ Changes since v1.5.0:
 	  Fix suggested by <shakespark@gmail.com> in <https://github.com/vlm/asn1c/pull/551>.
 	* Generalized generated OER, UPER, and APER descriptor constraint-table
 	  inheritance for typedef aliases by deriving codec slots from the terminal
-	  ASN.1 type. 
+	  ASN.1 type.
 	  Issue #552, reported by @zhouvlia, was already avoided for ENUMERATED aliases
 	  by an earlier enum-specific branch in this fork; the new terminal-type rule
 	  covers the remaining alias classes and the added UPER/APER regression locks
@@ -398,7 +410,7 @@ Changes since v1.5.0:
 	FIXES:
 	* Fixed incorrect type descriptor selection when the same member name appears
 	  in different parent types with different type definitions. When embedded types
-	  like ssb-PositionsInBurst appeared as CHOICE in one parent and SEQUENCE in 
+	  like ssb-PositionsInBurst appeared as CHOICE in one parent and SEQUENCE in
 	  another, the decoder would incorrectly use the wrong type descriptor due to
 	  unsuffixed alias collisions at runtime. The fix ensures member table references
 	  always use suffixed type descriptors for embedded constructed types, avoiding
@@ -526,12 +538,12 @@ Changes since v1.5.0:
 	* Added support for OPEN TYPE in IOC, now V2X and C2X should work.
 	* Added support for JER encoding and decoding.
 	* Added ability to generate only codecs relevant to selected PDU(s)
-	
+
 	NOTABLE:
 	* OCTET STRING in XER now uses Base64 encoding, CXER-compliant.
 	* Hexadecimal encoding for OCTET STRING in XER may or may not work.
 	* Validation of constraints should now work for all types.
-	
+
 	FIXES:
 	* Numeral - addressed bugs and compiler warnings.
 

@@ -165,6 +165,28 @@ The generated converter accepts `-iber` and `-ider` as permissive BER-family
 input selectors and `-icer` as the strict CER input selector. Output supports `-oder` and `-ocer` for their respective
 encoding rules.
 
+## PER flavor selection (UPER and APER)
+
+`-no-gen-UPER` and `-no-gen-APER` each omit every skeleton file of the disabled
+flavor (`uper_*`/`*_uper.c` or `aper_*`/`*_aper.c`) and define
+`ASN_DISABLE_UPER_SUPPORT` or `ASN_DISABLE_APER_SUPPORT`. Code needed by both
+flavors must therefore live in a module that both the `CODEC-UPER` and
+`CODEC-APER` sections of `skeletons/file-dependencies` emit, normally
+`per_support.[ch]`. One example is the checked range helpers
+`per_{long,imax,umax}_range_{rebase,unrebase}()`. An APER file that calls a
+`uper_support` function, or the reverse, compiles when both flavors are
+generated but breaks single-flavor projects. The 2026-10-20 fix moved the range
+helpers out of `uper_support.[ch]` for this reason.
+
+[check-PER-single-flavor.sh](../tests/tests-asn1c-smoke/check-PER-single-flavor.sh)
+runs this check quickly. It builds APER-only and UPER-only converters and asserts
+that no file of the disabled flavor is emitted. It round-trips constrained
+INTEGERs, checks that the bytes match a combined build, and fails on the
+pre-fix tree. The slower per-type smoke tests also run each `-no-gen-*` variant.
+The skeleton archives are `check_LTLIBRARIES`, so after moving skeleton symbols
+between files you must rebuild them with `make -C skeletons check`. Otherwise
+stale objects cause duplicate-symbol link errors in `tests/tests-skeletons`.
+
 ## Verification
 
 The 2026-10-12 fragment-tag and opaque-ANY compatibility correction passes the

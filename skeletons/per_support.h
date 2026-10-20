@@ -49,6 +49,31 @@ typedef struct asn_bit_outp_s asn_per_outp_t;
 
 #define ASN_UPER_NSNNWN_MAX 65535L
 
+/*
+ * Rebase the given value as an offset into the range specified by the
+ * lower bound (lb) and upper bound (ub), and the inverse operation.
+ *
+ * These helpers are common to both Unaligned (UPER) and Aligned (APER)
+ * PER codecs. They MUST live here (per_support.[ch]) rather than in
+ * uper_support.[ch] or aper_support.[ch], because per_support.[ch] is
+ * the only support module emitted for BOTH the CODEC-UPER and CODEC-APER
+ * skeleton sections. Placing them in a codec-specific module breaks
+ * builds where only one PER flavor is generated (asn1c -no-gen-UPER or
+ * asn1c -no-gen-APER).
+ *
+ * RETURN VALUES:
+ *  -1: Conversion failed due to range problems.
+ *   0: Conversion was successful.
+ */
+int per_long_range_rebase(long, intmax_t lb, intmax_t ub, unsigned long *output);
+int per_imax_range_rebase(intmax_t v, intmax_t lb, intmax_t ub, uintmax_t *output);
+/* Checked offset arithmetic for an unsigned value and a signed lower bound. */
+int per_umax_range_rebase(uintmax_t v, intmax_t lb, uintmax_t *output);
+/* The inverse operation: restores a non-negative value from an offset. */
+int per_long_range_unrebase(unsigned long inp, intmax_t lb, intmax_t ub, long *outp);
+int per_imax_range_unrebase(uintmax_t inp, intmax_t lb, intmax_t ub, intmax_t *outp);
+int per_umax_range_unrebase(uintmax_t inp, intmax_t lb, uintmax_t *outp);
+
 #ifdef __cplusplus
 }
 #endif
