@@ -6,6 +6,8 @@
 #include <INTEGER.h>
 #include <INTEGER.c>
 #include <INTEGER_aper.c>
+#include <uper_support.c>
+#include <uper_support.h>
 #include <per_support.c>
 #include <per_support.h>
 
@@ -35,7 +37,7 @@ test_extensible_constraint_in_extension() {
     asn_dec_rval_t dec_rval;
     asn_per_outp_t po;
     asn_per_data_t pd;
-    
+
     printf("Testing extensible constraint in extension...\n");
 
     memset(&st, 0, sizeof(st));
@@ -64,16 +66,16 @@ test_extensible_constraint_in_extension() {
     specs.field_unsigned = 0;
 
     asn_DEF_INTEGER.specifics = &specs;
-    
+
     // Encode the value
     enc_rval = INTEGER_encode_aper(&asn_DEF_INTEGER, &cts, &st, &po);
     if (enc_rval.encoded == -1) {
         printf("Encoding failed\n");
         return;
     }
-    
+
     printf("Encoded successfully\n");
-    
+
     normalize(&po);
 
     // Decode the value back
@@ -81,10 +83,10 @@ test_extensible_constraint_in_extension() {
     pd.nboff = 0;
     pd.nbits = 8 * (po.buffer - po.tmpspace) + po.nboff;
     pd.moved = 0;
-    
+
     dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
                                    (void **)&reconstructed_st, &pd);
-    
+
     if (dec_rval.code != RC_OK) {
         printf("Decoding failed: %d\n", dec_rval.code);
         return;
@@ -92,10 +94,10 @@ test_extensible_constraint_in_extension() {
 
     long reconstructed_value = 0;
     asn_INTEGER2long(reconstructed_st, &reconstructed_value);
-    
+
     printf("Original value: %ld\n", test_value);
     printf("Reconstructed value: %ld\n", reconstructed_value);
-    
+
     // The values should match
     if (reconstructed_value == test_value) {
         printf("SUCCESS: Values match\n");
@@ -117,7 +119,7 @@ test_extensible_constraint_in_root() {
     asn_dec_rval_t dec_rval;
     asn_per_outp_t po;
     asn_per_data_t pd;
-    
+
     printf("Testing extensible constraint in root range...\n");
 
     memset(&st, 0, sizeof(st));
@@ -146,16 +148,16 @@ test_extensible_constraint_in_root() {
     specs.field_unsigned = 0;
 
     asn_DEF_INTEGER.specifics = &specs;
-    
+
     // Encode the value
     enc_rval = INTEGER_encode_aper(&asn_DEF_INTEGER, &cts, &st, &po);
     if (enc_rval.encoded == -1) {
         printf("Encoding failed\n");
         return;
     }
-    
+
     printf("Encoded successfully\n");
-    
+
     normalize(&po);
 
     // Decode the value back
@@ -163,10 +165,10 @@ test_extensible_constraint_in_root() {
     pd.nboff = 0;
     pd.nbits = 8 * (po.buffer - po.tmpspace) + po.nboff;
     pd.moved = 0;
-    
+
     dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
                                    (void **)&reconstructed_st, &pd);
-    
+
     if (dec_rval.code != RC_OK) {
         printf("Decoding failed: %d\n", dec_rval.code);
         return;
@@ -174,10 +176,10 @@ test_extensible_constraint_in_root() {
 
     long reconstructed_value = 0;
     asn_INTEGER2long(reconstructed_st, &reconstructed_value);
-    
+
     printf("Original value: %ld\n", test_value);
     printf("Reconstructed value: %ld\n", reconstructed_value);
-    
+
     // The values should match
     if (reconstructed_value == test_value) {
         printf("SUCCESS: Values match\n");

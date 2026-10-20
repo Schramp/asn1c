@@ -177,99 +177,57 @@ INTEGER_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
                     offset = (offset << 8) | (unsigned)buf;
                 }
 
-                if(ct->upper_bound < ct->lower_bound) {
-                    ASN__DECODE_FAILED;
-                } else {
-                    uintmax_t range;
-                    if(ct->lower_bound >= 0) {
-                        range = (uintmax_t)ct->upper_bound
-                                - (uintmax_t)ct->lower_bound;
-                    } else {
-                        uintmax_t neg_lb =
-                            (uintmax_t)(-(ct->lower_bound + 1)) + 1;
-                        if((uintmax_t)ct->upper_bound
-                           > UINTMAX_MAX - neg_lb)
-                            ASN__DECODE_FAILED;
-                        range = (uintmax_t)ct->upper_bound + neg_lb;
-                    }
-                    if(offset > range) ASN__DECODE_FAILED;
-                }
-
-                if(ct->lower_bound >= 0) {
-                    if(offset > (uintmax_t)INTMAX_MAX
-                                - (uintmax_t)ct->lower_bound)
-                        ASN__DECODE_FAILED;
-                    value = (intmax_t)((uintmax_t)ct->lower_bound + offset);
-                } else {
-                    uintmax_t neg_lb = (uintmax_t)(-(ct->lower_bound + 1)) + 1;
-                    if(offset >= neg_lb) {
-                        uintmax_t positive = offset - neg_lb;
-                        if(positive > (uintmax_t)INTMAX_MAX)
-                            ASN__DECODE_FAILED;
-                        value = (intmax_t)positive;
-                    } else {
-                        uintmax_t negative = neg_lb - offset;
-                        if(negative > (uintmax_t)INTMAX_MAX + 1)
-                            ASN__DECODE_FAILED;
-                        if(negative == (uintmax_t)INTMAX_MAX + 1) {
-                            value = INTMAX_MIN;
-                        } else {
-                            value = -(intmax_t)negative;
-                        }
-                    }
-                }
-
-                if(specs && specs->field_unsigned && value < 0) {
-                    ASN__DECODE_FAILED;
-                }
-
-                /* Validate the decoded value is within the constraint bounds */
                 if(specs && specs->field_unsigned) {
-                    if((uintmax_t)value > (uintmax_t)ct->upper_bound)
+                    uintmax_t uvalue;
+                    if(ct->upper_bound < 0
+                       || per_umax_range_unrebase(offset, ct->lower_bound,
+                                                  &uvalue)
+                       || uvalue > (uintmax_t)ct->upper_bound
+                       || asn_umax2INTEGER(st, uvalue))
                         ASN__DECODE_FAILED;
-                    if(asn_umax2INTEGER(st, (uintmax_t)value))
-                        ASN__DECODE_FAILED;
+                    ASN_DEBUG("Got unsigned offset %"ASN_PRIuMAX" + low %"ASN_PRIdMAX"",
+                              offset, ct->lower_bound);
                 } else {
-                    if(value < ct->lower_bound || value > ct->upper_bound)
+                    if(per_imax_range_unrebase(offset, ct->lower_bound,
+                                               ct->upper_bound, &value)
+                       || asn_imax2INTEGER(st, value))
                         ASN__DECODE_FAILED;
-                    if(asn_imax2INTEGER(st, value))
-                        ASN__DECODE_FAILED;
+                    ASN_DEBUG("Got value %"ASN_PRIdMAX" + low %"ASN_PRIdMAX"",
+                              value, ct->lower_bound);
                 }
-                
-                ASN_DEBUG("Got value %"ASN_PRIdMAX" + low %"ASN_PRIdMAX"",
-                          value, (intmax_t)ct->lower_bound);
             } else {
-                intmax_t value = 0;
+                uintmax_t offset;
+                intmax_t raw_offset;
                 if (ct->range_bits < 8) {
-                    value = per_get_few_bits(pd, ct->range_bits);
-                    if(value < 0) ASN__DECODE_STARVED;
+                    raw_offset = per_get_few_bits(pd, ct->range_bits);
+                    if(raw_offset < 0) ASN__DECODE_STARVED;
                 } else if (ct->range_bits == 8) {
                     if (aper_get_align(pd) < 0)
                         ASN__DECODE_FAILED;
-                    value = per_get_few_bits(pd, ct->range_bits);
-                    if(value < 0) ASN__DECODE_STARVED;
+                    raw_offset = per_get_few_bits(pd, ct->range_bits);
+                    if(raw_offset < 0) ASN__DECODE_STARVED;
                 } else {
-                    /* Align */
                     if (aper_get_align(pd) < 0)
                         ASN__DECODE_FAILED;
-                    value = per_get_few_bits(pd, 16);
-                    if(value < 0) ASN__DECODE_STARVED;
+                    raw_offset = per_get_few_bits(pd, 16);
+                    if(raw_offset < 0) ASN__DECODE_STARVED;
                 }
-                value += ct->lower_bound;
-                /* Validate the decoded value is within the constraint bounds */
+                offset = (uintmax_t)raw_offset;
                 if(specs && specs->field_unsigned) {
-                    if((uintmax_t)value > (uintmax_t)ct->upper_bound)
-                        ASN__DECODE_FAILED;
-                    if(asn_umax2INTEGER(st, (uintmax_t)value))
+                    uintmax_t value;
+                    if(ct->upper_bound < 0
+                       || per_umax_range_unrebase(offset, ct->lower_bound,
+                                                  &value)
+                       || value > (uintmax_t)ct->upper_bound
+                       || asn_umax2INTEGER(st, value))
                         ASN__DECODE_FAILED;
                 } else {
-                    if(value < ct->lower_bound || value > ct->upper_bound)
-                        ASN__DECODE_FAILED;
-                    if(asn_imax2INTEGER(st, value))
+                    intmax_t value;
+                    if(per_imax_range_unrebase(offset, ct->lower_bound,
+                                               ct->upper_bound, &value)
+                       || asn_imax2INTEGER(st, value))
                         ASN__DECODE_FAILED;
                 }
-                ASN_DEBUG("Got value %"ASN_PRIdMAX" + low %"ASN_PRIdMAX"",
-                          value, (intmax_t)ct->lower_bound);
             }
             return rval;
         }
@@ -305,16 +263,23 @@ INTEGER_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
         ASN__DECODE_FAILED;
     }
 
-    /* #12.2.3 */
-    if(ct && ct->lower_bound) {
-        /*
-         * TODO: replace by in-place arithmetics.
-         */
-        long value;
-        if(asn_INTEGER2long(st, &value))
+    /* #12.2.3: restore the semi-constrained value from its offset. */
+    if(ct && (ct->flags & APC_SEMI_CONSTRAINED)) {
+        uintmax_t offset;
+        if(asn_INTEGER2umax(st, &offset))
             ASN__DECODE_FAILED;
-        if(asn_long2INTEGER(st, value + ct->lower_bound))
-            ASN__DECODE_FAILED;
+        if(specs && specs->field_unsigned) {
+            uintmax_t value;
+            if(per_umax_range_unrebase(offset, ct->lower_bound, &value)
+               || asn_umax2INTEGER(st, value))
+                ASN__DECODE_FAILED;
+        } else {
+            intmax_t value;
+            if(per_imax_range_unrebase(offset, ct->lower_bound, INTMAX_MAX,
+                                       &value)
+               || asn_imax2INTEGER(st, value))
+                ASN__DECODE_FAILED;
+        }
     }
 
     return rval;
@@ -401,12 +366,23 @@ INTEGER_encode_aper(const asn_TYPE_descriptor_t *td,
     if(ct && ct->range_bits >= 0) {
         uintmax_t v;
 
-        /* #10.5.6 */
-        ASN_DEBUG("Encoding integer %"ASN_PRIdMAX" (%"ASN_PRIdMAX") with range %d bits",
-                  value, (intmax_t)(value - ct->lower_bound),
-                  ct->range_bits);
-
-        v = value - ct->lower_bound;
+        /* #10.5.6: encode the checked non-negative offset. */
+        if(specs && specs->field_unsigned) {
+            uintmax_t uvalue;
+            if(asn_INTEGER2umax(st, &uvalue)
+               || ct->upper_bound < 0
+               || per_umax_range_rebase(uvalue, ct->lower_bound, &v)
+               || v > (uintmax_t)ct->upper_bound - (uintmax_t)ct->lower_bound)
+                ASN__ENCODE_FAILED;
+            ASN_DEBUG("Encoding unsigned integer offset %"ASN_PRIuMAX" with range %d bits",
+                      v, ct->range_bits);
+        } else if(per_imax_range_rebase(value, ct->lower_bound,
+                                        ct->upper_bound, &v)) {
+            ASN__ENCODE_FAILED;
+        } else {
+            ASN_DEBUG("Encoding integer offset %"ASN_PRIuMAX" with range %d bits",
+                      v, ct->range_bits);
+        }
 
         /* #12 <= 8 -> alignment ? */
         int range = ct->upper_bound - ct->lower_bound + 1;
@@ -479,25 +455,19 @@ INTEGER_encode_aper(const asn_TYPE_descriptor_t *td,
 
         if(specs && specs->field_unsigned) {
             uintmax_t uval;
-            if(asn_INTEGER2umax(st, &uval))
-                ASN__ENCODE_FAILED;
-            /* Check that value is >= lower_bound to avoid underflow */
-            if(uval < (uintmax_t)ct->lower_bound)
-                ASN__ENCODE_FAILED;
-            uval -= (uintmax_t)ct->lower_bound;
-            if(asn_umax2INTEGER(&adjusted_int, uval)) {
+            if(asn_INTEGER2umax(st, &uval)
+               || per_umax_range_rebase(uval, ct->lower_bound, &uval)
+               || asn_umax2INTEGER(&adjusted_int, uval)) {
                 ASN_STRUCT_RESET(asn_DEF_INTEGER, &adjusted_int);
                 ASN__ENCODE_FAILED;
             }
         } else {
             intmax_t sval;
-            if(asn_INTEGER2imax(st, &sval))
-                ASN__ENCODE_FAILED;
-            /* Check that value is >= lower_bound */
-            if(sval < ct->lower_bound)
-                ASN__ENCODE_FAILED;
-            sval -= ct->lower_bound;
-            if(asn_imax2INTEGER(&adjusted_int, sval)) {
+            uintmax_t offset;
+            if(asn_INTEGER2imax(st, &sval)
+               || per_imax_range_rebase(sval, ct->lower_bound, INTMAX_MAX,
+                                        &offset)
+               || asn_umax2INTEGER(&adjusted_int, offset)) {
                 ASN_STRUCT_RESET(asn_DEF_INTEGER, &adjusted_int);
                 ASN__ENCODE_FAILED;
             }

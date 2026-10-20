@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #include <asn_application.h>
 #include <asn_system.h>
@@ -700,5 +702,24 @@ main() {
     check_strtoimax();
     check_strtoimax_span();
 
-	return 0;
+    {
+        uint8_t negative_octet = 0xff;
+        INTEGER_t negative = { &negative_octet, 1 };
+        INTEGER_t positive = { 0, 0 };
+        uintmax_t uvalue = 0;
+        unsigned long ulong_value = 0;
+        uint64_t uint64_value = 0;
+
+        assert(asn_INTEGER2umax(&negative, &uvalue) < 0);
+        assert(asn_INTEGER2ulong(&negative, &ulong_value) < 0);
+        assert(asn_INTEGER2uint64(&negative, &uint64_value) < 0);
+        assert(asn_umax2INTEGER(&positive, UINTMAX_MAX) == 0);
+        assert(positive.size == sizeof(uintmax_t) + 1);
+        assert(positive.buf[0] == 0x00);
+        assert(asn_INTEGER2umax(&positive, &uvalue) == 0);
+        assert(uvalue == UINTMAX_MAX);
+        ASN_STRUCT_RESET(asn_DEF_INTEGER, &positive);
+    }
+
+ return 0;
 }

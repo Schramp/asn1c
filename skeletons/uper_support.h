@@ -41,9 +41,12 @@ int uper_get_constrained_whole_number(asn_per_data_t *pd, uintmax_t *v, int nbit
  */
 int per_long_range_rebase(long, intmax_t lb, intmax_t ub, unsigned long *output);
 int per_imax_range_rebase(intmax_t v, intmax_t lb, intmax_t ub, uintmax_t *output);
-/* The inverse operation: restores the value by the offset and its bounds. */
+/* Checked offset arithmetic for an unsigned value and a signed lower bound. */
+int per_umax_range_rebase(uintmax_t v, intmax_t lb, uintmax_t *output);
+/* The inverse operation: restores a non-negative value from an offset. */
 int per_long_range_unrebase(unsigned long inp, intmax_t lb, intmax_t ub, long *outp);
 int per_imax_range_unrebase(uintmax_t inp, intmax_t lb, intmax_t ub, intmax_t *outp);
+int per_umax_range_unrebase(uintmax_t inp, intmax_t lb, uintmax_t *outp);
 
 /* X.691-2008/11, #11.5 */
 int uper_put_constrained_whole_number_u(asn_per_outp_t *po, uintmax_t v, int nbits);

@@ -7,6 +7,8 @@
 #include <INTEGER.h>
 #include <INTEGER.c>
 #include <INTEGER_aper.c>
+#include <uper_support.c>
+#include <uper_support.h>
 #include <per_support.c>
 #include <per_support.h>
 #include <aper_support.c>
@@ -86,7 +88,7 @@ test_extensible_semi_constrained_in_extension(int lineno, long value, long lboun
     pd.nbits = 8 * encoded_bytes + po.nboff;
     pd.moved = 0;
 
-    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts, 
+    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
                                    (void **)&reconstructed_st, &pd);
     if(dec_rval.code != RC_OK) {
         fprintf(stderr, "%d: Decoding failed for value %ld\n", lineno, value);
@@ -95,13 +97,13 @@ test_extensible_semi_constrained_in_extension(int lineno, long value, long lboun
 
     long reconstructed_value = 0;
     asn_INTEGER2long(reconstructed_st, &reconstructed_value);
-    
+
     if(reconstructed_value != value) {
         fprintf(stderr, "%d: Value mismatch: expected %ld, got %ld\n",
                 lineno, value, reconstructed_value);
         assert(!"Values should match");
     }
-    
+
     printf("  PASS: extension value %ld encoded/decoded correctly\n", value);
 
     ASN_STRUCT_RESET(asn_DEF_INTEGER, &st);
@@ -166,7 +168,7 @@ test_extensible_semi_constrained_in_root(int lineno, long value, long lbound) {
     pd.nbits = 8 * encoded_bytes + po.nboff;
     pd.moved = 0;
 
-    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts, 
+    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
                                    (void **)&reconstructed_st, &pd);
     if(dec_rval.code != RC_OK) {
         fprintf(stderr, "%d: Decoding failed for value %ld\n", lineno, value);
@@ -175,13 +177,13 @@ test_extensible_semi_constrained_in_root(int lineno, long value, long lbound) {
 
     long reconstructed_value = 0;
     asn_INTEGER2long(reconstructed_st, &reconstructed_value);
-    
+
     if(reconstructed_value != value) {
         fprintf(stderr, "%d: Value mismatch: expected %ld, got %ld\n",
                 lineno, value, reconstructed_value);
         assert(!"Values should match");
     }
-    
+
     printf("  PASS: root value %ld encoded/decoded correctly\n", value);
 
     ASN_STRUCT_RESET(asn_DEF_INTEGER, &st);
@@ -202,14 +204,14 @@ int main() {
      * The extension marker means values can extend beyond what can be efficiently encoded,
      * but for semi-constrained, all values >= lower_bound are technically in the "root"
      * unless there's a specific implementation-defined threshold.
-     * 
+     *
      * Since APER semi-constrained encoding treats all values >= lower_bound the same way,
      * we need to trigger the extension bit manually or test specific scenarios.
-     * 
+     *
      * For this test, we're focusing on the fix: ensuring that when the extension bit
      * IS set (for whatever reason), the lower_bound offset is preserved.
      */
-    
+
     /* Values that should work with lower bound offset */
     TEST_ROOT(1, 1);
     TEST_ROOT(100, 1);

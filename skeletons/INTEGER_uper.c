@@ -89,16 +89,17 @@ INTEGER_decode_uper(const asn_codec_ctx_t *opt_codec_ctx,
                 ASN__DECODE_FAILED;
 
             if(specs && specs->field_unsigned) {
+                uintmax_t offset = 0;
                 uintmax_t uvalue = 0;
                 if(uper_get_constrained_whole_number(pd,
-                    &uvalue, ct->range_bits))
+                    &offset, ct->range_bits))
                     ASN__DECODE_STARVED;
-                ASN_DEBUG("Got value %"ASN_PRIuMAX" + low %"ASN_PRIdMAX"",
-                    uvalue, ct->lower_bound);
-                uvalue += ct->lower_bound;
-                if (uvalue > (uintmax_t)ct->upper_bound)
-                    ASN__DECODE_FAILED;
-                if(asn_umax2INTEGER(st, uvalue))
+                ASN_DEBUG("Got offset %"ASN_PRIuMAX" + low %"ASN_PRIdMAX"",
+                    offset, ct->lower_bound);
+                if(ct->upper_bound < 0
+                   || per_umax_range_unrebase(offset, ct->lower_bound, &uvalue)
+                   || uvalue > (uintmax_t)ct->upper_bound
+                   || asn_umax2INTEGER(st, uvalue))
                     ASN__DECODE_FAILED;
             } else {
                 uintmax_t uvalue = 0;
@@ -147,7 +148,7 @@ INTEGER_decode_uper(const asn_codec_ctx_t *opt_codec_ctx,
         ASN__DECODE_FAILED;
     }
 
-    /* 
+    /*
      * Canonical UPER validation: X.691 11.3.6 - minimum octet encoding check.
      * For unconstrained integers, verify that the encoding uses the minimum
      * number of octets (leading 8 bits shall not all be zero unless the field
@@ -174,16 +175,23 @@ INTEGER_decode_uper(const asn_codec_ctx_t *opt_codec_ctx,
         }
     }
 
-    /* #12.2.3 */
-    if(ct && ct->lower_bound) {
-        /*
-         * TODO: replace by in-place arithmetic.
-         */
-        long value = 0;
-        if(asn_INTEGER2long(st, &value))
+    /* #12.2.3: restore the semi-constrained value from its offset. */
+    if(ct && (ct->flags & APC_SEMI_CONSTRAINED)) {
+        uintmax_t offset;
+        if(asn_INTEGER2umax(st, &offset))
             ASN__DECODE_FAILED;
-        if(asn_imax2INTEGER(st, value + ct->lower_bound))
-            ASN__DECODE_FAILED;
+        if(specs && specs->field_unsigned) {
+            uintmax_t value;
+            if(per_umax_range_unrebase(offset, ct->lower_bound, &value)
+               || asn_umax2INTEGER(st, value))
+                ASN__DECODE_FAILED;
+        } else {
+            intmax_t value;
+            if(per_imax_range_unrebase(offset, ct->lower_bound, INTMAX_MAX,
+                                       &value)
+               || asn_imax2INTEGER(st, value))
+                ASN__DECODE_FAILED;
+        }
     }
 
     return rval;
@@ -261,14 +269,13 @@ INTEGER_encode_uper(const asn_TYPE_descriptor_t *td,
         uintmax_t v;
         /* #11.5.6 -> #11.3 */
         if(specs && specs->field_unsigned) {
-            if(((uintmax_t)ct->lower_bound > (uintmax_t)(ct->upper_bound)
-            || (value.u < (uintmax_t)ct->lower_bound))
-            || (value.u > (uintmax_t)ct->upper_bound)) {
-                ASN_DEBUG("Value %"ASN_PRIuMAX" to-be-encoded is outside the bounds [%"ASN_PRIuMAX", %"ASN_PRIuMAX"]!",
-                          value.u, (uintmax_t)ct->lower_bound, (uintmax_t)ct->upper_bound);
+            if(ct->upper_bound < 0
+               || value.u > (uintmax_t)ct->upper_bound
+               || per_umax_range_rebase(value.u, ct->lower_bound, &v)) {
+                ASN_DEBUG("Value %"ASN_PRIuMAX" to-be-encoded is outside the bounds [%"ASN_PRIdMAX", %"ASN_PRIdMAX"]!",
+                          value.u, ct->lower_bound, ct->upper_bound);
                 ASN__ENCODE_FAILED;
             }
-            v = value.u - (uintmax_t)ct->lower_bound;
         } else {
             if(per_imax_range_rebase(value.s, ct->lower_bound, ct->upper_bound, &v)) {
                 ASN__ENCODE_FAILED;
@@ -297,20 +304,15 @@ INTEGER_encode_uper(const asn_TYPE_descriptor_t *td,
         memset(&adjusted_int, 0, sizeof(adjusted_int));
 
         if(specs && specs->field_unsigned) {
-            if(value.u < (uintmax_t)ct->lower_bound) {
-                ASN__ENCODE_FAILED;
-            }
-            value.u -= (uintmax_t)ct->lower_bound;
-            if(asn_umax2INTEGER(&adjusted_int, value.u)) {
+            if(per_umax_range_rebase(value.u, ct->lower_bound, &value.u)
+               || asn_umax2INTEGER(&adjusted_int, value.u)) {
                 ASN_STRUCT_RESET(asn_DEF_INTEGER, &adjusted_int);
                 ASN__ENCODE_FAILED;
             }
         } else {
-            if(value.s < ct->lower_bound) {
-                ASN__ENCODE_FAILED;
-            }
-            value.s -= ct->lower_bound;
-            if(asn_imax2INTEGER(&adjusted_int, value.s)) {
+            if(per_imax_range_rebase(value.s, ct->lower_bound, INTMAX_MAX,
+                                     &value.u)
+               || asn_umax2INTEGER(&adjusted_int, value.u)) {
                 ASN_STRUCT_RESET(asn_DEF_INTEGER, &adjusted_int);
                 ASN__ENCODE_FAILED;
             }

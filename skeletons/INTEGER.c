@@ -163,13 +163,13 @@ INTEGER__dump(const asn_TYPE_descriptor_t *td, const INTEGER_t *st, asn_app_cons
 
 	/* Output in the long xx:yy:zz... format */
 	/* TODO: replace with generic algorithm (Knuth TAOCP Vol 2, 4.3.1) */
-	
+
 	/* For JER (JSON), large integers should be quoted as strings */
 	if(plainOrXEROrJER == 2) {
 		if(cb("\"", 1, app_key) < 0) return -1;
 		wrote += 1;
 	}
-	
+
 	for(p = scratch; buf < buf_end; buf++) {
 		const char * const h2c = "0123456789ABCDEF";
 		if((p - scratch) >= (ssize_t)(sizeof(scratch) - 4)) {
@@ -188,13 +188,13 @@ INTEGER__dump(const asn_TYPE_descriptor_t *td, const INTEGER_t *st, asn_app_cons
 
 	wrote += p - scratch;
 	if((cb(scratch, p - scratch, app_key) < 0)) return -1;
-	
+
 	/* Close quote for JER (JSON) */
 	if(plainOrXEROrJER == 2) {
 		if(cb("\"", 1, app_key) < 0) return -1;
 		wrote += 1;
 	}
-	
+
 	return wrote;
 }
 
@@ -306,33 +306,46 @@ asn_INTEGER2imax(const INTEGER_t *iptr, intmax_t *lptr) {
 	return 0;
 }
 
-/* FIXME: negative INTEGER values are silently interpreted as large unsigned ones. */
 int
 asn_INTEGER2umax(const INTEGER_t *iptr, uintmax_t *lptr) {
-	uint8_t *b, *end;
+	uint8_t *b;
 	uintmax_t value;
 	size_t size;
 
-	if(!iptr || !iptr->buf || !lptr) {
+	if(!iptr || !iptr->buf || !lptr || iptr->size == 0) {
 		errno = EINVAL;
 		return -1;
 	}
 
 	b = iptr->buf;
 	size = iptr->size;
-	end = b + size;
 
-	/* If all extra leading bytes are zeroes, ignore them */
-	for(; size > sizeof(value); b++, size--) {
-		if(*b) {
-			/* Value won't fit into uintmax_t */
+	/* INTEGER is signed: a negative minimal representation is not unsigned. */
+	if((b[0] & 0x80) != 0) {
+		errno = ERANGE;
+		return -1;
+	}
+
+	/* Remove only zero sign/padding octets while retaining the magnitude. */
+	while(size > sizeof(value) + 1) {
+		if(*b != 0x00) {
 			errno = ERANGE;
 			return -1;
 		}
+		b++;
+		size--;
+	}
+	if(size == sizeof(value) + 1) {
+		if(*b != 0x00) {
+			errno = ERANGE;
+			return -1;
+		}
+		b++;
+		size--;
 	}
 
 	/* Conversion engine */
-	for(value = 0; b < end; b++)
+	for(value = 0; size != 0; size--, b++)
 		value = (value << 8) | *b;
 
 	*lptr = value;
