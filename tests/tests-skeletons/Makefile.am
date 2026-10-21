@@ -50,6 +50,7 @@ check_PROGRAMS =                \
     check-UPER-INTEGER          \
     check-UPER-INTEGER-semiconstrained \
     check-UPER-INTEGER-signpad \
+    check-PER-INTEGER-security \
     check-recursive-overflow     \
     check-PER-opentype          \
     check-PER-NativeEnumerated  \

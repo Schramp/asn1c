@@ -74,6 +74,18 @@ int per_long_range_unrebase(unsigned long inp, intmax_t lb, intmax_t ub, long *o
 int per_imax_range_unrebase(uintmax_t inp, intmax_t lb, intmax_t ub, intmax_t *outp);
 int per_umax_range_unrebase(uintmax_t inp, intmax_t lb, uintmax_t *outp);
 
+/*
+ * Fully unsigned constrained ranges. Unlike the semi-constrained helpers
+ * above, BOTH bounds are unsigned. Generated native unsigned descriptors
+ * store their bit patterns in signed metadata slots; callers must cast
+ * those slots to uintmax_t before calling. Return 0 on success, -1 for
+ * missing output, reversed bounds, or an out-of-range value/offset.
+ */
+int per_unsigned_range_rebase(uintmax_t value, uintmax_t lb, uintmax_t ub,
+                              uintmax_t *output);
+int per_unsigned_range_unrebase(uintmax_t offset, uintmax_t lb, uintmax_t ub,
+                                uintmax_t *output);
+
 #ifdef __cplusplus
 }
 #endif

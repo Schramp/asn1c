@@ -17,32 +17,47 @@ test_directory=$(mktemp -d "${TMPDIR:-/tmp}/asn1c-per-flavor.XXXXXX")
 trap 'rm -rf "$test_directory"' EXIT
 
 # Constrained INTEGERs exercise the shared range rebase/unrebase helpers:
-# negative lower bound, a full 32-bit unsigned range, and an extensible range.
+# negative lower bound, unsigned ranges above INTMAX_MAX, and an extensible range.
 cat > "$test_directory/per.asn1" <<'EOF'
 Module DEFINITIONS AUTOMATIC TAGS ::= BEGIN
 T ::= SEQUENCE {
     neg  INTEGER (-5..1000),
     wide INTEGER (0..4294967295),
+    full64 INTEGER (0..18446744073709551615),
+    high64 INTEGER (9223372036854775808..18446744073709551615),
     ext  INTEGER (-10..10, ...),
     list SEQUENCE (SIZE(1..4)) OF INTEGER (-128..127)
 }
 END
 EOF
+# Use the existing XER hexadecimal INTEGER form for values above INTMAX_MAX:
+# this exercises unsigned native PER without relying on signed decimal parsing.
 cat > "$test_directory/value.xer" <<'EOF'
-<T><neg>-5</neg><wide>4294967295</wide><ext>100</ext><list><INTEGER>-128</INTEGER><INTEGER>127</INTEGER></list></T>
+<T>
+<neg>-5</neg><wide>4294967295</wide>
+<full64>00:FF:FF:FF:FF:FF:FF:FF:FF</full64><high64>00:80:00:00:00:00:00:00:20</high64>
+<ext>100</ext><list><INTEGER>-128</INTEGER><INTEGER>127</INTEGER></list>
+</T>
 EOF
 
-# Generate and build a converter into $1 with extra asn1c flags $2.
+# Purpose: generate/build variant $1 with flavor flags $2 and native uint64 storage.
+# Source/history: existing flavor smoke test, extended for unsigned PER metadata.
+# Version: 2026-10-20; owner: asn1c maintainers. Returns: build exit status.
+# Exceptions: none; set -e stops on errors. Example: build_variant both "".
 build_variant() {
     local dir="$test_directory/$1"
     mkdir "$dir"
     # shellcheck disable=SC2086
     "$test_build_root/asn1c/asn1c" -S "$test_source_root/skeletons" \
-        -D "$dir" -pdu=T $2 "$test_directory/per.asn1" > /dev/null
+        -D "$dir" -pdu=T -fnative-types -finteger-native-type=uint64 \
+        $2 "$test_directory/per.asn1" > /dev/null
     "${MAKE:-make}" -C "$dir" -f converter-example.mk CC="${CC:-cc}" > /dev/null
 }
 
-# Fail if any file matching glob $2 was emitted into variant $1.
+# Purpose: reject files matching glob $2 in generated variant $1.
+# Source/history: PER single-flavor regression; version: 2026-10-20.
+# Owner: asn1c maintainers. Returns: zero if absent, exits one on leaked files.
+# Exceptions: none. Example: assert_absent aper-only "uper_* *_uper.c".
 assert_absent() {
     local leaked
     leaked=$(cd "$test_directory/$1" && ls $2 2>/dev/null || true)
@@ -52,7 +67,10 @@ assert_absent() {
     fi
 }
 
-# Encode value.xer with variant $1 into syntax $2, then decode back to XER.
+# Purpose: encode variant $1 in syntax $2, then compare its decoded XER value.
+# Source/history: PER single-flavor regression; version: 2026-10-20.
+# Owner: asn1c maintainers. Returns: command/cmp status; set -e stops on failure.
+# Exceptions: none. Example: round_trip aper-only aper.
 round_trip() {
     local dir="$test_directory/$1"
     "$dir/converter-example" -ixer "-o$2" "$test_directory/value.xer" \

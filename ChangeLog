@@ -1,4 +1,15 @@
 Changes since v1.5.3:
+	* Fixed PER security-review regressions in native unsigned 64-bit ranges:
+	  APER/UPER now interpret both signed metadata slots as unsigned when the
+	  type uses unsigned native storage, validate the complete range, and
+	  reject invalid offsets before addition. Bounds above INTMAX_MAX work
+	  without wrapping. Restored arbitrary-precision INTEGER (0..MAX)
+	  decoding; native storage conversion still rejects values that do not fit.
+	  Removed signed overflow in the APER encoder's full-range size calculation.
+	  Added sanitized boundary, malformed/truncated-input and native-overflow
+	  regressions, and generated uint64 coverage in the single-flavor smoke test.
+	  Split PER INTEGER entry points into documented, bounded helpers, with
+	  argument validation and checked fragmented-buffer growth.
 	* Fixed builds generated with -no-gen-UPER (APER only). The PER range
 	  helpers per_{long,imax,umax}_range_{rebase,unrebase}() used by both
 	  INTEGER_aper.c and INTEGER_uper.c were defined only in uper_support.[ch],

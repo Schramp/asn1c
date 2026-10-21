@@ -189,6 +189,33 @@ stale objects cause duplicate-symbol link errors in `tests/tests-skeletons`.
 
 ## Verification
 
+The PER INTEGER security regressions are covered by
+[`check-PER-INTEGER-security.c`](../tests/tests-skeletons/check-PER-INTEGER-security.c).
+For native unsigned INTEGERs, both PER constraint-bound slots contain unsigned
+bit patterns even though the legacy structure declares them as `intmax_t`.
+Code must interpret both slots as `uintmax_t`, validate the bounds and offset,
+and only then add or subtract. The checked unsigned helpers in `per_support`
+also reject null output pointers and reversed bounds without changing output.
+APER range alignment uses a checked maximum offset rather than an inclusive
+signed range size, which can overflow at full-width bounds.
+
+For semi-constrained `INTEGER (0..MAX)`, decoding preserves the positive byte
+buffer directly, including values wider than `uintmax_t`. NativeInteger
+conversion remains responsible for rejecting values too wide for native
+storage. This restores zero-bound decoding; it does not add arbitrary-precision
+arithmetic for nonzero lower bounds or expand the existing encoder limits.
+The single-flavor smoke test also generates native uint64 fields whose lower
+or upper bounds exceed `INTMAX_MAX`, and round-trips them in APER-only,
+UPER-only and combined builds.
+
+The regression executable runs under the configured skeleton sanitizers and
+exhausts all 256 one-octet inputs for a seven-bit range near `UINTMAX_MAX`.
+It also checks truncated determinants/payloads, negative unsigned values,
+malformed API arguments and full signed-range encoding. The four codec entry
+points are split into documented helpers; Clang control-flow graphs give a
+maximum cyclomatic complexity of 19 for these codec functions, below the
+project limit of 20. Each function is also shorter than 200 lines.
+
 The 2026-10-12 fragment-tag and opaque-ANY compatibility correction passes the
 complete generated C suite (71/71) under the configured ASan/UBSan test flags.
 Freshly rebuilt normal, strict, and C89 skeleton archives pass the linked
