@@ -47,6 +47,10 @@ See [ChangeLog](ChangeLog) for the complete release history and
 [release-notes/v1.4.2.md](release-notes/v1.4.2.md) for v1.4.2, and
 [release-notes/v1.4.md](release-notes/v1.4.md) for v1.4.
 
+The [JER converter and BER string security review](docs/issues-578-581-security-review.md)
+documents the fixes for issues #578/#581 and the corrections to PRs #579/#580,
+including reproduction cases and regression coverage.
+
 ## ASN.1 Transfer Syntaxes
 
 <!-- markdownlint-disable MD033 -->

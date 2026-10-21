@@ -1,4 +1,25 @@
 Changes since v1.5.3:
+	* Fixed issue #578: the JER converter now retains every PDU in large
+	  concatenated inputs and checks decode failures instead of returning a
+	  partial value as success. Replaced seek-based whole-file sizing with
+	  checked stream buffering, including pipes; checked buffer growth and
+	  released retained input before processing another file. Shared converter
+	  handling now rejects read errors and impossible decoder consumption.
+	  Added generated
+	  converter regressions for large/small multi-PDU inputs and malformed
+	  input. Report and original PR #579 by Ruud Schramp (@Schramp), with
+	  investigation assisted by Claude Code; security hardening and extended
+	  tests by asn1c maintainers with Codex/Luna assistance.
+	* Fixed issue #581 and completed PR #580: BER string wrapper checks use
+	  the effective wire tag chain while fragment checks retain the natural
+	  final all_tags tag. The original PR changed the fragment fallback too,
+	  accepting invalid VisibleString fragments and failing check-25 in all
+	  three C CI jobs. Preserved that rejection test and added effective-tag,
+	  malformed-fragment, generated-alias and randomized-string coverage.
+	  Credits: Ruud Schramp (@Schramp) for issue #581 and its correct patch;
+	  javier (@mr-j0nes) for PR #580 and the original skeleton regression;
+	  asn1c maintainers with Codex/Luna assistance for security corrections
+	  and extended regression coverage. See docs/issues-578-581-security-review.md.
 	* Fixed PER security-review regressions in native unsigned 64-bit ranges:
 	  APER/UPER now interpret both signed metadata slots as unsigned when the
 	  type uses unsigned native storage, validate the complete range, and

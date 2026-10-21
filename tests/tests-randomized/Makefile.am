@@ -51,6 +51,7 @@ TESTS += bundles/15-CHOICE-bundle.txt
 TESTS += bundles/16-SEQUENCE-bundle.txt
 TESTS += bundles/17-SEQUENCE-OF-bundle.txt
 TESTS += bundles/19-SET-OF-bundle.txt
+TESTS += bundles/20-retagged-strings-bundle.txt
 
 EXTRA_DIST =                    \
     check-corpus.sh             \

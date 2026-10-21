@@ -430,11 +430,14 @@ octet_string_ber_unwind(struct OCTET_STRING_ber_state *state) {
 /*
  * Select the tag expected at the current constructed-string nesting level.
  * Original source: New helper extracted from the OCTET STRING BER tag switch.
- * Version/date: 1.0, 2026-10-11.
+ * Version/date: 1.1, 2026-10-21.
  * Parameters: state supplies descriptor and frame; actual is the fetched tag.
- * Returns: Descriptor tag for strings, or actual for untyped ANY values.
+ * Returns: Effective wrapper tag by level, then the final natural string tag;
+ *          actual for untyped ANY values.
  * Errors: None; malformed descriptor arrays are rejected by decoder entry.
- * Responsible party: asn1c maintainers. History/example: validates chunks.
+ * Responsible party: asn1c maintainers. History: 1.1 preserves final
+ * `all_tags` fragment tags after the effective `tags` wrapper chain.
+ * Example: validates OCTET STRING fragments nested below an implicit tag.
  */
 static ber_tlv_tag_t
 octet_string_ber_expected_tag(const struct OCTET_STRING_ber_state *state,
@@ -443,8 +446,8 @@ octet_string_ber_expected_tag(const struct OCTET_STRING_ber_state *state,
 
     if(state->variant == ASN_OSUBV_ANY || !state->sel) return actual;
     level = state->sel->cont_level;
-    if(level < state->td->all_tags_count)
-        return state->td->all_tags[level];
+    if(level < state->td->tags_count)
+        return state->td->tags[level];
     if(state->td->all_tags_count)
         return state->td->all_tags[state->td->all_tags_count - 1];
     return actual;
