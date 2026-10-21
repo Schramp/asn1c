@@ -84,9 +84,14 @@ reproduced exit status 65 and `Decode failed at byte 4` for legal DER. The same
 original decoder accepted the superseded `[9]` wrapper form. The corrected
 decoder accepts the effective chain and rejects that superseded wrapper.
 
-The corrected lookup uses `td->tags[level]` within the effective wrapper chain
-and `td->all_tags[all_tags_count - 1]` below it. The latter is the natural
-fragment tag and must not be replaced with the last effective wire tag.
+The corrected lookup uses `td->tags[level]` within the effective wrapper chain.
+The initial correction retained the final `all_tags` entry below that chain.
+The subsequent standards review found that generated character-string aliases
+can end that array with their character-string tag instead of OCTET STRING.
+For built-in string operations, component matching must therefore enforce the
+operation's fragment tag after explicit wrappers: universal 4 for octet and
+restricted character strings, or universal 3 for bit strings. Descriptor-only
+fallback remains for custom operations. See the standards verification below.
 
 PR #580 changed both lookups to `tags`. For `VisibleString`, `tags` contains
 universal tag 26, while `all_tags` ends in universal OCTET STRING tag 4.
@@ -98,8 +103,9 @@ The failed [C/C++ CI run](https://github.com/mouse07410/asn1c/actions/runs/39618
 confirms the same failure in `build-and-check`, `clang-sanitizers`, and
 `distcheck`: `check-src/check-25.-fwide-types.c` aborts because the
 "VisibleString chunk used as OCTET fragment" mutation returns `RC_OK`.
-The corrected natural-tag fallback fixes the implementation without weakening
-the rejection test or changing the CI workflow.
+Restoring the descriptor's fragment fallback fixes that CI regression without
+weakening the rejection test or changing the CI workflow. The subsequent alias
+correction below addresses metadata that does not end in a component tag.
 
 ## Regression coverage
 
@@ -126,7 +132,7 @@ The randomized bundle participates in ordinary `make check`; explicit corpus
 generation is available through `make -C tests/tests-randomized check-corpus`.
 Tests establish the covered behavior, not the absence of all vulnerabilities.
 
-## Local validation on 2026-10-21
+## Initial validation of d4e2da5a on 2026-10-21
 
 The generated C suite passes 71/71, including the CI-failing check-25 mutation.
 The linked skeleton suite passes 57/57. Seven targeted smoke tests pass:
@@ -150,3 +156,45 @@ review. Both new smoke scripts also pass with the sanitizer flags above using
 skeletons extracted from that distribution archive and the locally built
 compiler, exercising source paths outside the checkout. A complete local
 `make distcheck` was not run.
+
+## Standards verification on 2026-10-21
+
+Checked the official in-force editions:
+
+* [ITU-T X.680 (02/2021)](https://www.itu.int/rec/T-REC-X.680-202102-I/en).
+* [ITU-T X.690 (02/2021)](https://www.itu.int/rec/T-REC-X.690-202102-I/en),
+  including [Erratum 1](https://www.itu.int/rec/T-REC-X.690-202109-I!Err1/en).
+* [ITU-T X.697 (02/2021)](https://www.itu.int/rec/T-REC-X.697-202102-I/en).
+* [ECMA-404, second edition](https://ecma-international.org/wp-content/uploads/ECMA-404.pdf).
+
+| Changed behavior | Applicable clauses and conclusion |
+| --- | --- |
+| IMPLICIT over EXPLICIT | X.680 31.2.6-31.2.7 and X.690 8.14.2-8.14.4: replacing `[9]` with `[1]` preserves the inner UTF8String encoding. The superseded wrapper must not be expected. |
+| Constructed string fragments | X.690 8.7.3.2 and 8.23.3 require universal OCTET STRING components, including nested components. Clause 8.6.4.1 requires universal BIT STRING components for bit strings. |
+| BER versus canonical forms | X.690 9.1-9.2 restrict CER lengths and fragments; 10.1-10.2 restrict DER. Constructed string fixtures use BER input; DER output contains primitive string content beneath any explicit wrappers. |
+| Complete JER values | X.697 6.4-6.5 and 7.6.2 preserve per-value encoding semantics; 25.3 and 27.3 cover the fixtures' hexadecimal octets and object fields. Buffering and multi-PDU file framing are application choices. Concatenated PDUs are separate JSON texts, not one JSON document or an ASN.1 SEQUENCE OF. |
+| JSON whitespace | ECMA-404 clause 4 permits CR, LF, TAB, and SPACE around tokens. The small multi-PDU regression now exercises all four. |
+
+X.690 Erratum 1 corrects Figure 4's high-tag-number example; it does not amend
+these tagging or fragment clauses. The official X.690 PDF was downloaded and
+read directly when the browser's PDF fetch timed out.
+
+This review also exposed a remaining alias-fragment validation gap in
+`d4e2da5a`: alias metadata admitted a repeated UTF8String tag as a component.
+The generated `Label2` converter accepted `a1 05 2c 03 0c 01 41` with status 0;
+the standard-conforming fragment at that position uses `04`, rather than `0c`.
+The follow-up correction preserves effective wrapper matching and enforces the
+built-in component tag at fragment depths, with fixed-vector and generated
+alias regressions. The legacy check-25 positive fixture also used tag 26 for
+components of an IMPLICIT VisibleString, contrary to the same clauses. Its
+three component tags now use OCTET STRING; each former tag placement remains
+an explicit rejection mutation, alongside the original inner-tag rejection.
+The published X.690 8.23.5 primitive and constructed "Jones" examples provide
+independent positive vectors. This is verification of the changed paths and covered
+vectors, rather than a claim of complete ASN.1 conformance for the runtime.
+
+Follow-up validation passes 71/71 generated C tests and 57/57 linked skeleton
+tests, plus the expanded BER alias smoke, CER smoke, and four-whitespace JER
+smoke tests. Normal/C89 runtime build checks and direct ASan/UBSan regressions
+also pass. The corrected check-25 retains its deterministic mutations and
+incremental-decoding checks.

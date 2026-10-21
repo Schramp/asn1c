@@ -1,17 +1,29 @@
 Changes since v1.5.3:
+	* Verified the #578/#581 fixes against ITU-T X.680, X.690 and X.697
+	  (2021), X.690 Erratum 1, and ECMA-404. The standards review found a
+	  remaining fragment-validation gap in generated character-string aliases:
+	  their final all_tags entry can still be the character-string tag.
+	  Built-in component matching now enforces universal OCTET STRING tag 4
+	  (or BIT STRING tag 3) below effective explicit wrappers, preserving ANY
+	  and custom-operation behavior. Added alias-fragment regressions and
+	  the published X.690 "Jones" examples. Corrected check-25's invalid
+	  positive component tags while retaining all old tag forms as explicit
+	  negative mutations; also covered all four JSON whitespace characters.
+	  Standards review and follow-up correction by asn1c maintainers with
+	  Codex/Luna assistance; original reporter and patch-provider credits
+	  follow below.
 	* Fixed issue #578: the JER converter now retains every PDU in large
 	  concatenated inputs and checks decode failures instead of returning a
 	  partial value as success. Replaced seek-based whole-file sizing with
 	  checked stream buffering, including pipes; checked buffer growth and
 	  released retained input before processing another file. Shared converter
 	  handling now rejects read errors and impossible decoder consumption.
-	  Added generated
-	  converter regressions for large/small multi-PDU inputs and malformed
+	  Added generated converter regressions for large/small multi-PDU inputs and malformed
 	  input. Report and original PR #579 by Ruud Schramp (@Schramp), with
 	  investigation assisted by Claude Code; security hardening and extended
 	  tests by asn1c maintainers with Codex/Luna assistance.
 	* Fixed issue #581 and completed PR #580: BER string wrapper checks use
-	  the effective wire tag chain while fragment checks retain the natural
+	  the effective wire tag chain while fragment checks retain the descriptor's
 	  final all_tags tag. The original PR changed the fragment fallback too,
 	  accepting invalid VisibleString fragments and failing check-25 in all
 	  three C CI jobs. Preserved that rejection test and added effective-tag,

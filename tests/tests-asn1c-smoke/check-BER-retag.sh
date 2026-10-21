@@ -37,18 +37,47 @@ printf '\241\005\014\003ABC' > "$test_directory/valid.expected"
     "$test_directory/valid.der" > "$test_directory/valid.actual"
 cmp "$test_directory/valid.expected" "$test_directory/valid.actual"
 
-# Constructed UTF8String data may use its OCTET STRING component tag.
-printf '\241\005\054\003\004\001A' > "$test_directory/constructed.ber"
+# X.690 8.23.3 and 8.7.3.2 use OCTET STRING tag 4 at every fragment depth.
+printf '\241\007\054\005\044\003\004\001A' > "$test_directory/constructed.ber"
 printf '\241\003\014\001A' > "$test_directory/constructed.expected"
 "$test_directory/generated/converter-example" -p Label2 -iber -oder \
     "$test_directory/constructed.ber" > "$test_directory/constructed.actual"
 cmp "$test_directory/constructed.expected" "$test_directory/constructed.actual"
+
+# Reject the UTF8String outer tag when it is repeated as a fragment tag.
+printf '\241\005\054\003\014\001A' > "$test_directory/wrong-fragment.ber"
+if "$test_directory/generated/converter-example" -p Label2 -iber -oder \
+    "$test_directory/wrong-fragment.ber" > "$test_directory/wrong-fragment.actual" \
+    2> "$test_directory/wrong-fragment.err"; then
+    echo 'FAIL: decoder accepted UTF8String tag 12 as an OCTET STRING fragment' >&2
+    exit 1
+fi
 
 # An indefinite effective wrapper must also decode and canonicalize to DER.
 printf '\241\200\014\003ABC\000\000' > "$test_directory/indefinite.ber"
 "$test_directory/generated/converter-example" -p Label2 -iber -oder \
     "$test_directory/indefinite.ber" > "$test_directory/indefinite.actual"
 cmp "$test_directory/valid.expected" "$test_directory/indefinite.actual"
+
+# Indefinite constructed UTF8String contents must retain the natural tag 4.
+printf '\241\200\054\200\044\200\004\001A\000\000\000\000\000\000' \
+    > "$test_directory/constructed-indefinite.ber"
+"$test_directory/generated/converter-example" -p Label2 -iber -oder \
+    "$test_directory/constructed-indefinite.ber" \
+    > "$test_directory/constructed-indefinite.actual"
+cmp "$test_directory/constructed.expected" \
+    "$test_directory/constructed-indefinite.actual"
+
+# The same repeated UTF8String tag is invalid in an indefinite value.
+printf '\241\200\054\200\014\001A\000\000\000\000' \
+    > "$test_directory/wrong-fragment-indefinite.ber"
+if "$test_directory/generated/converter-example" -p Label2 -iber -oder \
+    "$test_directory/wrong-fragment-indefinite.ber" \
+    > "$test_directory/wrong-fragment-indefinite.actual" \
+    2> "$test_directory/wrong-fragment-indefinite.err"; then
+    echo 'FAIL: decoder accepted indefinite UTF8String tag 12 fragment' >&2
+    exit 1
+fi
 
 # A superseded [9] wrapper is not part of the effective BER type.
 printf '\241\005\251\003\014\001A' > "$test_directory/superseded.ber"

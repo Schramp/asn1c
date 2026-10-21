@@ -7,6 +7,12 @@
 
 #include <T.h>
 
+/*
+ * Valid BER SEQUENCE fixture with nested OCTET STRING components.
+ * Source: Existing check-25 fixture, corrected on 2026-10-21 using
+ * X.690 (2021) 8.14.4, 8.23.3 and 8.7.3.2. An IMPLICIT VisibleString
+ * changes its outer tag; every constructed component still uses tag 4.
+ */
 uint8_t buf1[] = {
 	32 | 16,		/* [UNIVERSAL 16], constructed */
 	128,	/* L */
@@ -33,17 +39,17 @@ uint8_t buf1[] = {
 	'y',
 	'z',
 	/*
-	 * X.690 specifies that inner structures must be tagged by
-	 * stripping off the outer tag for each subsequent level.
+	 * X.690 8.14.4 replaces only the outer tag. Clauses 8.23.3 and
+	 * 8.7.3.2 require universal OCTET STRING components at every depth.
 	 */
 	/* f [5] IMPLICIT VisibleString */
 	128 | 32 | 5,		/* [5], constructed */
 	128,	/* L indefinite */
-		26,	/* [UNIVERSAL 26] (VisibleString), primitive */
+		4,	/* [UNIVERSAL 4] (OCTET STRING), primitive */
 		2,
   'l',
   'o',
-		32 | 26,	/* [UNIVERSAL 26], recursively constructed */
+		32 | 4,	/* [UNIVERSAL 4], recursively constructed */
 		128,
 			4,	/* [UNIVERSAL 4] (OCTET STRING), primitive */
 			1,
@@ -54,7 +60,7 @@ uint8_t buf1[] = {
   '_',
 		0,
 		0,
-		26,	/* [UNIVERSAL 26], primitive */
+		4,	/* [UNIVERSAL 4], primitive */
 		2,
   'i',
   't',
@@ -89,7 +95,7 @@ uint8_t buf1[] = {
 /*
  * Decode one test input and verify its value or bounded failure behavior.
  * Original source: Existing check-25 BER regression helper.
- * Version/date: 1.1, 2026-10-12.
+ * Version/date: 1.2, 2026-10-21.
  * Parameters: is_ok selects value checks; buf/size provide encoded input;
  *   consumed is the expected full length or the maximum allowed on failure.
  * Returns: No value; assertions terminate the test on status/value mismatch.
@@ -331,11 +337,12 @@ partial_read(uint8_t *buf, size_t size) {
 /*
  * Run positive, deterministic negative, random-mutation, and restartability tests.
  * Original source: Existing check-25 generated-type regression program.
- * Version/date: 1.1, 2026-10-12.
+ * Version/date: 1.2, 2026-10-21.
  * Parameters: ac/av are ignored command-line arguments from the test runner.
  * Returns: Zero after all checks pass; the process aborts on assertion failure.
  * Errors: Decoder mismatches and malformed-input acceptance fail assertions.
- * Responsible party: asn1c maintainers. History: Adds CER fragment-tag vectors.
+ * Responsible party: asn1c maintainers. History: Adds CER fragment-tag vectors;
+ * version 1.2 rejects the legacy fixture's invalid outer-tag components.
  * Example: invoked as `./check-program` by the generated test directory.
  */
 int
@@ -353,6 +360,12 @@ main(int ac, char **av) {
 	/* Reject wrong outer/fragment tags, truncated lengths, and malformed EOCs. */
 	expect_mutation_code("wrong SEQUENCE wrapper", buf1, size,
 			     0, 0x31, RC_FAIL);
+	expect_mutation_code("VisibleString tag at first implicit fragment", buf1,
+			     size, 21, 26, RC_FAIL);
+	expect_mutation_code("VisibleString constructor as OCTET component", buf1,
+			     size, 25, 0x3a, RC_FAIL);
+	expect_mutation_code("VisibleString tag at final implicit fragment", buf1,
+			     size, 36, 26, RC_FAIL);
 	expect_mutation_code("VisibleString chunk used as OCTET fragment", buf1,
 			     size, 27, 26, RC_FAIL);
 	expect_mutation_code("truncated OCTET fragment", buf1, size,

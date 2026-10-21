@@ -92,8 +92,8 @@ awk -F'[<>]' '/<id>/{ print $3 }' "$test_directory/large-single.xer" \
 printf '4\n' > "$test_directory/large-single.expected-ids"
 cmp "$test_directory/large-single.expected-ids" "$test_directory/large-single.ids"
 
-# Ordinary whitespace separates values and may follow the final value.
-printf '\n%s\n \n%s\n\t \n%s\n\n' \
+# ECMA-404 clause 4 permits CR, LF, TAB, and SPACE around JSON tokens.
+printf '\r\n%s\n \r\n%s\n\t \n%s\r\n\r\n' \
     '{"id":5,"payload":"45"}' \
     '{"id":6,"payload":"46"}' \
     '{"id":7,"payload":"47"}' > "$test_directory/small-multi.jer"

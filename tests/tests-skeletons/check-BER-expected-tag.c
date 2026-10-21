@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include <asn_application.h>
+#include <ANY.h>
 #include <BIT_STRING.h>
 #include <OCTET_STRING.h>
 #include <UTF8String.h>
@@ -205,14 +206,16 @@ check_bytewise(const asn_TYPE_descriptor_t *td, const uint8_t *input,
 }
 
 /*
- * Reproduce issue #581 with generated-style effective and containment chains.
- * Original source: New BER expected-tag regression fixture.
- * Version/date: 1.0, 2026-10-21.
+ * Reproduce issue #581 and verify retagged constructed string components.
+ * Original source: X.690 8.14.3/8.14.4, 8.23.3, and 8.7.3.2.
+ * Version/date: 1.1, 2026-10-21.
  * Parameters: None; local arrays model Label2 ::= [1] Label and
  *   Label ::= [9] EXPLICIT UTF8String.
- * Returns: Zero when valid DER is accepted and the superseded [9] tag fails.
+ * Returns: Zero when effective DER passes, superseded [9] fails, and fragment
+ *   levels use OCTET STRING tag 4 even when containment tags end in UTF8String.
  * Errors: Failed expectations are reported through check_status/check_octets.
- * Responsible party: asn1c maintainers. History: Added for issue #581.
+ * Responsible party: asn1c maintainers. History: Added for issue #581 and
+ *   expanded after X.690 review found an alias fragment-tag acceptance hole.
  * Example: [1] { UTF8String "ABC" } decodes without an obsolete [9] wrapper.
  */
 static int
@@ -235,6 +238,20 @@ check_explicit_retag(void) {
     static const uint8_t constructed[] = {
         0xa1, 0x05, 0x2c, 0x03, 0x04, 0x01, 'A'
     };
+    static const uint8_t constructed_nested[] = {
+        0xa1, 0x07, 0x2c, 0x05, 0x24, 0x03, 0x04, 0x01, 'A'
+    };
+    static const uint8_t wrong_fragment[] = {
+        0xa1, 0x05, 0x2c, 0x03, 0x0c, 0x01, 'A'
+    };
+    static const uint8_t constructed_indefinite[] = {
+        0xa1, 0x80, 0x2c, 0x80, 0x24, 0x80, 0x04, 0x01, 'A',
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    static const uint8_t wrong_fragment_indefinite[] = {
+        0xa1, 0x80, 0x2c, 0x80, 0x0c, 0x01, 'A',
+        0x00, 0x00, 0x00, 0x00
+    };
     asn_TYPE_descriptor_t td = asn_DEF_UTF8String;
     int failed = 0;
 
@@ -249,6 +266,20 @@ check_explicit_retag(void) {
                            "superseded explicit [9] tag is rejected");
     failed |= check_octets(&td, constructed, sizeof(constructed), "A", 1,
                            "retagged constructed UTF8String accepts OCTET fragment");
+    failed |= check_octets(&td, constructed_nested, sizeof(constructed_nested),
+                           "A", 1,
+                           "retagged UTF8String uses OCTET tags at every depth");
+    failed |= check_status(&td, wrong_fragment, sizeof(wrong_fragment), RC_FAIL,
+                           "retagged UTF8String rejects repeated UTF8 fragment tag");
+    failed |= check_octets(&td, constructed_indefinite,
+                           sizeof(constructed_indefinite), "A", 1,
+                           "indefinite retagged UTF8String uses OCTET components");
+    failed |= check_status(&td, wrong_fragment_indefinite,
+                           sizeof(wrong_fragment_indefinite), RC_FAIL,
+                           "indefinite retagged UTF8String rejects tag 12 fragment");
+    failed |= check_bytewise(&td, constructed_indefinite,
+                             sizeof(constructed_indefinite), "A", 1,
+                             "indefinite retagged UTF8String streams bytewise");
     return failed;
 }
 
@@ -306,8 +337,8 @@ check_implicit_octets(void) {
 }
 
 /*
- * Check built-in UTF8String and VisibleString natural component tags.
- * Original source: New BER expected-tag regression fixture.
+ * Check natural components and the X.690 printed VisibleString example.
+ * Original source: X.690 (02/2021) 8.23.3, 8.7.3.2, and 8.23.6, page 17.
  * Version/date: 1.0, 2026-10-21.
  * Parameters: None; fixed definite nested constructed values exercise depth.
  * Returns: Zero when natural OCTET STRING fragments pass and wrong tags fail.
@@ -329,6 +360,16 @@ check_character_string_fragments(void) {
     static const uint8_t wrong_visible[] = {
         0x3a, 0x07, 0x24, 0x05, 0x24, 0x03, 0x1a, 0x01, 'A'
     };
+    static const uint8_t visible_jones_primitive[] = {
+        0x1a, 0x05, 'J', 'o', 'n', 'e', 's'
+    };
+    static const uint8_t visible_jones_constructed[] = {
+        0x3a, 0x09, 0x04, 0x03, 'J', 'o', 'n', 0x04, 0x02, 'e', 's'
+    };
+    static const uint8_t visible_jones_indefinite[] = {
+        0x3a, 0x80, 0x04, 0x03, 'J', 'o', 'n', 0x04, 0x02, 'e', 's',
+        0x00, 0x00
+    };
     int failed = 0;
 
     failed |= check_octets(&asn_DEF_UTF8String, utf8, sizeof(utf8), "A", 1,
@@ -340,6 +381,124 @@ check_character_string_fragments(void) {
     failed |= check_status(&asn_DEF_VisibleString, wrong_visible,
                            sizeof(wrong_visible), RC_FAIL,
                            "VisibleString rejects tag 1a at fragment depth");
+    failed |= check_octets(&asn_DEF_VisibleString, visible_jones_primitive,
+                           sizeof(visible_jones_primitive), "Jones", 5,
+                           "X.690 page 17 VisibleString primitive example");
+    failed |= check_octets(&asn_DEF_VisibleString, visible_jones_constructed,
+                           sizeof(visible_jones_constructed), "Jones", 5,
+                           "X.690 page 17 VisibleString definite example");
+    failed |= check_octets(&asn_DEF_VisibleString, visible_jones_indefinite,
+                           sizeof(visible_jones_indefinite), "Jones", 5,
+                           "X.690 page 17 VisibleString indefinite example");
+    return failed;
+}
+
+/*
+ * Exercise a VisibleString alias whose containment chain ends in tag 26.
+ * Original source: X.690 8.23.3 and 8.7.3.2; local alias regression fixture.
+ * Version/date: 1.1, 2026-10-21.
+ * Parameters: None; arrays model [1] Label with Label ::= [9] EXPLICIT
+ *   VisibleString, including generated effective and containment tag arrays.
+ * Returns: Zero when wrapper tag 26 is honored and every fragment uses tag 4.
+ * Errors: Failed definite, indefinite, or streaming expectations are reported.
+ * Responsible party: asn1c maintainers. History: Covers outer-tag fragment
+ *   acceptance found during the X.690 2021 standards review.
+ * Example: [1] { VisibleString constructed with OCTET STRING fragments }.
+ */
+static int
+check_visible_alias_fragments(void) {
+    static const ber_tlv_tag_t effective_tags[] = {
+        ASN_TAG_CLASS_CONTEXT | (1u << 2),
+        ASN_TAG_CLASS_UNIVERSAL | (26u << 2)
+    };
+    static const ber_tlv_tag_t containment_tags[] = {
+        ASN_TAG_CLASS_CONTEXT | (1u << 2),
+        ASN_TAG_CLASS_CONTEXT | (9u << 2),
+        ASN_TAG_CLASS_UNIVERSAL | (26u << 2)
+    };
+    static const uint8_t definite[] = {
+        0xa1, 0x07, 0x3a, 0x05, 0x24, 0x03, 0x04, 0x01, 'A'
+    };
+    static const uint8_t wrong_definite[] = {
+        0xa1, 0x05, 0x3a, 0x03, 0x1a, 0x01, 'A'
+    };
+    static const uint8_t indefinite[] = {
+        0xa1, 0x80, 0x3a, 0x80, 0x24, 0x80, 0x04, 0x01, 'A',
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+    static const uint8_t wrong_indefinite[] = {
+        0xa1, 0x80, 0x3a, 0x80, 0x1a, 0x01, 'A',
+        0x00, 0x00, 0x00, 0x00
+    };
+    asn_TYPE_descriptor_t td = asn_DEF_VisibleString;
+    int failed = 0;
+
+    td.tags = effective_tags;
+    td.tags_count = sizeof(effective_tags) / sizeof(effective_tags[0]);
+    td.all_tags = containment_tags;
+    td.all_tags_count = sizeof(containment_tags) / sizeof(containment_tags[0]);
+
+    failed |= check_octets(&td, definite, sizeof(definite), "A", 1,
+                           "VisibleString alias fragments use OCTET tags at every depth");
+    failed |= check_status(&td, wrong_definite, sizeof(wrong_definite), RC_FAIL,
+                           "VisibleString alias rejects repeated tag 26 fragment");
+    failed |= check_octets(&td, indefinite, sizeof(indefinite), "A", 1,
+                           "indefinite VisibleString alias uses OCTET components");
+    failed |= check_status(&td, wrong_indefinite, sizeof(wrong_indefinite),
+                           RC_FAIL,
+                           "indefinite VisibleString alias rejects tag 26 fragment");
+    failed |= check_bytewise(&td, indefinite, sizeof(indefinite), "A", 1,
+                             "indefinite VisibleString alias streams bytewise");
+    return failed;
+}
+
+/*
+ * Preserve exact custom-operation fallback and untyped ANY child tags.
+ * Original source: Existing descriptor fallback and ASN_OSUBV_ANY contracts.
+ * Version/date: 1.0, 2026-10-21.
+ * Parameters: None; local descriptor copies retain recognized or custom ops.
+ * Returns: Zero when custom containment tags and opaque ANY content still pass.
+ * Errors: Failed decoder results are reported through check helpers.
+ * Responsible party: asn1c maintainers. History: Guards operation-specific
+ *   component matching against changes to custom operations and ANY values.
+ * Example: ANY with a UTF8String op still preserves a context-tagged child.
+ */
+static int
+check_operation_compatibility(void) {
+    static const ber_tlv_tag_t effective_tags[] = {
+        ASN_TAG_CLASS_CONTEXT | (1u << 2),
+        ASN_TAG_CLASS_UNIVERSAL | (12u << 2)
+    };
+    static const ber_tlv_tag_t containment_tags[] = {
+        ASN_TAG_CLASS_CONTEXT | (1u << 2),
+        ASN_TAG_CLASS_CONTEXT | (9u << 2),
+        ASN_TAG_CLASS_UNIVERSAL | (12u << 2)
+    };
+    static const uint8_t custom_fragment[] = {
+        0xa1, 0x05, 0x2c, 0x03, 0x0c, 0x01, 'A'
+    };
+    static const uint8_t any_context_child[] = {
+        0x2c, 0x03, 0x80, 0x01, 'A'
+    };
+    asn_TYPE_operation_t custom_operation = asn_OP_UTF8String;
+    asn_TYPE_descriptor_t custom_td = asn_DEF_UTF8String;
+    asn_TYPE_descriptor_t any_td = asn_DEF_UTF8String;
+    int failed = 0;
+
+    custom_td.op = &custom_operation;
+    custom_td.tags = effective_tags;
+    custom_td.tags_count = sizeof(effective_tags) / sizeof(effective_tags[0]);
+    custom_td.all_tags = containment_tags;
+    custom_td.all_tags_count = sizeof(containment_tags)
+        / sizeof(containment_tags[0]);
+    failed |= check_octets(&custom_td, custom_fragment,
+                           sizeof(custom_fragment), "A", 1,
+                           "custom operation retains exact final all_tags fallback");
+
+    any_td.specifics = &asn_SPC_ANY_specs;
+    failed |= check_status(&any_td, any_context_child,
+                           sizeof(any_context_child), RC_OK,
+                           "ASN_OSUBV_ANY preserves opaque context-tagged child");
     return failed;
 }
 
@@ -432,6 +591,8 @@ main(void) {
     check_explicit_retag();
     check_implicit_octets();
     check_character_string_fragments();
+    check_visible_alias_fragments();
+    check_operation_compatibility();
     check_octet_and_bit_fragments();
     check_malformed_descriptor();
     if(failures) fprintf(stderr, "%d BER tag check(s) failed\n", failures);
