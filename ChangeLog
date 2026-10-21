@@ -1,4 +1,9 @@
 Changes since v1.5.3:
+	* Documented a proposed incremental JER design, covering per-PDU framing,
+	  persistent typed decoding, limits, transactional sinks and split-input
+	  testing against X.697/ECMA-404. This entry describes a proposal, not a
+	  new streaming implementation. Motivated by issue #578 and PR #579 from
+	  Ruud Schramp (@Schramp); design by asn1c maintainers with Codex assistance.
 	* Verified the #578/#581 fixes against ITU-T X.680, X.690 and X.697
 	  (2021), X.690 Erratum 1, and ECMA-404. The standards review found a
 	  remaining fragment-validation gap in generated character-string aliases:

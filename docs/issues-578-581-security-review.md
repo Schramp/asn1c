@@ -49,6 +49,8 @@ geometric allocation growth. Pipes work without seeking. JER input must be
 finite: decoding starts at EOF and memory use remains proportional to total
 input size, with no configurable total-input quota. This is appropriate for
 the sample file converter, not an unrestricted live-stream service.
+The [incremental JER proposal](jer-streaming-design.md) describes a staged
+replacement for this workaround; it is a design, not implemented behavior.
 
 The shared converter loop also rejects stream read errors instead of retrying
 forever, and validates decoder consumption before subtracting retained lengths.
