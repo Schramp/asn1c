@@ -64,6 +64,34 @@ converter-example.c		# A default name for the example transcoder
 CODEC-BER:			# THIS IS A SPECIAL SECTION
 ber_decoder.h
 der_encoder.h
+cer_encoder.h
+cer_decoder.h
+cer_decoder.h cer_decoder.c
+cer_decoder.c ber_decoder.h cer_encoder.h asn_internal.h
+cer_encoder.h cer_encoder.c
+cer_encoder.c OCTET_STRING.h BIT_STRING.h BOOLEAN.h NULL.h
+cer_encoder.c NativeInteger.h NativeEnumerated.h NativeReal.h
+cer_encoder.c OPEN_TYPE.h constr_CHOICE.h constr_SEQUENCE_OF.h
+cer_encoder.c constr_SET_OF.h constr_SEQUENCE.h constr_SET.h
+cer_encoder.c constraints.h der_encoder.h asn_internal.h
+cer_encoder.c NativeInteger_ber.c NativeEnumerated_ber.c
+cer_encoder.c NativeReal_ber.c constr_CHOICE.c
+cer_encoder.c GeneralizedTime.h GeneralizedTime_ber.c REAL.h
+cer_encoder.c UTF8String.h UTF8String.c
+cer_encoder.c NumericString.h NumericString.c
+cer_encoder.c PrintableString.h PrintableString.c
+cer_encoder.c IA5String.h IA5String.c
+cer_encoder.c VisibleString.h VisibleString.c
+cer_encoder.c ISO646String.h ISO646String.c
+cer_encoder.c ObjectDescriptor.h ObjectDescriptor.c
+cer_encoder.c GeneralString.h GeneralString.c
+cer_encoder.c GraphicString.h GraphicString.c
+cer_encoder.c VideotexString.h VideotexString.c
+cer_encoder.c T61String.h T61String.c
+cer_encoder.c TeletexString.h TeletexString.c
+cer_encoder.c UniversalString.h UniversalString.c
+cer_encoder.c BMPString.h BMPString.c
+cer_encoder.c UTCTime.h UTCTime.c
 ber_decoder.h ber_decoder.c	# BER decoder support code
 der_encoder.h der_encoder.c	# DER encoder support code
 ANY.h ANY_ber.c
@@ -75,6 +103,23 @@ NativeInteger.h NativeInteger_ber.c
 NativeEnumerated.h NativeEnumerated_ber.c
 NativeReal.h NativeReal_ber.c asn_codecs_prim_ber.c
 OCTET_STRING.h OCTET_STRING_ber.c
+OCTET_STRING_ber.c BIT_STRING.h BIT_STRING.c
+OCTET_STRING_ber.c ObjectDescriptor.h ObjectDescriptor.c
+OCTET_STRING_ber.c UTF8String.h UTF8String.c
+OCTET_STRING_ber.c NumericString.h NumericString.c
+OCTET_STRING_ber.c PrintableString.h PrintableString.c
+OCTET_STRING_ber.c T61String.h T61String.c
+OCTET_STRING_ber.c TeletexString.h TeletexString.c
+OCTET_STRING_ber.c VideotexString.h VideotexString.c
+OCTET_STRING_ber.c IA5String.h IA5String.c
+OCTET_STRING_ber.c UTCTime.h UTCTime.c
+OCTET_STRING_ber.c GeneralizedTime.h GeneralizedTime.c
+OCTET_STRING_ber.c GraphicString.h GraphicString.c
+OCTET_STRING_ber.c VisibleString.h VisibleString.c
+OCTET_STRING_ber.c ISO646String.h ISO646String.c
+OCTET_STRING_ber.c GeneralString.h GeneralString.c
+OCTET_STRING_ber.c UniversalString.h UniversalString.c
+OCTET_STRING_ber.c BMPString.h BMPString.c
 OPEN_TYPE.h OPEN_TYPE_ber.c
 OBJECT_IDENTIFIER.h asn_codecs_prim_ber.c
 REAL.h asn_codecs_prim_ber.c

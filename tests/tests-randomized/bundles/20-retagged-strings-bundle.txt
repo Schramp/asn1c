@@ -1,0 +1,23 @@
+-- Bounded tagged strings exercise BER decoding through effective tag prefixes.
+T ::= [1] IMPLICIT UTF8String (SIZE(0..32))
+T ::= [2] IMPLICIT OCTET STRING (SIZE(0..32))
+T ::= [3] IMPLICIT BIT STRING (SIZE(0..32))
+T ::= [4] EXPLICIT UTF8String (SIZE(0..32))
+T ::= [5] EXPLICIT OCTET STRING (SIZE(0..32))
+T ::= [6] EXPLICIT BIT STRING (SIZE(0..32))
+
+-- Nested explicit wrappers contain implicitly tagged strings at the next level.
+T ::= SEQUENCE { x [1] EXPLICIT SEQUENCE { y [2] IMPLICIT UTF8String (SIZE(0..32)) } }
+T ::= SEQUENCE { x [1] EXPLICIT SEQUENCE { y [2] IMPLICIT OCTET STRING (SIZE(0..32)) } }
+T ::= SEQUENCE { x [1] EXPLICIT SEQUENCE { y [2] IMPLICIT BIT STRING (SIZE(0..32)) } }
+
+-- Zero-sized values deterministically reach empty BER compare/copy paths.
+T ::= [1] IMPLICIT UTF8String (SIZE(0))
+T ::= [2] IMPLICIT OCTET STRING (SIZE(0))
+T ::= [3] IMPLICIT BIT STRING (SIZE(0))
+T ::= [4] EXPLICIT UTF8String (SIZE(0))
+T ::= [5] EXPLICIT OCTET STRING (SIZE(0))
+T ::= [6] EXPLICIT BIT STRING (SIZE(0))
+T ::= SEQUENCE { x [1] EXPLICIT SEQUENCE { y [2] IMPLICIT UTF8String (SIZE(0)) } }
+T ::= SEQUENCE { x [1] EXPLICIT SEQUENCE { y [2] IMPLICIT OCTET STRING (SIZE(0)) } }
+T ::= SEQUENCE { x [1] EXPLICIT SEQUENCE { y [2] IMPLICIT BIT STRING (SIZE(0)) } }

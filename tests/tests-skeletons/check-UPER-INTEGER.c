@@ -8,6 +8,8 @@
 #include <INTEGER_uper.c>
 #include <per_support.c>
 #include <per_support.h>
+#include <uper_support.c>
+#include <uper_support.h>
 
 static int FailOut(const void *data, size_t size, void *op_key) {
     (void)data;

@@ -233,8 +233,19 @@ OCTET_STRING_new_fromBuf(const asn_TYPE_descriptor_t *td, const char *str,
 }
 
 /*
- * Lexicographically compare the common prefix of both strings,
- * and if it is the same return -1 for the smallest string.
+ * Purpose: compare OCTET STRING values in lexicographic order.
+ * Original source: asn1c OCTET STRING skeleton, derived from Lev Walkin's code.
+ * Version/date: 1.1, 2026-10-21.
+ * Inputs: td is a valid, non-null descriptor; aptr and bptr are nullable
+ *   OCTET_STRING_t values.
+ * Returns: a negative, zero, or positive value for less, equal, or greater.
+ * Exceptions: none. Malformed positive-size values sort after valid values;
+ *   malformed values sort by size. This ordering is defensive only; such values
+ *   are not valid ASN.1 values. Non-null addresses and backing lengths are trusted.
+ * Responsible party: asn1c maintainers.
+ * History: 1.0 compared byte prefixes; 1.1 skips zero-length memcmp and guards
+ *   malformed null buffers after the randomized empty-string sanitizer failure.
+ * Example: an empty OCTET STRING compares less than a one-byte value.
  */
 int
 OCTET_STRING_compare(const asn_TYPE_descriptor_t *td, const void *aptr,
@@ -246,39 +257,63 @@ OCTET_STRING_compare(const asn_TYPE_descriptor_t *td, const void *aptr,
     (void)specs;
     assert(!specs || specs->subvariant != ASN_OSUBV_BIT);
 
-    if(a && b) {
-        size_t common_prefix_size = a->size <= b->size ? a->size : b->size;
-        int ret = memcmp(a->buf, b->buf, common_prefix_size);
-        if(ret == 0) {
-            /* Figure out which string with equal prefixes is longer. */
-            if(a->size < b->size) {
-                return -1;
-            } else if(a->size > b->size) {
-                return 1;
-            } else {
-                return 0;
-            }
-        } else {
-            return ret < 0 ? -1 : 1;
-        }
-    } else if(!a && !b) {
+    if(!a) return b ? -1 : 0;
+    if(!b) return 1;
+
+    int a_malformed = a->size > 0 && !a->buf;
+    int b_malformed = b->size > 0 && !b->buf;
+
+    /* Order malformed objects after valid values without reading null data. */
+    if(a_malformed || b_malformed) {
+        if(a_malformed != b_malformed) return a_malformed ? 1 : -1;
+        if(a->size < b->size) return -1;
+        if(a->size > b->size) return 1;
         return 0;
-    } else if(!a) {
-        return -1;
-    } else {
-        return 1;
     }
 
+    size_t common_prefix_size = a->size <= b->size ? a->size : b->size;
+    int ret = 0;
+    if(common_prefix_size > 0) {
+        ret = memcmp(a->buf, b->buf, common_prefix_size);
+    }
+    if(ret == 0) {
+        /* Figure out which string with equal prefixes is longer. */
+        if(a->size < b->size) {
+            return -1;
+        } else if(a->size > b->size) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else {
+        return ret < 0 ? -1 : 1;
+    }
 }
 
+/*
+ * Purpose: copy a valid OCTET STRING value into an owned buffer.
+ * Original source: asn1c OCTET STRING skeleton, derived from Lev Walkin's code.
+ * Version/date: 1.1, 2026-10-21.
+ * Inputs: td is the descriptor, aptr points to the destination pointer, and
+ *   bptr is the source value or NULL to clear the destination.
+ * Returns: zero on success, or -1 for invalid input or allocation failure.
+ * Exceptions: none. A positive size requires a non-null source buffer; a size
+ *   that cannot include the trailing NUL allocation is rejected before mutation.
+ * Responsible party: asn1c maintainers.
+ * History: 1.0 copied all source sizes; 1.1 permits a null buffer only for an
+ *   empty source, skips zero-length memcpy, and rejects size overflow.
+ * Example: copying an empty value with a null source buffer creates a one-byte
+ *   destination buffer containing the trailing NUL.
+ */
 int
 OCTET_STRING_copy(const asn_TYPE_descriptor_t *td, void **aptr,
                      const void *bptr) {
-    const asn_OCTET_STRING_specifics_t *specs =
-        td->specifics ? (const asn_OCTET_STRING_specifics_t *)td->specifics
-                      : &asn_SPC_OCTET_STRING_specs;
-    OCTET_STRING_t *a = *aptr;
+    const asn_OCTET_STRING_specifics_t *specs;
+    OCTET_STRING_t *a;
     const OCTET_STRING_t *b = bptr;
+
+    if(!td || !aptr) return -1;
+    a = *aptr;
 
     if(!b) {
         if(a) {
@@ -291,6 +326,14 @@ OCTET_STRING_copy(const asn_TYPE_descriptor_t *td, void **aptr,
         return 0;
     }
 
+    /* Validate source metadata before allocating or changing the destination. */
+    if((b->size > 0 && !b->buf) || b->size == SIZE_MAX) return -1;
+
+    specs = td->specifics
+                ? (const asn_OCTET_STRING_specifics_t *)td->specifics
+                : &asn_SPC_OCTET_STRING_specs;
+    if(specs->struct_size < sizeof(OCTET_STRING_t)) return -1;
+
     if(!a) {
         a = *aptr = (OCTET_STRING_t *)CALLOC(1, specs->struct_size);
         if(!a) return -1;
@@ -298,7 +341,7 @@ OCTET_STRING_copy(const asn_TYPE_descriptor_t *td, void **aptr,
 
     void *buf = MALLOC(b->size + 1);
     if(!buf) return -1;
-    memcpy(buf, b->buf, b->size);
+    if(b->size > 0) memcpy(buf, b->buf, b->size);
     ((uint8_t *)buf)[b->size] = '\0';
 
     FREEMEM(a->buf);

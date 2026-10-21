@@ -1,0 +1,5 @@
+Unsupported DEFINITIONS ::= BEGIN
+
+Payload ::= SEQUENCE { value INTEGER }
+
+END

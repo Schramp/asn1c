@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdint.h>
+#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -13,8 +15,22 @@ enum encoding_rules { XER, JER };
 #define check_xer_bin(t, tag, buf, verify, verify_len)  check_impl(__LINE__, XER, t, tag,  buf, verify, verify_len)
 #define check_jer(t, buf, verify)       check_impl(__LINE__, JER, t, NULL, buf, verify, 0)
 
+/*
+ * Purpose: decode one XER or JER input and compare it with the expected bytes.
+ * Original source: asn1c OCTET STRING skeleton tests.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: lineno is the caller line; rules and type select the decoder;
+ *   tagname names an XER tag; xmlbuf is the input; verify and verify_len give
+ *   expected bytes, or a null verify requests rejection.
+ * Returns: none.
+ * Exceptions: none; assertion failures terminate the test process.
+ * Responsible party: asn1c maintainers.
+ * History: existing decoder regression helper, documented with the new tests.
+ * Example: check_xer(HEX, NULL, "<OCTET_STRING>41</OCTET_STRING>", "A").
+ */
 static void
-check_impl(int lineno, enum encoding_rules rules, enum encoding_type type, char *tagname, char *xmlbuf, char *verify, size_t verify_len) {
+check_impl(int lineno, enum encoding_rules rules, enum encoding_type type,
+           char *tagname, char *xmlbuf, char *verify, size_t verify_len) {
 	size_t xmllen = strlen(xmlbuf);
 	size_t verlen = verify_len ? verify_len : (verify ? strlen(verify) : 0);
 	asn_TYPE_descriptor_t *td = &asn_DEF_OCTET_STRING;
@@ -82,8 +98,20 @@ check_impl(int lineno, enum encoding_rules rules, enum encoding_type type, char 
 	ASN_STRUCT_FREE(*td, st);
 }
 
-static char buf[1024];
+/* state variable: shared output buffer for the small XER encoder fixtures. */
+static char buf[1024]; /* state variable: encoded bytes accumulated by write_buf. */
 
+/*
+ * Purpose: append encoded bytes to the shared XER test buffer.
+ * Original source: asn1c OCTET STRING skeleton tests.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: buffer and size describe bytes to append; key points to the offset.
+ * Returns: zero after appending.
+ * Exceptions: none; an oversized append fails through assert.
+ * Responsible party: asn1c maintainers.
+ * History: existing encoder callback, documented with the new tests.
+ * Example: OCTET_STRING_encode_xer(..., write_buf, &offset).
+ */
 static int
 write_buf(const void *buffer, size_t size, void *key) {
 	size_t *off = key;
@@ -93,6 +121,17 @@ write_buf(const void *buffer, size_t size, void *key) {
 	return 0;
 }
 
+/*
+ * Purpose: encode a text string as XER and compare its exact textual form.
+ * Original source: asn1c OCTET STRING skeleton tests.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: orig is the input string; encoded is the expected XER text.
+ * Returns: none.
+ * Exceptions: none; assertion failures terminate the test process.
+ * Responsible party: asn1c maintainers.
+ * History: existing encoder regression helper, documented with the new tests.
+ * Example: encode("hello", "hello").
+ */
 static void
 encode(char *orig, char *encoded) {
 	OCTET_STRING_t os;
@@ -113,8 +152,202 @@ encode(char *orig, char *encoded) {
 	ASN_STRUCT_RESET(asn_DEF_OCTET_STRING, &os);
 }
 
+/*
+ * Purpose: assert that two OCTET STRING structures compare with the expected sign.
+ * Original source: asn1c skeleton regression tests.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: line identifies the calling test; left and right are nullable values;
+ *   expected is -1, 0, or 1 for the required comparison sign.
+ * Returns: none.
+ * Exceptions: none; an unexpected comparison aborts through assert.
+ * Responsible party: asn1c maintainers.
+ * History: added for the zero-length OCTET STRING comparison regression.
+ * Example: check_octet_compare(__LINE__, &empty, &value, -1).
+ */
+static void
+check_octet_compare(int line, const OCTET_STRING_t *left,
+                    const OCTET_STRING_t *right, int expected) {
+    int actual = OCTET_STRING_compare(&asn_DEF_OCTET_STRING, left, right);
+
+    if((actual < 0) != (expected < 0)
+       || (actual > 0) != (expected > 0)) {
+        fprintf(stderr, "%03d: OCTET_STRING_compare returned %d, expected sign %d\n",
+                line, actual, expected);
+        assert(0);
+    }
+}
+
+/*
+ * Purpose: cover valid empty, ordinary, absent, and malformed OCTET STRING comparisons.
+ * Original source: asn1c skeleton regression tests.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: none; test values use local storage for their backing bytes.
+ * Returns: none.
+ * Exceptions: none; an incorrect comparison aborts through check_octet_compare.
+ * Responsible party: asn1c maintainers.
+ * History: added for the randomized explicit-string UBSan failure.
+ * Example: called by main before the text decoder tests.
+ */
+static void
+test_octet_string_compare(void) {
+    uint8_t empty_storage = 0;
+    uint8_t abc_bytes[] = {'a', 'b', 'c'};
+    uint8_t ab_bytes[] = {'a', 'b'};
+    uint8_t abd_bytes[] = {'a', 'b', 'd'};
+    OCTET_STRING_t null_empty = {0};
+    OCTET_STRING_t allocated_empty = {0};
+    OCTET_STRING_t abc = {0};
+    OCTET_STRING_t ab = {0};
+    OCTET_STRING_t abd = {0};
+    OCTET_STRING_t malformed_one = {0};
+    OCTET_STRING_t malformed_two = {0};
+
+    allocated_empty.buf = &empty_storage;
+    abc.buf = abc_bytes;
+    abc.size = sizeof(abc_bytes);
+    ab.buf = ab_bytes;
+    ab.size = sizeof(ab_bytes);
+    abd.buf = abd_bytes;
+    abd.size = sizeof(abd_bytes);
+    malformed_one.size = 1;
+    malformed_two.size = 2;
+
+    /* Every pair of null-backed and allocated zero-length values is equal. */
+    check_octet_compare(__LINE__, &null_empty, &null_empty, 0);
+    check_octet_compare(__LINE__, &null_empty, &allocated_empty, 0);
+    check_octet_compare(__LINE__, &allocated_empty, &null_empty, 0);
+    check_octet_compare(__LINE__, &allocated_empty, &allocated_empty, 0);
+
+    /* Preserve ordering for absent structures and both empty representations. */
+    check_octet_compare(__LINE__, NULL, NULL, 0);
+    check_octet_compare(__LINE__, NULL, &null_empty, -1);
+    check_octet_compare(__LINE__, &null_empty, NULL, 1);
+    check_octet_compare(__LINE__, &null_empty, &abc, -1);
+    check_octet_compare(__LINE__, &abc, &null_empty, 1);
+    check_octet_compare(__LINE__, &allocated_empty, &abc, -1);
+    check_octet_compare(__LINE__, &abc, &allocated_empty, 1);
+
+    /* Check equal prefixes, differing bytes, and the reverse comparisons. */
+    check_octet_compare(__LINE__, &ab, &abc, -1);
+    check_octet_compare(__LINE__, &abc, &ab, 1);
+    check_octet_compare(__LINE__, &abc, &abd, -1);
+    check_octet_compare(__LINE__, &abd, &abc, 1);
+    check_octet_compare(__LINE__, &abc, &abc, 0);
+
+    /* Malformed positive-size null buffers sort after valid values by size. */
+    check_octet_compare(__LINE__, &null_empty, &malformed_one, -1);
+    check_octet_compare(__LINE__, &malformed_one, &abc, 1);
+    check_octet_compare(__LINE__, &abc, &malformed_one, -1);
+    check_octet_compare(__LINE__, &malformed_one, &malformed_two, -1);
+    check_octet_compare(__LINE__, &malformed_two, &malformed_one, 1);
+    check_octet_compare(__LINE__, &malformed_one, &malformed_one, 0);
+    check_octet_compare(__LINE__, &null_empty, &malformed_two, -1);
+}
+
+/*
+ * Purpose: verify safe copies of empty values and rejection of malformed sources.
+ * Original source: asn1c skeleton regression tests.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: none; test values use local storage for source bytes.
+ * Returns: none.
+ * Exceptions: none; an incorrect result aborts through assert.
+ * Responsible party: asn1c maintainers.
+ * History: added for null-backed empty values and allocation-length overflow.
+ * Example: called by main before the text decoder tests.
+ */
+static void
+test_octet_string_copy(void) {
+    uint8_t empty_storage = 0;
+    uint8_t overflow_storage = 0;
+    OCTET_STRING_t null_empty = {0};
+    OCTET_STRING_t allocated_empty = {0};
+    OCTET_STRING_t malformed = {0};
+    OCTET_STRING_t overflow = {0};
+    OCTET_STRING_t destination = {0};
+    asn_OCTET_STRING_specifics_t small_specifics = {0};
+    asn_TYPE_descriptor_t small_descriptor = asn_DEF_OCTET_STRING;
+    OCTET_STRING_t *copy = NULL;
+    uint8_t *original_destination_buffer;
+    void *destination_pointer;
+    int result;
+
+    allocated_empty.buf = &empty_storage;
+    malformed.size = 1;
+    overflow.buf = &overflow_storage;
+    overflow.size = SIZE_MAX;
+
+    /* A null-backed empty source creates an owned, NUL-terminated copy. */
+    result = OCTET_STRING_copy(&asn_DEF_OCTET_STRING, (void **)&copy,
+                               &null_empty);
+    assert(result == 0);
+    assert(copy && copy->size == 0 && copy->buf && copy->buf[0] == '\0');
+    ASN_STRUCT_FREE(asn_DEF_OCTET_STRING, copy);
+    copy = NULL;
+
+    /* An allocated empty source replaces existing destination contents safely. */
+    result = OCTET_STRING_fromBuf(&destination, "old", 3);
+    assert(result == 0);
+    destination_pointer = &destination;
+    result = OCTET_STRING_copy(&asn_DEF_OCTET_STRING, &destination_pointer,
+                              &allocated_empty);
+    assert(result == 0);
+    assert(destination_pointer == &destination);
+    assert(destination.size == 0 && destination.buf && destination.buf[0] == '\0');
+
+    /* Invalid sources fail before changing an existing destination. */
+    result = OCTET_STRING_fromBuf(&destination, "keep", 4);
+    assert(result == 0);
+    original_destination_buffer = destination.buf;
+    destination_pointer = &destination;
+    result = OCTET_STRING_copy(&asn_DEF_OCTET_STRING, &destination_pointer,
+                              &malformed);
+    assert(result == -1);
+    assert(destination_pointer == &destination);
+    assert(destination.buf == original_destination_buffer);
+    assert(destination.size == 4);
+    assert(memcmp(destination.buf, "keep", 4) == 0);
+
+    /* SIZE_MAX uses a non-null dummy buffer to test overflow before any read. */
+    result = OCTET_STRING_copy(&asn_DEF_OCTET_STRING, &destination_pointer,
+                              &overflow);
+    assert(result == -1);
+    assert(destination_pointer == &destination);
+    assert(destination.buf == original_destination_buffer);
+    assert(destination.size == 4);
+    assert(memcmp(destination.buf, "keep", 4) == 0);
+
+    /* A too-small descriptor must be rejected before allocating a structure. */
+    small_specifics.struct_size = 1;
+    small_specifics.subvariant = ASN_OSUBV_STR;
+    small_descriptor.specifics = &small_specifics;
+    result = OCTET_STRING_copy(&small_descriptor, (void **)&copy, &null_empty);
+    assert(result == -1);
+    assert(copy == NULL);
+    result = OCTET_STRING_copy(&small_descriptor, &destination_pointer,
+                              &null_empty);
+    assert(result == -1);
+    assert(destination_pointer == &destination);
+    assert(destination.buf == original_destination_buffer);
+    assert(destination.size == 4);
+    assert(memcmp(destination.buf, "keep", 4) == 0);
+    ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_OCTET_STRING, &destination);
+}
+
+/*
+ * Purpose: run direct OCTET STRING safety tests and text codec regressions.
+ * Original source: asn1c OCTET STRING skeleton tests.
+ * Version/date: 1.1, 2026-10-21.
+ * Inputs: none.
+ * Returns: zero when all assertions pass.
+ * Exceptions: none; assertion failures terminate the test process.
+ * Responsible party: asn1c maintainers.
+ * History: now runs direct empty-value compare/copy regressions before codecs.
+ * Example: invoked by the check-OCTET_STRING test executable.
+ */
 int
 main() {
+	test_octet_string_compare();
+	test_octet_string_copy();
 
 	check_xer(HEX, 0, "<OCTET_STRING>41424</OCTET_STRING>",
 		"AB@");

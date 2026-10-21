@@ -1,0 +1,6 @@
+AliasReject DEFINITIONS ::= BEGIN
+
+Base ::= BOOLEAN
+Alias ::= Base
+
+END

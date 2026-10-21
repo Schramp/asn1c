@@ -36,6 +36,7 @@
         "dqpayload",
         "dquno",
         "Dubuisson",
+        "EBADF",
         "Elfring",
         "enber",
         "fbless",
@@ -64,7 +65,10 @@
         "getopt",
         "Grossel",
         "Grzegorz",
+        "iber",
         "icbor",
+        "icer",
+        "ider",
         "Imrich",
         "intmaxs",
         "ITAG",
@@ -84,6 +88,7 @@
         "NOINPUT",
         "NOTFIT",
         "ocbor",
+        "ocer",
         "OSFILE",
         "Pona",
         "pulkomandy",
@@ -114,5 +119,11 @@
         "Yann",
         "ybuf",
         "zhouvlia"
-    ]
+    ],
+    "chat.tools.terminal.autoApprove": {
+        "git remote": true,
+        "git fetch": true,
+        "git merge-base": true,
+        "printf": true
+    }
 }

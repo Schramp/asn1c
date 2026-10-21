@@ -2,6 +2,7 @@
 
 check_PROGRAMS = test-param-helper
 dist_check_SCRIPTS = check-bundles.sh
+TEST_EXTENSIONS = .txt .test
 
 #Filter out the coverage options from CFLAGS as we don't need
 #code coverage data for the tests executables
@@ -9,6 +10,7 @@ CFLAGS = $(filter-out $(CODE_COVERAGE_CFLAGS), @CFLAGS@)
 
 # Override single test fuzzing time using "make check FUZZ_TIME=1"
 FUZZ_TIME=10
+GENERATE_CORPUS=auto
 
 TESTS_ENVIRONMENT=                          \
     CC="${CC}"                              \
@@ -18,6 +20,7 @@ TESTS_ENVIRONMENT=                          \
     LDFLAGS="${LDFLAGS}"                    \
     LIBFUZZER_CFLAGS="${LIBFUZZER_CFLAGS}"  \
     FUZZ_TIME="${FUZZ_TIME}"                \
+    GENERATE_CORPUS="${GENERATE_CORPUS}"    \
     FUZZ_TARGETS="${FUZZ_TARGETS}"          \
     FUZZ_MAX_CORPUS_BYTES="${FUZZ_MAX_CORPUS_BYTES}" \
     FUZZ_ASAN_OPTIONS="${FUZZ_ASAN_OPTIONS}" \
@@ -48,11 +51,40 @@ TESTS += bundles/15-CHOICE-bundle.txt
 TESTS += bundles/16-SEQUENCE-bundle.txt
 TESTS += bundles/17-SEQUENCE-OF-bundle.txt
 TESTS += bundles/19-SET-OF-bundle.txt
+TESTS += bundles/20-retagged-strings-bundle.txt
 
 EXTRA_DIST =                    \
+    check-corpus.sh             \
+    check-corpus-policy.sh      \
     random-test-driver.c        \
     $(srcdir)/bundles/README    \
     $(srcdir)/bundles/*.txt
+
+# Mark the driver recipes recursive so GNU make passes jobserver descriptors
+# through the shell/script wrappers. Keep Automake's reporting and environment.
+# Both ordinary .txt bundles and dynamically split .test cases use this driver.
+run_bundle_test = p='$<'; \
+	$(am__set_b); \
+	$(am__check_pre) $(TEST_LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_TEST_LOG_DRIVER_FLAGS) $(TEST_LOG_DRIVER_FLAGS) -- $(TEST_LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
+
+%.log: %.txt
+	+@$(run_bundle_test)
+
+%.log: %.test
+	+@$(run_bundle_test)
+
+# Local-only corpus coverage: one Automake test per ASN.1 case for balanced jobs.
+# The recursive invocation inherits -j and explicitly disables timed fuzzing.
+.PHONY: check-corpus
+check-corpus: test-param-helper
+	+$(SHELL) $(srcdir)/check-corpus.sh "$(srcdir)" $(TESTS)
+
+# Cheap policy regressions run even when corpus generation is disabled in CI.
+check-local:
+	$(SHELL) $(srcdir)/check-corpus-policy.sh "$(abs_srcdir)/check-bundles.sh"
 
 clean-local:
 	rm -rf .tmp.*

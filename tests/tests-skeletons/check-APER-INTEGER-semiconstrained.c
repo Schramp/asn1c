@@ -9,6 +9,8 @@
 #include <INTEGER_aper.c>
 #include <per_support.c>
 #include <per_support.h>
+#include <uper_support.c>
+#include <uper_support.h>
 #include <aper_support.c>
 #include <aper_support.h>
 
@@ -86,7 +88,7 @@ test_semiconstrained_signed_encode_decode(int lineno, long value, long lbound) {
     pd.nbits = 8 * encoded_bytes + po.nboff;
     pd.moved = 0;
 
-    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts, 
+    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
                                    (void **)&reconstructed_st, &pd);
     if(dec_rval.code != RC_OK) {
         fprintf(stderr, "%d: Decoding failed for value %ld\n", lineno, value);
@@ -95,13 +97,13 @@ test_semiconstrained_signed_encode_decode(int lineno, long value, long lbound) {
 
     long reconstructed_value = 0;
     asn_INTEGER2long(reconstructed_st, &reconstructed_value);
-    
+
     if(reconstructed_value != value) {
         fprintf(stderr, "%d: Value mismatch: expected %ld, got %ld\n",
                 lineno, value, reconstructed_value);
         assert(!"Values should match");
     }
-    
+
     printf("  PASS: value %ld encoded/decoded correctly\n", value);
 
     ASN_STRUCT_RESET(asn_DEF_INTEGER, &st);
@@ -166,7 +168,7 @@ test_semiconstrained_unsigned_encode_decode(int lineno, unsigned long value, lon
     pd.nbits = 8 * encoded_bytes + po.nboff;
     pd.moved = 0;
 
-    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts, 
+    dec_rval = INTEGER_decode_aper(0, &asn_DEF_INTEGER, &cts,
                                    (void **)&reconstructed_st, &pd);
     if(dec_rval.code != RC_OK) {
         fprintf(stderr, "%d: Decoding failed for value %lu\n", lineno, value);
@@ -175,13 +177,13 @@ test_semiconstrained_unsigned_encode_decode(int lineno, unsigned long value, lon
 
     unsigned long reconstructed_value = 0;
     asn_INTEGER2ulong(reconstructed_st, &reconstructed_value);
-    
+
     if(reconstructed_value != value) {
         fprintf(stderr, "%d: Value mismatch: expected %lu, got %lu\n",
                 lineno, value, reconstructed_value);
         assert(!"Values should match");
     }
-    
+
     printf("  PASS: value %lu encoded/decoded correctly\n", value);
 
     ASN_STRUCT_RESET(asn_DEF_INTEGER, &st);

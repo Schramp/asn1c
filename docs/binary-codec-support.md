@@ -1,0 +1,253 @@
+# Binary codec support and dispatch
+
+Source-audited on 2026-10-12 against generated descriptors, the generic
+dispatcher, and CER regression cases. This records available operations, not
+blanket support for every ASN.1 type or proof of canonical conformance.
+
+| Selector | C encoder | C decoder |
+| --- | --- | --- |
+| `ATS_BER` | DER encoder; valid BER output | `ber_decode` |
+| `ATS_DER` | `der_encode` | `ber_decode` |
+| `ATS_CER` | `cer_encode` | `cer_decode` (strict) |
+| Basic/canonical OER | `oer_encode` | `oer_decode` |
+| Basic/canonical UPER | UPER encoder | `uper_decode_complete` |
+| Basic/canonical APER | APER encoder | `aper_decode_complete` |
+| `ATS_CBOR` | `cbor_encode` | `cbor_decode` |
+
+The table follows [asn_application.c](../skeletons/asn_application.c), its
+`ASN_DISABLE_*_SUPPORT` guards, and each type's operation descriptor where
+applicable. CER is a direct descriptor walker rather than an operation-table
+slot, so its support depends on the descriptor kinds and canonical value forms
+handled by that walker.
+
+## CER encoding and decoding
+
+[ber_decoder.h](../skeletons/ber_decoder.h) advertises decoding BER, DER, and
+CER. The implementation handles indefinite-length constructed values,
+end-of-contents markers, and segmented strings. `ATS_BER` and `ATS_DER` input
+use this permissive decoder.
+
+[cer_decoder.h](../skeletons/cer_decoder.h) provides strict `cer_decode()`,
+which `asn_decode(ATS_CER, ...)` and the converter's `-icer` selector use. It
+runs `ber_decode()`, re-encodes the value with `cer_encode()`, and requires the
+re-encoding to be byte-identical to the consumed input prefix. Noncanonical
+input is rejected: long-form lengths where short form applies, definite-length
+constructed values, BOOLEAN TRUE other than `FF`, non-minimal INTEGER, unsorted
+`SET OF`, unsegmented strings over 1000 octets, and similar forms. Coverage
+matches the descriptor kinds supported by the CER encoder.
+
+Invalid arguments return `RC_FAIL` with `EINVAL`. A BER result other than
+`RC_OK` (`RC_WMORE` or `RC_FAIL`) is returned with zero bytes consumed. A
+re-encoding mismatch returns `RC_FAIL` with `EBADF`. On failure, a structure
+allocated by the decoder is freed and caller-provided storage is reset.
+Trailing bytes after the first TLV are not consumed. The decoder is compiled
+only when neither `ASN_DISABLE_BER_SUPPORT` nor `ASN_DISABLE_CER_SUPPORT` is
+defined; otherwise a stub returns `RC_FAIL` with `ENOENT`. `-icer` requires
+CER generation, is rejected under `-no-gen-CER`, and buffers the whole input
+because it is not restartable.
+
+For scalar descriptors with explicit or named tags, CER input with indefinite
+constructed wrappers ending in a definite primitive is supported. Tested BER
+compatibility also includes a definite constructed child. A nested scalar
+wrapper chain that mixes definite and indefinite lengths among its constructed
+layers can still be rejected by the pre-existing `ber_check_tags` limitation.
+This is a BER-family input limitation; it does not restrict CER encoder
+output.
+
+Opaque `ANY` input retains the existing BER decoder's permissive byte-container
+behavior, including empty or multiple-TLV explicit containers. This is runtime
+compatibility, not a claim that such containers encode one standards-conforming
+open-type value. Legacy definite containers also preserve an exact `00 00`
+pair as opaque bytes; that pair does not close a definite frame. Malformed
+tag-zero headers and missing required EOCs are rejected. Length bounds,
+nesting, and EOC checks still apply. Typed string
+wrappers continue to require exactly one child value. The
+[regression-fix design](cer-encoder-plan.md#follow-up-design-for-the-three-generated-c-test-failures)
+documents this distinction and the character-string fragment-tag correction.
+
+The C runtime provides `cer_encode()` and `asn_encode(ATS_CER, ...)`, and the
+generated converter accepts `-ocer`. The C target enables CER encoding by
+default alongside BER support. `-no-gen-CER` disables CER encoding and
+strict decoding support; it need not remove the CER skeleton source from the shared BER-family
+dependency closure. `-no-gen-BER` also disables the shared BER-family
+dependencies. The encoder walks generated type descriptors; support is limited
+to descriptor kinds and canonical value forms that the walker implements. It
+does not add a CER operation-table slot or change that ABI.
+
+The current descriptor set covers BOOLEAN, NULL, raw and native
+INTEGER/ENUMERATED, raw REAL, native REAL stored as `float` or `double`,
+OBJECT IDENTIFIER and RELATIVE-OID with minimal complete base-128 arcs,
+BIT STRING, OCTET STRING, UTCTime, and GeneralizedTime. Built-in character
+strings are supported when their primitive operation matches a recognized
+runtime encoder: UTF8String, NumericString, PrintableString, IA5String,
+VisibleString/ISO646String, ObjectDescriptor,
+GeneralString, GraphicString, VideotexString, TeletexString/T61String,
+UniversalString, and BMPString. SEQUENCE, SET, CHOICE, SEQUENCE OF, and SET OF
+are supported through generated descriptors. Generated member metadata
+supplies tags and defaults; the encoder omits default-valued members. `SET`
+fields are ordered by their minimum effective tag, including the minimum
+alternative tag for a CHOICE.
+`SET OF` elements are ordered by their final CER encodings, comparing shorter
+encodings as if zero octets were appended for comparison only. Long supported
+strings use 1000-content-octet fragments; BIT STRING fragments reserve one
+content octet for the unused-bit count, leaving at most 999 payload octets.
+The fragment tag is universal 3 for BIT STRING and universal 4 for OCTET
+STRING and restricted character strings. Character-string outer tags retain
+their descriptor-specific values.
+Named BIT STRING values remove trailing zero bits; ordinary BIT STRING values
+preserve them. Member and explicit/implicit tag metadata is applied at each
+descriptor boundary.
+
+Typed open-type members are encoded when the parent selector resolves a
+concrete type. Opaque `ANY` and unresolved standalone open types are rejected;
+the encoder does not pass through arbitrary stored bytes. REAL encoding is
+limited to zero, special values, and minimal binary base-2 forms whose exponent
+uses at most eight octets; decimal and noncanonical raw forms are rejected.
+Unknown or custom primitive operations are also rejected. UTCTime values are
+validated and normalized to UTC seconds with `Z`, for output years 1950
+through 2049. GeneralizedTime accepts adapter-parsable hour-, minute-, and
+second-precision forms with an explicit `Z` or signed numeric offset; output
+is normalized to seconds with `Z`. Fractional seconds accept a comma or period
+on input, are limited to nine digits, and use a period in output with trailing
+zeroes removed. Fractional hours or minutes, missing zones, and excess
+fractional precision are rejected. Calendar and zone fields are validated,
+and normalization must stay within the four-digit year range 0001–9999.
+
+Primitive content capture uses a shallow descriptor copy with one resolved
+intrinsic tag; the CER walker applies the original descriptor and member
+wrappers afterward. CER tag-chain bounds therefore apply to those effective
+wrappers, independent of the primitive content adapter's tag limit.
+
+Resource ceilings default to 64 MiB encoded output, 128 MiB aggregate active
+scratch storage, 1,000,000 collection elements, 4,000,000 descriptor/value
+visits, and recursion depth 30. Descriptor tag chains are also capped at 30 by
+default. Both depth and tag-chain limits use `ASN_STACK_OVERFLOW_LIMIT`; the
+existing optional codec-context stack limit also applies to recursive
+traversal. An additional explicit member tag counts as another tag-chain layer,
+while a replacement tag does not. Excess tag chains return `EOVERFLOW` before
+the tag array is read. The four CER ceilings are configurable through
+`ASN_CER_MAX_ENCODED_SIZE`, `ASN_CER_MAX_SCRATCH_SIZE`, `ASN_CER_MAX_ELEMENTS`,
+and `ASN_CER_MAX_WORK_ITEMS`. Invalid values or malformed descriptor/count
+metadata return `EBADF`; exceeding configured element-count, tag-chain, depth,
+output, scratch, or work limits returns `EOVERFLOW`. Unsupported forms return
+`ENOENT`, a short direct buffer
+returns `ENOSPC`, and allocation or callback failures are reported as `ENOMEM`
+or `EIO`.
+
+The Rust backend currently emits CER encoding for top-level BOOLEAN, NULL, and
+finite nonextensible INTEGER ranges that fit in `i64`, plus a strict
+`decode_cer()` that accepts only the canonical short-form TLV.
+Rust codec defaults include UPER and CER; `-no-gen-UPER` selects CER-only
+generation. Other Rust types and codecs remain outside this implemented slice.
+
+CER is a constrained form of BER. The primary
+[X.690 (2015) text, sections 9.1, 9.2, 9.3, and 11.6][x690]
+specifies indefinite lengths for constructed encodings, segmented string
+forms, tag ordering for `SET` components, and ordering of complete `SET OF`
+encodings. String fragments use the 1000-content-octet boundary. CER encoding
+implements these rules for its supported descriptors, and strict CER decoding
+rejects input that does not match them.
+
+## Other binary families
+
+No additional mismatch was found between the generic binary selectors and their
+implemented codec families. Basic/canonical OER and PER decode selectors share
+the same family entrypoint. The DER decode selector shares the permissive BER
+decoder and is not a strict canonicality check; the CER selector is strict.
+
+CBOR uses a separate repository mapping for ASN.1 values. It is not an ASN.1
+encoding rule. Claims of complete deterministic encoding require checking more
+than shortest integer/length forms, including floating-point choices and map
+ordering under [RFC 8949 section 4.2](https://www.rfc-editor.org/rfc/rfc8949.html#section-4.2).
+This change does not establish blanket deterministic-CBOR conformance.
+
+The generated converter accepts `-iber` and `-ider` as permissive BER-family
+input selectors and `-icer` as the strict CER input selector. Output supports `-oder` and `-ocer` for their respective
+encoding rules.
+
+## PER flavor selection (UPER and APER)
+
+`-no-gen-UPER` and `-no-gen-APER` each omit every skeleton file of the disabled
+flavor (`uper_*`/`*_uper.c` or `aper_*`/`*_aper.c`) and define
+`ASN_DISABLE_UPER_SUPPORT` or `ASN_DISABLE_APER_SUPPORT`. Code needed by both
+flavors must therefore live in a module that both the `CODEC-UPER` and
+`CODEC-APER` sections of `skeletons/file-dependencies` emit, normally
+`per_support.[ch]`. One example is the checked range helpers
+`per_{long,imax,umax}_range_{rebase,unrebase}()`. An APER file that calls a
+`uper_support` function, or the reverse, compiles when both flavors are
+generated but breaks single-flavor projects. The 2026-10-20 fix moved the range
+helpers out of `uper_support.[ch]` for this reason.
+
+[check-PER-single-flavor.sh](../tests/tests-asn1c-smoke/check-PER-single-flavor.sh)
+runs this check quickly. It builds APER-only and UPER-only converters and asserts
+that no file of the disabled flavor is emitted. It round-trips constrained
+INTEGERs, checks that the bytes match a combined build, and fails on the
+pre-fix tree. The slower per-type smoke tests also run each `-no-gen-*` variant.
+The skeleton archives are `check_LTLIBRARIES`, so after moving skeleton symbols
+between files you must rebuild them with `make -C skeletons check`. Otherwise
+stale objects cause duplicate-symbol link errors in `tests/tests-skeletons`.
+
+## Verification
+
+The PER INTEGER security regressions are covered by
+[`check-PER-INTEGER-security.c`](../tests/tests-skeletons/check-PER-INTEGER-security.c).
+For native unsigned INTEGERs, both PER constraint-bound slots contain unsigned
+bit patterns even though the legacy structure declares them as `intmax_t`.
+Code must interpret both slots as `uintmax_t`, validate the bounds and offset,
+and only then add or subtract. The checked unsigned helpers in `per_support`
+also reject null output pointers and reversed bounds without changing output.
+APER range alignment uses a checked maximum offset rather than an inclusive
+signed range size, which can overflow at full-width bounds.
+
+For semi-constrained `INTEGER (0..MAX)`, decoding preserves the positive byte
+buffer directly, including values wider than `uintmax_t`. NativeInteger
+conversion remains responsible for rejecting values too wide for native
+storage. This restores zero-bound decoding; it does not add arbitrary-precision
+arithmetic for nonzero lower bounds or expand the existing encoder limits.
+The single-flavor smoke test also generates native uint64 fields whose lower
+or upper bounds exceed `INTMAX_MAX`, and round-trips them in APER-only,
+UPER-only and combined builds.
+
+The regression executable runs under the configured skeleton sanitizers and
+exhausts all 256 one-octet inputs for a seven-bit range near `UINTMAX_MAX`.
+It also checks truncated determinants/payloads, negative unsigned values,
+malformed API arguments and full signed-range encoding. The four codec entry
+points are split into documented helpers; Clang control-flow graphs give a
+maximum cyclomatic complexity of 19 for these codec functions, below the
+project limit of 20. Each function is also shorter than 200 lines.
+
+The 2026-10-12 fragment-tag and opaque-ANY compatibility correction passes the
+complete generated C suite (71/71) under the configured ASan/UBSan test flags.
+Freshly rebuilt normal, strict, and C89 skeleton archives pass the linked
+skeleton suite (52/52). The updated generated CER converter check passes all
+three codec-enable/disable configurations, and the generated Rust harness
+passes its 10 conformance tests and C UPER/CER interoperability checks. The
+main build and regenerated manuals also pass their checks. See the
+[follow-up design](cer-encoder-plan.md#follow-up-design-for-the-three-generated-c-test-failures)
+for the exact compatibility boundary and new negative vectors.
+
+The following records the earlier CER implementation qualification:
+
+The corrected tag-capture encoder passes the linked skeleton suite (52/52) and
+the fresh Rust harness (10 generated conformance checks). The Rust harness
+includes fresh C UPER/CER reference comparisons, C decoding of generated Rust
+UPER/CER bytes, codec-selection, and negative-schema checks. The unchanged C
+compiler suite passes 7/7. A fresh ASan/UBSan fuzz run processed 660,325
+mutations in 16 seconds without a sanitizer failure, and independent seed bytes
+passed. This is a short fuzz run, not a long campaign.
+
+The generated CER converter script passes for all three C codec-disable
+variants, including direct generated multi-wrapper vectors and CER re-decoding.
+All 28 generated smoke tests and the installed-toolchain qualification also
+pass. Source-distribution qualification passed with all 13 required assets
+present. The randomized driver is wired to feed BER-decoded corpus values to
+generic `ATS_CER` encoding. At that time `ATS_CER` input used the permissive
+BER decoder; it now uses strict `cer_decode()`.
+
+Strict CER decoding is covered by
+[check-CER-decode.c](../tests/tests-skeletons/check-CER-decode.c), updated
+`check-CER.c` and `check-binary-dispatch.c` skeleton tests, and strict and
+disabled-build cases in
+[check-CER.sh](../tests/tests-asn1c-smoke/check-CER.sh).
+
+[x690]: https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.690-201508-S%21%21PDF-E&lang=e&type=items

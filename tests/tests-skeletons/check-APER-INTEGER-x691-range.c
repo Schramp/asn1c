@@ -7,6 +7,8 @@
 #include <INTEGER.h>
 #include <INTEGER.c>
 #include <INTEGER_aper.c>
+#include <uper_support.c>
+#include <uper_support.h>
 #include <aper_support.c>
 #include <aper_support.h>
 #include <per_support.c>

@@ -1,0 +1,11 @@
+A-B DEFINITIONS ::= BEGIN
+
+First ::= BOOLEAN
+
+END
+
+A-b DEFINITIONS ::= BEGIN
+
+Second ::= NULL
+
+END

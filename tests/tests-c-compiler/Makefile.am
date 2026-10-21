@@ -81,6 +81,8 @@ TESTS += check-src/check-550.-gen-UPER.c
 TESTS += check-src/check-552.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-561.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-563.-gen-UPER.-gen-APER.c
+TESTS += check-src/check-569.-gen-UPER.c
+TESTS += check-src/check-570.c
 TESTS += check-src/check-173.-findirect-choice.-fcompound-names.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-184.c
 TESTS += check-src/check-185.c
@@ -90,6 +92,7 @@ TESTS += check-src/check-203.c
 TESTS += check-src/check-204.c
 TESTS += check-src/check-211.c
 TESTS += check-src/check-212.-fcompound-names.c
+TESTS += check-src/check-213.c
 
 if TEST_64BIT
 TESTS += check-src/check64-134.-gen-UPER.c

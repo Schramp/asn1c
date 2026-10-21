@@ -1,0 +1,17 @@
+LIB DEFINITIONS ::= BEGIN
+
+Flag ::= BOOLEAN
+
+END
+
+Core DEFINITIONS ::= BEGIN
+
+CoreFlag ::= BOOLEAN
+
+END
+
+Asn1cRuntime DEFINITIONS ::= BEGIN
+
+RuntimeCount ::= INTEGER (0..3)
+
+END

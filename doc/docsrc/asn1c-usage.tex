@@ -537,6 +537,10 @@ the ASN.1 syntax tree fixing stage and dump the reconstructed ASN.1
 specification to the standard output.}\\
 {\ttfamily -P} & {\small Dump the compiled output to the standard output instead of
 creating the target language files on disk.}\\
+{\ttfamily -{}-rust} & {\small Generate a standalone Cargo project using safe Rust and a copied
+runtime. The current subset provides UPER encode/decode and CER encoding and strict decoding for
+top-level BOOLEAN, NULL, and finite nonextensible INTEGER ranges fitting \texttt{i64}. Build the
+generated project with Cargo.}\\
 {\ttfamily -R} & {\small Restrict the compiler to generate only the ASN.1 tables, omitting the usual support code.}\\
 {\ttfamily -S~\emph{<directory>}} & {\small Use the specified directory with ASN.1 skeleton files.}\\
 {\ttfamily -X} & {\small Generate the XML DTD for the specified ASN.1 modules.}\\\\
@@ -573,7 +577,12 @@ may produce a shorter executable.}\\
 {\ttfamily -finteger-native-type=\emph{<mode>}} & {\small Select the fixed-width native C storage policy for constrained ASN.1 INTEGER types. Modes are \texttt{auto}, \texttt{int32}, \texttt{uint32}, \texttt{int64}, and \texttt{uint64}; the default is \texttt{auto}. The \texttt{auto} mode preserves the traditional \texttt{long}/\texttt{unsigned long}/INTEGER\_t selection. The explicit modes permit \texttt{int32\_t}, \texttt{uint32\_t}, \texttt{int64\_t}, or \texttt{uint64\_t} storage only when the INTEGER constraint fits that type. Larger or incompatible ranges are generated as INTEGER\_t, while their constraint bounds are still preserved, including unsigned 64-bit and arbitrary-precision bounds.}\\\\
 \textbf{Codecs Generation Options} & \textbf{Description}\\
 \midrule
-{\ttfamily -no-gen-BER} & {\small Do not generate the Basic Encoding Rules (BER, X.690) support code.}\\
+{\ttfamily -gen-CER} & {\small Generate CER encoding support and its required BER-family
+dependencies. CER support is enabled by default.}\\
+{\ttfamily -no-gen-CER} & {\small Do not generate CER encoding or strict CER decoding support.
+The converter then rejects \texttt{-icer}; the BER decoder may still accept CER-compatible input.}\\
+{\ttfamily -no-gen-BER} & {\small Do not generate BER-family support, including dependencies used
+by DER and CER encoding.}\\
 {\ttfamily -no-gen-XER} & {\small Do not generate the XML Encoding Rules (XER, X.693) support code.}\\
 {\ttfamily -no-gen-OER} & {\small Do not generate the Octet Encoding Rules (OER, X.696) support code.}\\
 {\ttfamily -no-gen-CBOR} & {\small Do not generate the Concise Binary Object Representation (CBOR, RFC~8949) support code. By default, CBOR support code is generated.}\\
@@ -678,6 +687,11 @@ int asn_check_constraints(
     char *errbuf,           /* Returned error description */
     size_t *errlen          /* Length of the error description */
 );
+int asn_check_constraints_with_syntax(
+    const asn_TYPE_descriptor_t *type_descriptor,
+    const void *struct_ptr,
+    int syntax, char *errbuf, size_t *errlen
+);
 \end{signature}
 
 \subsection*{Description}
@@ -689,6 +703,9 @@ Alternatively, they could be passed as \code{NULL}s.
 If constraints validation fails, \code{errlen} will contain the actual
 number of bytes used in \code{errbuf} to encode an error message.
 The message is going to be properly 0-terminated.
+For \code{CONTAINING} constraints, \code{asn_check_constraints()} uses BER.
+Use \code{asn_check_constraints_with_syntax()} when the contained value uses
+the same encoding rules as another transfer syntax.
 
 \subsection*{Return values}
 
@@ -697,7 +714,7 @@ and -1 if one or more ASN.1 constraints were violated.
 
 \subsection*{Example}
 
-\begin{codesample}[basicstyle=\scriptsize\listingfont]
+\begin{codesample}[basicstyle=\scriptsize\listingfont,literate={-}{{\char45}}1]
 Rectangle_t *rect = ...;
 
 char errbuf[128];  /* Buffer for error message */
@@ -1017,12 +1034,19 @@ int asn_random_fill(
     void **struct_ptr_ptr,/* Pointer to a target structure's ptr */
     size_t approx_max_length_limit
 );
+int asn_random_fill_with_syntax(
+    const asn_TYPE_descriptor_t *type_descriptor,
+    void **struct_ptr_ptr,
+    size_t approx_max_length_limit, int syntax
+);
 \end{signature}
 
 \subsection*{Description}
 
 Create or initialize a structure with random contents, according to the type
 specification and optional member constraints.
+The \code{asn_random_fill_with_syntax()} variant encodes values of types used
+by \code{CONTAINING} constraints using the specified transfer syntax.
 
 For best results the code should be generated without \cmd{-no-gen-UPER}
 options to \cmd{asn1c}. Making PER constraints code available in runtime
@@ -1072,7 +1096,9 @@ DER and CER are different subsets of BER.\newline
 \subsection*{Return values}
 \input{asn_dec_rval.inc}
 
-The \code{.consumed} value is in bytes.
+The \code{.consumed} value is in bytes. This call does not validate CER's
+additional canonical restrictions; use \code{asn\_decode(ATS\_CER)} or
+\code{cer\_decode()} for strict CER decoding.
 
 \subsection*{Restartability}
 
@@ -1769,6 +1795,11 @@ enum asn_transfer_syntax {
 };
 \end{codesample}
 
+Decoding with \texttt{ATS\_CER} is strict: \code{cer\_decode()} decodes the
+input as BER, re-encodes the value as CER, and fails (\code{errno} set to
+\code{EBADF}) unless the re-encoding is byte-identical to the consumed input.
+\texttt{ATS\_BER} and \texttt{ATS\_DER} input use the permissive BER decoder.
+
 Using this encoding selector, encoding and decoding becomes very generic:
 
 \noindent{}Encoding:
@@ -1793,6 +1824,141 @@ Rectangle_t *%$\underbracket{\textrm{\listingfont rect = 0}}$%;    /* %\textbf{\
 
 ... = %\textbf{asn\_decode}%(0, %\textbf{ATS\_BER}%, &asn_DEF_Rectangle, (void **)%$\underbracket{\textrm{\listingfont \&rect}}$%, buffer, buf_size);
 \end{codesample}
+
+\section{\label{sec:Encoding-CER}Encoding CER}
+
+The callback API is \texttt{cer\_encode()}; use
+\texttt{cer\_encode\_to\_buffer()} with caller-owned storage. The generic
+\texttt{asn\_encode()} and \texttt{asn\_encode\_to\_buffer()} functions select
+the same encoder with \texttt{ATS\_CER}.
+For example, encode a value into a caller-provided buffer:
+
+\begin{codesample}[basicstyle=\scriptsize\listingfont]
+Rectangle_t *rect = ...;
+uint8_t buffer[4096];
+asn_enc_rval_t er = cer_encode_to_buffer(
+    0, &asn_DEF_Rectangle, rect, buffer, sizeof(buffer));
+if(er.encoded < 0) {
+    /* Check errno for the reason encoding failed. */
+}
+\end{codesample}
+
+To send encoded bytes to a callback, use \texttt{cer\_encode()}:
+
+\begin{codesample}[basicstyle=\scriptsize\listingfont,literate={-}{{\char45}}1]
+static int write_bytes(const void *data, size_t size, void *key) {
+    FILE *stream = (FILE *)key;
+    return fwrite(data, 1, size, stream) == size ? 0 : -1;
+}
+asn_enc_rval_t er = cer_encode(
+    0, &asn_DEF_Rectangle, rect, write_bytes, stdout);
+\end{codesample}
+
+The generic form selects the same CER encoder:
+
+\begin{codesample}[basicstyle=\scriptsize\listingfont,literate={-}{{\char45}}1]
+asn_enc_rval_t er = asn_encode_to_buffer(
+    0, ATS_CER, &asn_DEF_Rectangle, rect, buffer, sizeof(buffer));
+\end{codesample}
+
+The direct \texttt{cer\_encode\_to\_buffer()} follows the direct DER
+encoder contract and reports failure when the buffer is too small. The generic
+\texttt{asn\_encode\_to\_buffer()} reports the complete required size in
+\texttt{.encoded}; when the buffer is short, only a prefix fits.
+
+Generated converter programs accept \texttt{-icer} for strict CER input and
+\texttt{-ocer} for CER output:
+
+\begin{bash}[literate={-}{{\char45}}1]
+./converter-example -iber -ocer input.ber > output.cer
+\end{bash}
+
+CER input is decoded strictly by \code{cer\_decode()}: the value is decoded
+as BER, re-encoded with \code{cer\_encode()}, and rejected unless the result
+is byte-identical to the consumed input. Long-form lengths where the short
+form applies, definite lengths on constructed values, non-\texttt{FF} BOOLEAN
+TRUE, non-minimal INTEGER, unsorted \texttt{SET OF}, and unsegmented strings
+over 1000 octets are rejected. Trailing bytes after the first TLV are not
+consumed. The converter buffers the whole \texttt{-icer} input. C support is
+generated by default; \texttt{-no-gen-CER} omits CER encoding and strict
+decoding (so \texttt{-icer} is rejected), while \texttt{-no-gen-BER} also
+disables its BER-family dependencies. The
+\texttt{ASN\_DISABLE\_CER\_SUPPORT} build macro disables the encoder and
+strict decoder; \code{cer\_decode()} then fails with \code{ENOENT}. Opaque \texttt{ANY}, unresolved
+standalone open types, and decimal or noncanonical raw \texttt{REAL} values
+are not encoded; raw \texttt{REAL} accepts only zero, special values, and
+minimal base-2 forms with exponents of at most eight octets. \texttt{UTCTime}
+is normalized to UTC seconds. \texttt{GeneralizedTime} requires an explicit
+zone and supports at most nine fractional-second digits; comma input is
+normalized to a period. The descriptor walker applies finite output, scratch,
+work, collection, recursive-traversal, and tag-chain limits. An additional
+explicit member tag counts against the tag-chain cap; see the binary codec
+support audit for defaults and the type boundary.
+
+Constructed character strings retain their outer type tag and encode their
+fragments with universal OCTET STRING tag 4. BIT STRING fragments use universal
+tag 3. BER input preserves legacy opaque \texttt{ANY} containers while checking
+their lengths, nesting, and EOC markers. Typed string wrappers require one
+child value; this compatibility does not imply canonical open-type validation.
+
+\section{\label{sec:Rust-output}Generating Rust code}
+
+The \texttt{-{}-rust} option selects a standalone Cargo project with a copied,
+safe Rust runtime. The compiler still parses and fixes ASN.1 in C; Cargo builds
+the generated Rust package. The current slice supports UPER encoding and
+decoding, plus CER encoding and strict decoding, for top-level BOOLEAN, NULL, and finite,
+nonextensible INTEGER ranges fitting signed 64-bit values.
+
+\begin{asn}[literate={-}{{\char45}}1]
+RustDemo DEFINITIONS ::= BEGIN
+Flag ::= BOOLEAN
+Empty ::= NULL
+Count ::= INTEGER (-10..10)
+END
+\end{asn}
+
+Generate and build the package offline:
+
+\begin{bash}[literate={-}{{\char45}}1]
+asn1c --rust -D generated RustDemo.asn1
+cargo check --offline --manifest-path generated/Cargo.toml
+cargo test --offline --manifest-path generated/Cargo.toml
+\end{bash}
+
+The generated module provides \texttt{encode\_cer()} for all three values.
+For UPER it provides \texttt{encode\_uper()} and \texttt{decode\_uper()}.
+For example:
+
+\begin{codesample}[basicstyle=\scriptsize\listingfont,literate={-}{{\char45}}1]
+use asn1c_generated::rust_demo::{Count, Empty, Flag};
+use asn1c_runtime::Limits;
+
+let limits = Limits::default();
+let flag = Flag::new(true);
+let cer = flag.encode_cer(&limits)?;
+assert_eq!(cer.bytes, [0x01, 0x01, 0xff]);
+
+let uper = flag.encode_uper(&limits)?;
+let decoded = Flag::decode_uper(&uper.bytes, &limits)?;
+assert!(decoded.value.value());
+
+let number = Count::new(-3)?;
+let number_cer = number.encode_cer(&limits)?;
+let empty_cer = Empty.encode_cer(&limits)?;
+\end{codesample}
+
+To generate only CER methods, pass \texttt{-{}-rust -no-gen-UPER}. The default
+output directory is \texttt{asn1c-rust}; use \texttt{-D} to choose another.
+The generator records its files in an ownership manifest and stages output
+before publishing it. It rejects unrelated existing files and symlinks in the
+destination. Use a fresh directory after adding application code or building
+with Cargo, which creates its own \texttt{target/} directory.
+
+Other ASN.1 forms and Rust codecs are not yet supported; unsupported requests
+fail before output is published. Generated \texttt{decode\_cer} accepts only
+canonical short-form TLVs and leaves trailing bytes unconsumed. The Rust
+package uses the Rust 2021 edition and has no third-party runtime dependencies.
+No minimum Rust compiler version is claimed.
 
 \section{\label{sec:Decoding-BER}Decoding BER}
 

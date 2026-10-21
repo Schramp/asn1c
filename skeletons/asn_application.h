@@ -36,7 +36,7 @@ enum asn_transfer_syntax {
      */
     ATS_BER,
     ATS_DER,
-    ATS_CER, /* Only decoding is supported */
+    ATS_CER, /* Strict canonical CER decode and encode when generated. */
     /*
      * X.696:
      * OER: Octet Encoding Rules.
@@ -84,6 +84,9 @@ enum asn_transfer_syntax {
  *      EINVAL: Incorrect parameters to the function, such as NULLs.
  *      ENOENT: Encoding transfer syntax is not defined (for this type).
  *      EBADF:  The structure has invalid form or content constraint failed.
+ *      EOVERFLOW: CER resource/depth limit exceeded.
+ *      ENOMEM: Internal bounded workspace allocation failed.
+ *      EIO: The output callback failed while encoding.
  *      The (.failed_type) and (.structure_ptr) MIGHT be set to the appropriate
  *      values at the place of failure, if at all possible.
  * WARNING: The (.encoded) field of the return value can exceed the buffer_size.
@@ -140,6 +143,8 @@ typedef int(asn_app_consume_bytes_f)(const void *buffer, size_t size,
  *      ENOENT: Encoding transfer syntax is not defined (for this type).
  *      EBADF:  The structure has invalid form or content constraint failed.
  *      EIO:    The (callback) has returned negative value during encoding.
+ *      EOVERFLOW: CER resource/depth limit exceeded.
+ *      ENOMEM: Internal bounded workspace allocation failed.
  */
 asn_enc_rval_t asn_encode(
     const asn_codec_ctx_t *opt_codec_parameters, /* See asn_codecs.h */

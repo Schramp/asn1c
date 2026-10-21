@@ -13,7 +13,8 @@
 #define __EXTENSIONS__
 #include <stdio.h>
 #include <sys/types.h>
-#include <stdlib.h>    /* for atoi(3) */
+#include <stdint.h>    /* for SIZE_MAX */
+#include <stdlib.h>    /* for atoi(3), strtol(3) */
 #include <getopt.h>    /* for getopt(3) */
 #include <string.h>    /* for strerror(3) */
 #include <sysexits.h>    /* for EX_* exit codes */
@@ -154,7 +155,11 @@ typedef struct {
 
 static syntax_selector input_encodings[] = {
     {"ber", ATS_BER, CODEC_OFFSET(ber_decoder),
-     "Input is in BER (Basic Encoding Rules) or DER"},
+     "Input is in BER, DER, or CER (BER-compatible decoding)"},
+    {"der", ATS_DER, CODEC_OFFSET(ber_decoder),
+     "Input is in DER (BER-compatible decoding, no canonical validation)"},
+    {"cer", ATS_CER, CODEC_OFFSET(ber_decoder),
+     "Input is in CER (strict: noncanonical encodings are rejected)"},
     {"oer", ATS_BASIC_OER, CODEC_OFFSET(oer_decoder),
      "Input is in OER (Octet Encoding Rules)"},
     {"per", ATS_UNALIGNED_BASIC_PER, CODEC_OFFSET(uper_decoder),
@@ -174,6 +179,10 @@ static syntax_selector input_encodings[] = {
 static syntax_selector output_encodings[] = {
     {"der", ATS_DER, CODEC_OFFSET(der_encoder),
      "Output as DER (Distinguished Encoding Rules)"},
+#if !defined(ASN_DISABLE_CER_SUPPORT) && !defined(ASN_DISABLE_BER_SUPPORT)
+    {"cer", ATS_CER, CODEC_OFFSET(der_encoder),
+     "Output as CER (Canonical Encoding Rules)"},
+#endif
     {"oer", ATS_CANONICAL_OER, CODEC_OFFSET(oer_encoder),
      "Output as Canonical OER (Octet Encoding Rules)"},
     {"per", ATS_UNALIGNED_CANONICAL_PER, CODEC_OFFSET(uper_encoder),
@@ -282,15 +291,22 @@ main(int ac, char *av[]) {
         opt_onepdu = 1;
         break;
     case 'b':
-        suggested_bufsize = atoi(optarg);
-        if(suggested_bufsize < 1
-            || suggested_bufsize > 16 * 1024 * 1024) {
+    {
+        char *endptr = 0;
+        long parsed_bufsize;
+
+        errno = 0;
+        parsed_bufsize = strtol(optarg, &endptr, 10);
+        if(errno == ERANGE || endptr == optarg || *endptr != '\0'
+           || parsed_bufsize < 1 || parsed_bufsize > 16L * 1024L * 1024L) {
             fprintf(stderr,
                 "-b %s: Improper buffer size (1..16M)\n",
                 optarg);
             exit(EX_UNAVAILABLE);
         }
+        suggested_bufsize = (ssize_t)parsed_bufsize;
         break;
+    }
     case 'c':
         opt_check = 1;
         break;
@@ -494,7 +510,8 @@ main(int ac, char *av[]) {
 #ifdef  JUNKTEST
             if(isyntax == ATS_RANDOM) {
                 structure = NULL;
-                if(asn_random_fill(pduType, &structure, random_max_size) != 0) {
+                if(asn_random_fill_with_syntax(pduType, &structure,
+                                               random_max_size, osyntax) != 0) {
                     fprintf(stderr, "Cannot generate a random value.\n");
                     assert(structure == NULL);
                     errno = EINVAL;
@@ -520,7 +537,8 @@ main(int ac, char *av[]) {
             if(opt_check) {
                 char errbuf[128];
                 size_t errlen = sizeof(errbuf);
-                if(asn_check_constraints(pduType, structure, errbuf, &errlen)) {
+                if(asn_check_constraints_with_syntax(pduType, structure,
+                                                     isyntax, errbuf, &errlen)) {
                     fprintf(stderr,
                             "%s: ASN.1 constraint "
                             "check failed: %s\n",
@@ -571,22 +589,49 @@ main(int ac, char *av[]) {
     return 0;
 }
 
+/*
+ * Retained-input state variable shared by successive one-PDU decode calls.
+ */
 static struct dynamic_buffer {
-    uint8_t *data;        /* Pointer to the data bytes */
-    size_t offset;        /* Offset from the start */
-    size_t length;        /* Length of meaningful contents */
-    int skip_bits;        /* Bits to skip at the start (PER sub-byte offset, 0..7) */
-    size_t allocated;    /* Allocated memory for data */
-    int    nreallocs;    /* Number of data reallocations */
-    off_t  bytes_shifted;    /* Number of bytes ever shifted */
+    uint8_t *data;        /* state variable: retained input storage. */
+    size_t offset;        /* state variable: first retained byte in storage. */
+    size_t length;        /* state variable: number of retained bytes. */
+    int skip_bits;        /* state variable: PER bits to skip at the start, 0..7. */
+    size_t allocated;     /* state variable: storage capacity in bytes. */
+    int nreallocs;        /* state variable: number of storage reallocations. */
+    off_t bytes_shifted;  /* state variable: bytes removed by storage compaction. */
 } DynamicBuffer;
 
 /*
- * Ensure that the buffer contains at least this amount of free space.
+ * Purpose: Append bytes to the converter's retained-input buffer.
+ * Source: Existing converter-example buffering, hardened for checked growth.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   data2add: source bytes to append; the source must not alias DynamicBuffer.data.
+ *   bytes: number of source bytes.
+ * Returns: 0 on success; -1 on overflow or allocation failure.
+ * Errors: Sets errno to EINVAL, EOVERFLOW, or ENOMEM on invalid input or growth.
+ * Responsible: asn1c maintainers.
+ * History: Added checked size arithmetic while preserving decoder buffering.
+ * Example: add_bytes_to_buffer(chunk, chunk_length) appends one input chunk.
  */
-static void add_bytes_to_buffer(const void *data2add, size_t bytes) {
+static int add_bytes_to_buffer(const void *data2add, size_t bytes) {
+    size_t used;
+    size_t needed;
 
-    if(bytes == 0) return;
+    if(bytes == 0) return 0;
+    if(!data2add) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if(DynamicBuffer.offset > SIZE_MAX - DynamicBuffer.length
+       || bytes > SIZE_MAX - DynamicBuffer.offset - DynamicBuffer.length) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    used = DynamicBuffer.offset + DynamicBuffer.length;
+    needed = DynamicBuffer.length + bytes;
 
     DEBUG("=> add_bytes(%" ASN_PRI_SIZE ") { o=%" ASN_PRI_SIZE
           " l=%" ASN_PRI_SIZE " sb=%d, s=%" ASN_PRI_SIZE " }",
@@ -596,8 +641,7 @@ static void add_bytes_to_buffer(const void *data2add, size_t bytes) {
         DynamicBuffer.skip_bits,
         DynamicBuffer.allocated);
 
-    if(DynamicBuffer.allocated
-       >= (DynamicBuffer.offset + DynamicBuffer.length + bytes)) {
+    if(DynamicBuffer.allocated >= used + bytes) {
         DEBUG("\tNo buffer reallocation is necessary");
     } else if(bytes <= DynamicBuffer.offset) {
         DEBUG("\tContents shifted by %" ASN_PRI_SIZE, DynamicBuffer.offset);
@@ -609,17 +653,24 @@ static void add_bytes_to_buffer(const void *data2add, size_t bytes) {
         DynamicBuffer.bytes_shifted += DynamicBuffer.offset;
         DynamicBuffer.offset = 0;
     } else {
-        size_t newsize = (DynamicBuffer.allocated << 2) + bytes;
-        void *p = MALLOC(newsize);
-        if(!p) {
-            perror("malloc()");
-            exit(EX_OSERR);
+        size_t newsize = DynamicBuffer.allocated;
+        void *p;
+
+        if(newsize <= SIZE_MAX / 2) {
+            newsize *= 2;
+        } else {
+            newsize = needed;
         }
-		if (DynamicBuffer.length) {
-			memcpy(p,
-					DynamicBuffer.data + DynamicBuffer.offset,
-					DynamicBuffer.length);
-		}
+        if(newsize < needed) newsize = needed;
+        p = MALLOC(newsize);
+        if(!p) {
+            errno = ENOMEM;
+            return -1;
+        }
+        if(DynamicBuffer.length) {
+            memcpy(p, DynamicBuffer.data + DynamicBuffer.offset,
+                   DynamicBuffer.length);
+        }
         FREEMEM(DynamicBuffer.data);
         DynamicBuffer.data = (uint8_t *)p;
         DynamicBuffer.offset = 0;
@@ -641,6 +692,90 @@ static void add_bytes_to_buffer(const void *data2add, size_t bytes) {
         DynamicBuffer.length,
         DynamicBuffer.skip_bits,
         DynamicBuffer.allocated);
+
+    return 0;
+}
+
+/*
+ * Purpose: Read all JER input before decoding so tokens never cross read chunks.
+ * Source: Converter-example input loop; full-input buffering follows the JER
+ *         large-file workaround while retaining every PDU for the normal loop.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   file: input stream positioned at the start of this file.
+ *   name: display name used in diagnostics.
+ *   chunk: scratch buffer used to read input.
+ *   chunk_size: positive capacity of the scratch buffer.
+ * Returns: 0 after EOF; -1 on read, overflow, or allocation failure.
+ * Errors: Sets errno and prints a diagnostic when buffering cannot complete.
+ *         Reads until EOF and retains memory proportional to the input size.
+ * Responsible: asn1c maintainers.
+ * History: Supports large seekable files and nonseekable streams without
+ *          decoding or discarding input in this helper.
+ * Example: read_jer_input(stdin, "<stdin>", chunk, sizeof(chunk)) buffers a stream.
+ */
+static int read_jer_input(FILE *file, const char *name, uint8_t *chunk,
+                          size_t chunk_size) {
+    size_t rd;
+
+    if(!file || !name || !chunk || chunk_size == 0) {
+        errno = EINVAL;
+        if(name) fprintf(stderr, "%s: Invalid JER input buffer\n", name);
+        return -1;
+    }
+    errno = 0;
+    while((rd = fread(chunk, 1, chunk_size, file)) != 0) {
+        if(add_bytes_to_buffer(chunk, rd) != 0) {
+            fprintf(stderr, "%s: Cannot buffer JER input: %s\n",
+                    name, strerror(errno));
+            return -1;
+        }
+    }
+    if(ferror(file)) {
+        if(errno == 0) errno = EIO;
+        fprintf(stderr, "%s: Cannot read JER input: %s\n",
+                name, strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Purpose: Reset per-file input state and buffer a complete JER stream.
+ * Source: Existing converter-example first-PDU preparation.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   isyntax: transfer syntax used to decode the input.
+ *   file: input stream positioned at the start of this file.
+ *   name: display name used in diagnostics.
+ *   chunk: scratch buffer used to read input.
+ *   chunk_size: positive capacity of the scratch buffer.
+ *   on_first_pdu: nonzero when starting a new input file.
+ * Returns: 0 when prepared; -1 if JER buffering fails.
+ * Errors: Propagates errno from read_jer_input.
+ * Responsible: asn1c maintainers.
+ * History: Keeps buffer reset and full-stream JER handling out of the decode loop.
+ * Example: prepare_input_stream(ATS_JER, file, name, chunk, 8192, 1).
+ */
+static int prepare_input_stream(enum asn_transfer_syntax isyntax, FILE *file,
+                                const char *name, uint8_t *chunk,
+                                size_t chunk_size, int on_first_pdu) {
+    if(!on_first_pdu) return 0;
+
+    FREEMEM(DynamicBuffer.data);
+    DynamicBuffer.data = 0;
+    DynamicBuffer.offset = 0;
+    DynamicBuffer.length = 0;
+    DynamicBuffer.skip_bits = 0;
+    DynamicBuffer.allocated = 0;
+    DynamicBuffer.bytes_shifted = 0;
+    DynamicBuffer.nreallocs = 0;
+
+    if(isyntax == ATS_JER || isyntax == ATS_JER_MINIFIED) {
+        return read_jer_input(file, name, chunk, chunk_size);
+    }
+    return 0;
 }
 
 static int
@@ -653,24 +788,311 @@ is_syntax_PER(enum asn_transfer_syntax syntax) {
 
 static int
 restartability_supported(enum asn_transfer_syntax syntax) {
-    return !is_syntax_PER(syntax);
+    /* Strict CER validates a complete value, so it restarts from scratch. */
+    return !is_syntax_PER(syntax) && syntax != ATS_CER;
 }
 
+/*
+ * Purpose: Decode one currently buffered input chunk with the selected codec.
+ * Source: Existing converter-example codec dispatch, extracted unchanged.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   isyntax: transfer syntax used to decode the input.
+ *   pduType: descriptor for the value to decode.
+ *   codec_ctx: optional codec context.
+ *   structure: address of the partially or fully decoded structure pointer.
+ *   input: bytes available for this decode attempt.
+ *   input_size: length of the available input.
+ *   extra_bits: receives unaligned bits consumed by no-pad PER decoding.
+ * Returns: The decoder status and consumed-input count.
+ * Errors: Returns RC_WMORE or RC_FAIL according to the selected codec.
+ * Responsible: asn1c maintainers.
+ * History: Extracted to keep file-loop control separate from codec dispatch.
+ * Example: decode_input_buffer(ATS_JER, type, context, &value, data, size, &bits).
+ */
+static asn_dec_rval_t
+decode_input_buffer(enum asn_transfer_syntax isyntax,
+                    asn_TYPE_descriptor_t *pduType,
+                    asn_codec_ctx_t *codec_ctx, void **structure,
+                    uint8_t *input, size_t input_size, int *extra_bits) {
+    asn_dec_rval_t rval;
+
+    *extra_bits = 0;
+    if(is_syntax_PER(isyntax) && opt_nopad) {
+        switch(isyntax) {
+#if !defined(ASN_DISABLE_UPER_SUPPORT)
+        case ATS_UNALIGNED_BASIC_PER:
+        case ATS_UNALIGNED_CANONICAL_PER:
+            rval = uper_decode(codec_ctx, pduType, structure, input,
+                               input_size, DynamicBuffer.skip_bits, 0);
+            *extra_bits = (DynamicBuffer.skip_bits + rval.consumed) % 8;
+            rval.consumed = (DynamicBuffer.skip_bits + rval.consumed) >> 3;
+            break;
+#endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) */
+#if !defined(ASN_DISABLE_APER_SUPPORT)
+        case ATS_ALIGNED_BASIC_PER:
+        case ATS_ALIGNED_CANONICAL_PER:
+            rval = aper_decode(codec_ctx, pduType, structure, input,
+                               input_size, DynamicBuffer.skip_bits, 0);
+            *extra_bits = (DynamicBuffer.skip_bits + rval.consumed) % 8;
+            rval.consumed = (DynamicBuffer.skip_bits + rval.consumed) >> 3;
+            break;
+#endif  /* !defined(ASN_DISABLE_APER_SUPPORT) */
+        default:
+            rval.code = RC_FAIL;
+            rval.consumed = 0;
+        }
+    } else {
+        rval = asn_decode(codec_ctx, isyntax, pduType, structure,
+                          input, input_size);
+    }
+
+    return rval;
+}
+
+/*
+ * Purpose: Select the bytes for one decode attempt and append newly read data.
+ * Source: Existing converter-example buffer selection logic.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   name: display name used in diagnostics.
+ *   pduType: descriptor for the partial value to free on allocation failure.
+ *   structure: address of the partial or decoded value pointer.
+ *   file_buffer: most recently read bytes.
+ *   bytes_read: number of bytes in file_buffer.
+ *   input: receives the bytes passed to the decoder.
+ *   input_size: receives the number of bytes passed to the decoder.
+ * Returns: 0 when input is ready; -1 if input retention fails.
+ * Errors: Prints a diagnostic, frees structure, and preserves errno on failure.
+ * Responsible: asn1c maintainers.
+ * History: Extracted to centralize retained-buffer append failures.
+ * Example: select_decode_input(name, type, &value, chunk, count, &data, &size).
+ */
+static int
+select_decode_input(const char *name, asn_TYPE_descriptor_t *pduType,
+                   void **structure, uint8_t *file_buffer, size_t bytes_read,
+                   uint8_t **input, size_t *input_size) {
+    if(DynamicBuffer.allocated) {
+        if(add_bytes_to_buffer(file_buffer, bytes_read) != 0) {
+            fprintf(stderr, "%s: Cannot buffer input: %s\n",
+                    name, strerror(errno));
+            ASN_STRUCT_FREE(*pduType, *structure);
+            *structure = 0;
+            return -1;
+        }
+        *input = DynamicBuffer.data + DynamicBuffer.offset;
+        *input_size = DynamicBuffer.length;
+    } else {
+        *input = file_buffer;
+        *input_size = bytes_read;
+    }
+
+    return 0;
+}
+
+/*
+ * Purpose: Retain undecoded input and advance past bytes consumed by the codec.
+ * Source: Existing converter-example dynamic-buffer position logic.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   name: display name used in diagnostics.
+ *   pduType: descriptor for a value to free on failure.
+ *   structure: address of the partial or decoded value pointer.
+ *   file_buffer: most recently read bytes.
+ *   bytes_read: number of bytes in file_buffer.
+ *   input_size: number of bytes offered to the decoder.
+ *   rval: decoder result; consumed is checked and may be reset after retention.
+ * Returns: 0 when positions are consistent; -1 for impossible counts or errors.
+ * Errors: Sets EINVAL if a codec claims to consume beyond its input.
+ * Responsible: asn1c maintainers.
+ * History: Adds consumed-count validation before buffer arithmetic.
+ * Example: retain_and_advance(name, type, &value, chunk, count, size, &result).
+ */
+static int
+retain_and_advance(const char *name, asn_TYPE_descriptor_t *pduType,
+                  void **structure, uint8_t *file_buffer, size_t bytes_read,
+                  size_t input_size, asn_dec_rval_t *rval) {
+    if(rval->consumed > input_size) {
+        fprintf(stderr, "%s: Decoder consumed beyond available input\n", name);
+        ASN_STRUCT_FREE(*pduType, *structure);
+        *structure = 0;
+        errno = EINVAL;
+        return -1;
+    }
+
+    if(DynamicBuffer.allocated == 0
+       && rval->code != RC_FAIL && rval->consumed < bytes_read) {
+        if(add_bytes_to_buffer(file_buffer + rval->consumed,
+                               bytes_read - rval->consumed) != 0) {
+            fprintf(stderr, "%s: Cannot buffer input: %s\n",
+                    name, strerror(errno));
+            ASN_STRUCT_FREE(*pduType, *structure);
+            *structure = 0;
+            return -1;
+        }
+        DynamicBuffer.bytes_shifted += (off_t)rval->consumed;
+        rval->consumed = 0;
+    }
+
+    if(DynamicBuffer.allocated) {
+        DynamicBuffer.offset += rval->consumed;
+        DynamicBuffer.length -= rval->consumed;
+    } else {
+        DynamicBuffer.bytes_shifted += (off_t)rval->consumed;
+    }
+
+    return 0;
+}
+
+/*
+ * Purpose: Discard partial values for codecs that cannot resume from RC_WMORE.
+ * Source: Existing converter-example restartability handling.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   isyntax: transfer syntax used for decoding.
+ *   pduType: descriptor for the partial value.
+ *   structure: address of the partial value pointer.
+ *   bytes_read: bytes read in the current iteration.
+ *   partial_printed: tracks whether partial output was already shown.
+ *   rval: decoder status and consumed-input count, updated for a retry.
+ * Returns/errors: None; frees an unsupported partial value and resets consumption.
+ * Responsible: asn1c maintainers.
+ * History: Extracted to keep restartability policy separate from file buffering.
+ * Example: discard_unrestartable_partial(syntax, type, &value, count, &shown,
+ *                                         &result).
+ */
+static void
+discard_unrestartable_partial(enum asn_transfer_syntax isyntax,
+                              asn_TYPE_descriptor_t *pduType,
+                              void **structure, size_t bytes_read,
+                              int *partial_printed, asn_dec_rval_t *rval) {
+    if(rval->code != RC_WMORE || restartability_supported(isyntax)) return;
+
+    if(opt_partial && *structure && bytes_read == 0 && !*partial_printed) {
+        fprintf(stderr, "\n=== Partial Decoding Results (RC_WMORE) ===\n");
+        asn_fprint(stderr, pduType, *structure);
+        fprintf(stderr, "=== End of Partial Results ===\n\n");
+        *partial_printed = 1;
+    }
+    ASN_STRUCT_FREE(*pduType, *structure);
+    *structure = 0;
+    rval->consumed = 0;
+}
+
+/*
+ * Purpose: Free a failed partial decode and report whether it represents EOF.
+ * Source: Existing converter-example decode-loop error path.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   isyntax: transfer syntax used for decoding.
+ *   pduType: descriptor for the partially decoded value.
+ *   structure: partial value to free.
+ *   name: display name used in diagnostics.
+ *   on_first_pdu: nonzero when no value has yet decoded from this file.
+ *   partial_printed: nonzero when partial output was already printed.
+ *   old_offset: input offset at the start of this decode attempt.
+ *   rval: final decoder status and consumed-input count.
+ * Returns: NULL, with errno zero for EOF or set for malformed/truncated data.
+ * Errors: Emits a detailed diagnostic and sets EBADMSG or ENOMSG on bad input.
+ * Responsible: asn1c maintainers.
+ * History: Extracted from data_decode_from_file without changing EOF rules.
+ * Example: return finish_decode_failure(syntax, type, value, name, first, 0,
+ *                                       offset, result);
+ */
 static void *
-data_decode_from_file(enum asn_transfer_syntax isyntax, asn_TYPE_descriptor_t *pduType, FILE *file, const char *name, ssize_t suggested_bufsize, int on_first_pdu) {
+finish_decode_failure(enum asn_transfer_syntax isyntax,
+                      asn_TYPE_descriptor_t *pduType, void *structure,
+                      const char *name, int on_first_pdu, int partial_printed,
+                      size_t old_offset, asn_dec_rval_t rval) {
+    size_t new_offset;
+
+    DEBUG("Clean up partially decoded %s", pduType->name);
+    if(opt_partial && structure && !partial_printed) {
+        fprintf(stderr, "\n=== Partial Decoding Results ===\n");
+        asn_fprint(stderr, pduType, structure);
+        fprintf(stderr, "=== End of Partial Results ===\n\n");
+    }
+    ASN_STRUCT_FREE(*pduType, structure);
+
+    new_offset = DynamicBuffer.bytes_shifted + DynamicBuffer.offset;
+    if(on_first_pdu
+       || DynamicBuffer.length
+       || new_offset - old_offset
+              > ((isyntax == ATS_BASIC_XER) ? sizeof("\r\n") - 1 : 0)) {
+#ifdef JUNKTEST
+        if(opt_jprob != 0.0) {
+            junk_failures++;
+            errno = 0;
+            return 0;
+        }
+#endif
+        DEBUG("ofp %d, no=%" ASN_PRI_SIZE ", oo=%" ASN_PRI_SIZE
+              ", dbl=%" ASN_PRI_SIZE,
+              on_first_pdu, new_offset, old_offset, DynamicBuffer.length);
+        if(rval.consumed > 0) {
+            fprintf(stderr, "%s: Decode failed at byte %" ASN_PRI_SIZE ": %s\n",
+                    name, new_offset + rval.consumed,
+                    rval.code == RC_WMORE ? "Unexpected end of input"
+                                          : "Input processing error");
+        } else {
+            fprintf(stderr, "%s: Decode failed past byte %" ASN_PRI_SIZE ": %s\n",
+                    name, new_offset,
+                    rval.code == RC_WMORE ? "Unexpected end of input"
+                                          : "Input processing error");
+        }
+#ifndef ENOMSG
+#define ENOMSG EINVAL
+#endif
+#ifndef EBADMSG
+#define EBADMSG EINVAL
+#endif
+        errno = rval.code == RC_WMORE ? ENOMSG : EBADMSG;
+    } else {
+        errno = 0;
+    }
+
+    return 0;
+}
+
+/*
+ * Purpose: Decode one ASN.1 value from a file while retaining input after it.
+ * Source: Existing converter-example input loop, updated for complete JER input.
+ * Version/date: 2026-10-21.
+ * Parameters:
+ *   isyntax: transfer syntax used to decode the input.
+ *   pduType: descriptor for the value to decode.
+ *   file: input stream; NULL indicates an input-open failure.
+ *   name: display name used in diagnostics.
+ *   suggested_bufsize: positive scratch-buffer size selected by the caller.
+ *   on_first_pdu: nonzero when starting a new input file.
+ * Returns: A decoded structure, or NULL at EOF or on error.
+ * Errors: Sets errno and prints a diagnostic for read, buffering, or decode errors.
+ * Responsible: asn1c maintainers.
+ * History: JER is retained in a checked buffer before one-PDU-at-a-time decoding.
+ * Example: data_decode_from_file(ATS_JER, type, file, name, 8192, 1).
+ */
+static void *
+data_decode_from_file(enum asn_transfer_syntax isyntax,
+                      asn_TYPE_descriptor_t *pduType, FILE *file,
+                      const char *name, ssize_t suggested_bufsize,
+                      int on_first_pdu) {
     static uint8_t *fbuf;
-    static ssize_t fbuf_size;
-    static asn_codec_ctx_t s_codec_ctx;
+    static ssize_t fbuf_size; /* Scratch-buffer capacity state variable. */
+    static asn_codec_ctx_t s_codec_ctx; /* Codec context state variable. */
     asn_codec_ctx_t *opt_codec_ctx = 0;
     void *structure = 0;
     asn_dec_rval_t rval;
     size_t old_offset;
-    size_t new_offset;
     int tolerate_eof;
     size_t rd;
 
     if(!file) {
         fprintf(stderr, "%s: %s\n", name, strerror(errno));
+        errno = EINVAL;
+        return 0;
+    }
+    if(suggested_bufsize <= 0) {
+        fprintf(stderr, "%s: Invalid input buffer size\n", name);
         errno = EINVAL;
         return 0;
     }
@@ -684,54 +1106,21 @@ data_decode_from_file(enum asn_transfer_syntax isyntax, asn_TYPE_descriptor_t *p
 
     /* prepare the file buffer */
     if(fbuf_size != suggested_bufsize) {
-        fbuf = (uint8_t *)REALLOC(fbuf, suggested_bufsize);
-        if(!fbuf) {
-            perror("realloc()");
-            exit(EX_OSERR);
+        uint8_t *new_fbuf = (uint8_t *)REALLOC(fbuf,
+                                               (size_t)suggested_bufsize);
+        if(!new_fbuf) {
+            errno = ENOMEM;
+            fprintf(stderr, "%s: Cannot allocate input buffer: %s\n",
+                    name, strerror(errno));
+            return 0;
         }
+        fbuf = new_fbuf;
         fbuf_size = suggested_bufsize;
     }
 
-    if(on_first_pdu) {
-        DynamicBuffer.offset = 0;
-        DynamicBuffer.length = 0;
-        DynamicBuffer.skip_bits = 0;
-        DynamicBuffer.allocated = 0;
-        DynamicBuffer.bytes_shifted = 0;
-        DynamicBuffer.nreallocs = 0;
-    }
-
-    /*
-     * Special handling for JER (JSON Encoding Rules):
-     * JER parsing requires complete JSON tokens and doesn't handle 
-     * partial tokens across read boundaries well. For large JSON files,
-     * size the read buffer to hold the entire file, so the loop below
-     * reads it in one go and no token spans a read boundary. The loop
-     * decodes the first PDU and keeps the remaining bytes in
-     * DynamicBuffer, so any further PDUs in the same file are decoded
-     * by the following calls.
-     */
-    if((isyntax == ATS_JER || isyntax == ATS_JER_MINIFIED) && on_first_pdu) {
-        long file_size;
-        
-        /* Get file size */
-        if(fseek(file, 0, SEEK_END) == 0) {
-            file_size = ftell(file);
-            fseek(file, 0, SEEK_SET);
-            
-            if(file_size > 0 && file_size > suggested_bufsize) {
-                /* File is larger than suggested buffer, read it all */
-                DEBUG("JER: File size %" ASN_PRI_SIZE " bytes, reading entire file", (size_t)file_size);
-                
-                /* Reallocate buffer to fit entire file */
-                fbuf = (uint8_t *)REALLOC(fbuf, file_size + 1);
-                if(!fbuf) {
-                    perror("realloc() for JER file");
-                    exit(EX_OSERR);
-                }
-                fbuf_size = file_size + 1;
-            }
-        }
+    if(prepare_input_stream(isyntax, file, name, fbuf, (size_t)fbuf_size,
+                            on_first_pdu) != 0) {
+        return 0;
     }
 
     old_offset = DynamicBuffer.bytes_shifted + DynamicBuffer.offset;
@@ -743,25 +1132,27 @@ data_decode_from_file(enum asn_transfer_syntax isyntax, asn_TYPE_descriptor_t *p
     int partial_printed = 0;  /* Track if we already printed partial results */
     
     for(tolerate_eof = 1;    /* Allow EOF first time buffer is non-empty */
-        (rd = fread(fbuf, 1, fbuf_size, file))
-        || feof(file) == 0
-        || (tolerate_eof && DynamicBuffer.length)
         ;) {
-        int      ecbits = 0;    /* Extra consumed bits in case of PER */
+        int      ecbits;        /* Extra consumed bits in case of PER */
         uint8_t *i_bptr;
         size_t   i_size;
 
-        /*
-         * Copy the data over, or use the original buffer.
-         */
-        if(DynamicBuffer.allocated) {
-            /* Append new data into the existing dynamic buffer */
-            add_bytes_to_buffer(fbuf, rd);
-            i_bptr = DynamicBuffer.data + DynamicBuffer.offset;
-            i_size = DynamicBuffer.length;
-        } else {
-            i_bptr = fbuf;
-            i_size = rd;
+        errno = 0;
+        rd = fread(fbuf, 1, (size_t)fbuf_size, file);
+        if(ferror(file)) {
+            if(errno == 0) errno = EIO;
+            fprintf(stderr, "%s: Cannot read input: %s\n",
+                    name, strerror(errno));
+            ASN_STRUCT_FREE(*pduType, structure);
+            return 0;
+        }
+        if(rd == 0 && feof(file) && !(tolerate_eof && DynamicBuffer.length)) {
+            break;
+        }
+
+        if(select_decode_input(name, pduType, &structure, fbuf, rd,
+                               &i_bptr, &i_size) != 0) {
+            return 0;
         }
 
         DEBUG("Decoding %" ASN_PRI_SIZE " bytes", i_size);
@@ -770,78 +1161,18 @@ data_decode_from_file(enum asn_transfer_syntax isyntax, asn_TYPE_descriptor_t *p
         junk_bytes_with_probability(i_bptr, i_size, opt_jprob);
 #endif
 
-        if(is_syntax_PER(isyntax) && opt_nopad) {
-            switch(isyntax) {
-#if !defined(ASN_DISABLE_UPER_SUPPORT)
-            case ATS_UNALIGNED_BASIC_PER:
-            case ATS_UNALIGNED_CANONICAL_PER:
-                rval = uper_decode(opt_codec_ctx, pduType, (void **)&structure,
-                                   i_bptr, i_size, DynamicBuffer.skip_bits, 0);
-                /* uper_decode() returns bits consumed relative to skip_bits.
-                 * Byte advance = (skip_bits + consumed) / 8; next skip = remainder. */
-                ecbits = (DynamicBuffer.skip_bits + rval.consumed) % 8;
-                rval.consumed = (DynamicBuffer.skip_bits + rval.consumed) >> 3;
-                break;
-#endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) */
-#if !defined(ASN_DISABLE_APER_SUPPORT)
-            case ATS_ALIGNED_BASIC_PER:
-            case ATS_ALIGNED_CANONICAL_PER:
-                rval = aper_decode(opt_codec_ctx, pduType, (void **)&structure,
-                                   i_bptr, i_size, DynamicBuffer.skip_bits, 0);
-                /* aper_decode() returns bits consumed relative to skip_bits.
-                 * Byte advance = (skip_bits + consumed) / 8; next skip = remainder. */
-                ecbits = (DynamicBuffer.skip_bits + rval.consumed) % 8;
-                rval.consumed = (DynamicBuffer.skip_bits + rval.consumed) >> 3;
-                break;
-#endif  /* !defined(ASN_DISABLE_APER_SUPPORT) */
-            default:
-                rval.code = RC_FAIL;
-                rval.consumed = 0;
-            }
-            /* Non-padded PER decoder */
-        } else {
-            rval = asn_decode(opt_codec_ctx, isyntax, pduType,
-                              (void **)&structure, i_bptr, i_size);
-        }
-        if(rval.code == RC_WMORE && !restartability_supported(isyntax)) {
-            /* PER does not support restartability — discard partial structure and retry */
-            if(opt_partial && structure && rd == 0 && !partial_printed) {
-                fprintf(stderr, "\n=== Partial Decoding Results (RC_WMORE) ===\n");
-                asn_fprint(stderr, pduType, structure);
-                fprintf(stderr, "=== End of Partial Results ===\n\n");
-                partial_printed = 1;
-            }
-            ASN_STRUCT_FREE(*pduType, structure);
-            structure = 0;
-            rval.consumed = 0;
-            /* skip_bits is unchanged: it holds the sub-byte start offset for this PDU */
-        }
+        rval = decode_input_buffer(isyntax, pduType, opt_codec_ctx,
+                                   &structure, i_bptr, i_size, &ecbits);
+        discard_unrestartable_partial(isyntax, pduType, &structure, rd,
+                                      &partial_printed, &rval);
 
         DEBUG("decode(%" ASN_PRI_SIZE ") consumed %" ASN_PRI_SIZE
               "+%db (%" ASN_PRI_SIZE "), code %d",
               DynamicBuffer.length, rval.consumed, ecbits, i_size, rval.code);
 
-        if(DynamicBuffer.allocated == 0) {
-            /*
-             * Flush remainder into the intermediate buffer.
-             */
-            if(rval.code != RC_FAIL && rval.consumed < rd) {
-                add_bytes_to_buffer(fbuf + rval.consumed,
-                    rd - rval.consumed);
-                DynamicBuffer.bytes_shifted += (off_t)rval.consumed;
-                rval.consumed = 0;
-                /* ecbits preserved; skip_bits set in RC_OK below */
-            }
-        }
-
-        /*
-         * Adjust position inside the source buffer.
-         */
-        if(DynamicBuffer.allocated) {
-            DynamicBuffer.offset += rval.consumed;
-            DynamicBuffer.length -= rval.consumed;
-        } else {
-            DynamicBuffer.bytes_shifted += (off_t)rval.consumed;
+        if(retain_and_advance(name, pduType, &structure, fbuf, rd, i_size,
+                              &rval) != 0) {
+            return 0;
         }
 
         switch(rval.code) {
@@ -867,74 +1198,9 @@ data_decode_from_file(enum asn_transfer_syntax isyntax, asn_TYPE_descriptor_t *p
         break;
     }
 
-    DEBUG("Clean up partially decoded %s", pduType->name);
-    
-    /* If partial decoding option is enabled and we haven't already printed, print what we decoded so far */
-    if(opt_partial && structure && !partial_printed) {
-        fprintf(stderr, "\n=== Partial Decoding Results ===\n");
-        asn_fprint(stderr, pduType, structure);
-        fprintf(stderr, "=== End of Partial Results ===\n\n");
-    }
-    
-    ASN_STRUCT_FREE(*pduType, structure);
-
-    new_offset = DynamicBuffer.bytes_shifted + DynamicBuffer.offset;
-
-    /*
-     * Print a message and return failure only if not EOF,
-     * unless this is our first PDU (empty file).
-     */
-    if(on_first_pdu
-    || DynamicBuffer.length
-    || new_offset - old_offset > ((isyntax == ATS_BASIC_XER)?sizeof("\r\n")-1:0)
-    ) {
-
-#ifdef    JUNKTEST
-        /*
-         * Nothing's wrong with being unable to decode junk.
-         * Simulate EOF.
-         */
-        if(opt_jprob != 0.0) {
-            junk_failures++;
-            errno = 0;
-            return 0;
-        }
-#endif
-
-        DEBUG("ofp %d, no=%" ASN_PRI_SIZE ", oo=%" ASN_PRI_SIZE ", dbl=%" ASN_PRI_SIZE,
-            on_first_pdu, new_offset, old_offset,
-            DynamicBuffer.length);
-        
-        /* Provide detailed error information */
-        if(rval.consumed > 0) {
-            /* We have position information about where the failure occurred */
-            fprintf(stderr, "%s: "
-                "Decode failed at byte %" ASN_PRI_SIZE ": %s\n",
-                name, new_offset + rval.consumed,
-                (rval.code == RC_WMORE)
-                    ? "Unexpected end of input"
-                    : "Input processing error");
-        } else {
-            fprintf(stderr, "%s: "
-                "Decode failed past byte %" ASN_PRI_SIZE ": %s\n",
-                name, new_offset,
-                (rval.code == RC_WMORE)
-                    ? "Unexpected end of input"
-                    : "Input processing error");
-        }
-#ifndef    ENOMSG
-#define    ENOMSG EINVAL
-#endif
-#ifndef    EBADMSG
-#define    EBADMSG EINVAL
-#endif
-        errno = (rval.code == RC_WMORE) ? ENOMSG : EBADMSG;
-    } else {
-        /* Got EOF after a few successful PDUs */
-        errno = 0;
-    }
-
-    return 0;
+    return finish_decode_failure(isyntax, pduType, structure, name,
+                                 on_first_pdu, partial_printed, old_offset,
+                                 rval);
 }
 
 /* Dump the buffer out to the specified FILE */
@@ -995,4 +1261,3 @@ junk_bytes_with_probability(uint8_t *buf, size_t size, double prob) {
     }
 }
 #endif    /* JUNKTEST */
-

@@ -33,17 +33,11 @@ ssize_t uper_get_nsnnwn(asn_per_data_t *pd);
 int uper_get_constrained_whole_number(asn_per_data_t *pd, uintmax_t *v, int nbits);
 
 /*
- * Rebase the given value as an offset into the range specified by the
- * lower bound (lb) and upper bound (ub).
- * RETURN VALUES:
- *  -1: Conversion failed due to range problems.
- *   0: Conversion was successful.
+ * NOTE: per_{long,imax,umax}_range_{rebase,unrebase}() are shared by the
+ * UPER and APER codecs and are therefore declared in <per_support.h>
+ * (included above) and defined in per_support.c, which is shipped with
+ * both the CODEC-UPER and CODEC-APER skeleton sections.
  */
-int per_long_range_rebase(long, intmax_t lb, intmax_t ub, unsigned long *output);
-int per_imax_range_rebase(intmax_t v, intmax_t lb, intmax_t ub, uintmax_t *output);
-/* The inverse operation: restores the value by the offset and its bounds. */
-int per_long_range_unrebase(unsigned long inp, intmax_t lb, intmax_t ub, long *outp);
-int per_imax_range_unrebase(uintmax_t inp, intmax_t lb, intmax_t ub, intmax_t *outp);
 
 /* X.691-2008/11, #11.5 */
 int uper_put_constrained_whole_number_u(asn_per_outp_t *po, uintmax_t v, int nbits);

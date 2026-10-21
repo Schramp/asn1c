@@ -5,6 +5,7 @@
 #include "asn1c_ioc.h"
 #include "asn1c_naming.h"
 #include "asn1c_encoding.h"
+#include "asn1c_rust.h"
 #include <asn1fix_export.h>
 
 /* Global integer native storage policy; see asn1compiler.h */
@@ -15,16 +16,109 @@ static void default_logger_cb(int, const char *fmt, ...);
 static int compiler_fatal_count;	/* FATAL diagnostics by default_logger_cb */
 static int asn1c_compile_expr(arg_t *arg, const asn1c_ioc_table_and_objset_t *);
 static int asn1c_detach_streams(asn1p_expr_t *expr);
+static int asn1_compile_c(asn1p_t *, const char *, const char *,
+                          enum asn1c_flags, int, int, char **, int);
+static int asn1c_validate_dispatch_arguments(asn1p_t *, const char *,
+                                            const char *, int, int, char **,
+                                            asn1c_target_e);
+static int asn1c_prepare_dependencies(arg_t *, enum asn1c_flags);
+static int asn1c_apply_encoding_controls_to_modules(asn1p_t *);
+static int asn1c_compile_modules(arg_t *, enum asn1c_flags);
+static int asn1c_compile_module(arg_t *, asn1p_module_t *, enum asn1c_flags);
+static void asn1c_cleanup_streams(asn1p_t *);
 static void asn1c_mark_pdu_dependencies(arg_t *arg);
 static void asn1c_mark_expr_dependencies(arg_t *arg, asn1p_expr_t *expr);
 static void asn1c_mark_ioc_table_dependencies(arg_t *arg, asn1p_ioc_table_t *ioc_table);
 
+/*
+ * Dispatch a fixed tree to the selected complete code-generation backend.
+ * Parameters: compiler inputs retain the historical asn1_compile() meanings;
+ * target_options selects C or supplies Rust runtime and codec settings.
+ * Returns zero on success or a negative error code; does not throw. Original
+ * source: new dispatcher around the existing C compiler. Version/date: 0.1.0,
+ * 2026-10-11. Responsible party: asn1c maintainers. History: C remains the
+ * default. Example: asn1_compile_with_target(..., &rust_options).
+ */
 int
-asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_flags flags,
-		int argc, int optc, char **argv, int complex_threshold) {
+asn1_compile_with_target(asn1p_t *asn, const char *datadir,
+                         const char *destdir, enum asn1c_flags flags,
+                         int argc, int optc, char **argv, int complex_threshold,
+                         const asn1c_target_options_t *target_options) {
+	asn1c_target_e target = target_options ? target_options->target
+	                                       : ASN1C_TARGET_C;
+	if(target != ASN1C_TARGET_C && target != ASN1C_TARGET_RUST) {
+		errno = EINVAL;
+		fprintf(stderr, "asn1c: invalid code-generation target\n");
+		return -1;
+	}
+	if(asn1c_validate_dispatch_arguments(asn, datadir, destdir, argc, optc,
+	                                      argv, target)) return -1;
+	if(target_options && target_options->target == ASN1C_TARGET_RUST) {
+		return asn1c_rust_compile(asn, target_options->rust_runtime_dir,
+		                           destdir, target_options->rust_codecs);
+	}
+	return asn1_compile_c(asn, datadir, destdir, flags, argc, optc, argv,
+	                      complex_threshold);
+}
+
+/*
+ * Validate pointers and argument counts before dispatch can dereference them.
+ * Parameters: asn is the fixed tree; datadir and destdir are C asset/output
+ * paths; argc, optc, and argv describe original options; target controls which
+ * paths are required. Returns zero or -1 with errno set to EINVAL. Original
+ * source: new public target dispatcher. Version/date: 0.1.0, 2026-10-11.
+ * Responsible party: asn1c maintainers. History: prevents invalid API calls
+ * from reaching backend code. Example: rejects argc > 0 with argv == NULL.
+ */
+static int
+asn1c_validate_dispatch_arguments(asn1p_t *asn, const char *datadir,
+                                  const char *destdir, int argc, int optc,
+                                  char **argv, asn1c_target_e target) {
+	int i;
+	if(!asn || argc < 0 || optc < 0 || optc > argc || (argc > 0 && !argv))
+		goto invalid;
+	for(i = 0; i < argc; i++) {
+		if(!argv[i]) goto invalid;
+	}
+	if(target == ASN1C_TARGET_C && (!datadir || !destdir)) goto invalid;
+	return 0;
+invalid:
+	errno = EINVAL;
+	fprintf(stderr, "asn1c: invalid compiler input or argument vector\n");
+	return -1;
+}
+
+/*
+ * Preserve the existing public C compiler entry point and defaults.
+ * Parameters: all arguments are passed unchanged to the C backend. Returns
+ * zero on success or a negative error code; does not throw. Original source:
+ * historical asn1_compile() API. Version/date: 0.1.0, 2026-10-11.
+ * Responsible party: asn1c maintainers. History: delegates through target
+ * dispatch with C selected. Example: existing C callers are unchanged.
+ */
+int
+asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir,
+             enum asn1c_flags flags, int argc, int optc, char **argv,
+             int complex_threshold) {
+	const asn1c_target_options_t c_options = {ASN1C_TARGET_C, NULL, 0};
+	return asn1_compile_with_target(asn, datadir, destdir, flags, argc, optc,
+	                                argv, complex_threshold, &c_options);
+}
+
+/*
+ * Run the unchanged C compilation pipeline for the compatibility backend.
+ * Parameters: arguments preserve the historical asn1_compile() API contract.
+ * Returns zero on success or a negative error code. Original source: existing
+ * C compiler implementation. Version/date: 0.1.0, 2026-10-11. Responsible
+ * party: asn1c maintainers. History: extracted behind target dispatch without
+ * changing C behavior. Example: called only by asn1_compile_with_target().
+ */
+static int
+asn1_compile_c(asn1p_t *asn, const char *datadir, const char *destdir,
+		 enum asn1c_flags flags, int argc, int optc, char **argv,
+		 int complex_threshold) {
 	arg_t arg_s = {0};
 	arg_t *arg = &arg_s;
-	asn1p_module_t *mod;
 	int ret;
 	int fatal_count_at_start = compiler_fatal_count;
 
@@ -43,91 +137,11 @@ asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_
 	arg->asn = asn;
 	arg->complex_threshold = complex_threshold;
 
-	/*
-	 * If -flist-deps is specified, list dependencies and exit
-	 */
-	if(flags & A1C_LIST_DEPS) {
-		if(flags & (A1C_PDU_ALL | A1C_PDU_AUTO | A1C_PDU_TYPE)) {
-			asn1c_mark_pdu_dependencies(arg);
-			/* List all marked dependencies */
-			TQ_FOR(mod, &(asn->modules), mod_next) {
-				TQ_FOR(arg->expr, &(mod->members), next) {
-					if(arg->expr->_mark & TM_PDU_DEPENDENCY) {
-						printf("%s\n", arg->expr->Identifier);
-					}
-				}
-			}
-			return 0;
-		} else {
-			/* -flist-deps requires -pdu option */
-			FATAL("-flist-deps requires -pdu={all|auto|Type} option");
-			return -1;
-		}
-	}
-
-	/*
-	 * If -fgen-only-pdu-deps is specified, mark all PDU dependencies before compilation
-	 */
-	if(flags & A1C_GEN_ONLY_PDU_DEPS) {
-		if(flags & (A1C_PDU_ALL | A1C_PDU_AUTO | A1C_PDU_TYPE)) {
-			asn1c_mark_pdu_dependencies(arg);
-		} else {
-			/* -fgen-only-pdu-deps requires -pdu option */
-			FATAL("-fgen-only-pdu-deps requires -pdu={all|auto|Type} option");
-			return -1;
-		}
-	}
-
-	/*
-	 * Apply encoding controls to types before code generation
-	 */
-	TQ_FOR(mod, &(asn->modules), mod_next) {
-		if(asn1c_apply_encoding_controls(asn, mod) < 0)
-			return -1;
-	}
-
-	/*
-	 * Compile each individual top level structure.
-	 */
-	TQ_FOR(mod, &(asn->modules), mod_next) {
-		TQ_FOR(arg->expr, &(mod->members), next) {
-			/* Skip encoding instructions - they're not real types to compile */
-			if(arg->expr->_mark & TM_ENCODING_INSTRUCTION) {
-				continue;
-			}
-			
-			/* Skip types that are not PDU dependencies if -fgen-only-pdu-deps is set */
-			if((flags & A1C_GEN_ONLY_PDU_DEPS) && 
-			   !(arg->expr->_mark & TM_PDU_DEPENDENCY)) {
-				DEBUG("Skipping non-PDU type: %s", arg->expr->Identifier);
-				continue;
-			}
-
-			arg->ns = asn1_namespace_new_from_module(mod, 0);
-
-			compiler_streams_t *cs = NULL;
-
-			if(asn1c_attach_streams(arg->expr))
-				return -1;
-
-			cs = arg->expr->data;
-			cs->target = OT_TYPE_DECLS;
-			arg->target = cs;
-
-			ret = asn1c_compile_expr(arg, NULL);
-			if(ret) {
-				FATAL("Cannot compile \"%s\" (%x:%x) at line %d",
-					arg->expr->Identifier,
-					arg->expr->expr_type,
-					arg->expr->meta_type,
-					arg->expr->_lineno);
-				return ret;
-			}
-
-			asn1_namespace_free(arg->ns);
-			arg->ns = 0;
-		}
-	}
+	ret = asn1c_prepare_dependencies(arg, flags);
+	if(ret) return ret > 0 ? 0 : ret;
+	if(asn1c_apply_encoding_controls_to_modules(asn)) return -1;
+	ret = asn1c_compile_modules(arg, flags);
+	if(ret) return ret;
 
 	if(c_name_clash(arg)) {
 		if(arg->flags & A1C_COMPOUND_NAMES) {
@@ -153,11 +167,7 @@ asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_
 	if(asn1c_save_compiled_output(arg, datadir, destdir, argc, optc, argv))
 		return -1;
 
-	TQ_FOR(mod, &(asn->modules), mod_next) {
-		TQ_FOR(arg->expr, &(mod->members), next) {
-			asn1c_detach_streams(arg->expr);
-		}
-	}
+	asn1c_cleanup_streams(asn);
 
 	/*
 	 * Some FATAL diagnostics let the compilation proceed "for better
@@ -167,6 +177,132 @@ asn1_compile(asn1p_t *asn, const char *datadir, const char *destdir, enum asn1c_
 		return -1;
 
 	return 0;
+}
+
+/*
+ * Validate and perform dependency-only compiler modes before code generation.
+ * Parameters: arg holds the fixed tree and callbacks; flags select PDU behavior.
+ * Returns 1 when dependency listing completed, 0 to continue, or -1 on error.
+ * Original source: extracted from the historical C compiler. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: bounded
+ * the C target dispatcher. Example: asn1c_prepare_dependencies(arg, flags).
+ */
+static int
+asn1c_prepare_dependencies(arg_t *arg, enum asn1c_flags flags) {
+	if(flags & A1C_LIST_DEPS) {
+		asn1p_module_t *module;
+		if(!(flags & (A1C_PDU_ALL | A1C_PDU_AUTO | A1C_PDU_TYPE))) {
+			FATAL("-flist-deps requires -pdu={all|auto|Type} option");
+			return -1;
+		}
+		asn1c_mark_pdu_dependencies(arg);
+		TQ_FOR(module, &arg->asn->modules, mod_next) {
+			TQ_FOR(arg->expr, &module->members, next) {
+				if(arg->expr->_mark & TM_PDU_DEPENDENCY)
+					printf("%s\n", arg->expr->Identifier);
+			}
+		}
+		return 1;
+	}
+	if(flags & A1C_GEN_ONLY_PDU_DEPS) {
+		if(!(flags & (A1C_PDU_ALL | A1C_PDU_AUTO | A1C_PDU_TYPE))) {
+			FATAL("-fgen-only-pdu-deps requires -pdu={all|auto|Type} option");
+			return -1;
+		}
+		asn1c_mark_pdu_dependencies(arg);
+	}
+	return 0;
+}
+
+/*
+ * Apply C encoding instructions to every fixed module before visiting types.
+ * Parameters: asn is the fixed tree. Returns zero on success or -1 if a module
+ * fails processing. Original source: historical C compiler loop. Version/date:
+ * 0.1.0, 2026-10-11. Responsible party: asn1c maintainers. History: extracted
+ * to keep target compilation within source-unit limits. Example: called before
+ * asn1c_compile_modules().
+ */
+static int
+asn1c_apply_encoding_controls_to_modules(asn1p_t *asn) {
+	asn1p_module_t *module;
+	TQ_FOR(module, &asn->modules, mod_next) {
+		if(asn1c_apply_encoding_controls(asn, module) < 0) return -1;
+	}
+	return 0;
+}
+
+/*
+ * Compile all selected top-level declarations in the fixed tree.
+ * Parameters: arg is the C backend context; flags select PDU filtering.
+ * Returns zero or the first type compilation error. Original source: extracted
+ * from the historical C compiler. Version/date: 0.1.0, 2026-10-11. Responsible
+ * party: asn1c maintainers. History: bounded C backend callable. Example:
+ * asn1c_compile_modules(arg, flags).
+ */
+static int
+asn1c_compile_modules(arg_t *arg, enum asn1c_flags flags) {
+	asn1p_module_t *module;
+	TQ_FOR(module, &arg->asn->modules, mod_next) {
+		int ret = asn1c_compile_module(arg, module, flags);
+		if(ret) return ret;
+	}
+	return 0;
+}
+
+/*
+ * Compile selected declarations belonging to one ASN.1 module.
+ * Parameters: arg is the backend context; module supplies declarations; flags
+ * select PDU filtering. Returns zero or the first visitor error. Original
+ * source: extracted from the historical C type loop. Version/date: 0.1.0,
+ * 2026-10-11. Responsible party: asn1c maintainers. History: bounded per-module
+ * emission. Example: asn1c_compile_module(arg, module, flags).
+ */
+static int
+asn1c_compile_module(arg_t *arg, asn1p_module_t *module,
+		     enum asn1c_flags flags) {
+	TQ_FOR(arg->expr, &module->members, next) {
+		compiler_streams_t *streams;
+		int ret;
+		if(arg->expr->_mark & TM_ENCODING_INSTRUCTION) continue;
+		if((flags & A1C_GEN_ONLY_PDU_DEPS)
+		   && !(arg->expr->_mark & TM_PDU_DEPENDENCY)) {
+			DEBUG("Skipping non-PDU type: %s", arg->expr->Identifier);
+			continue;
+		}
+		arg->ns = asn1_namespace_new_from_module(module, 0);
+		if(asn1c_attach_streams(arg->expr)) return -1;
+		streams = arg->expr->data;
+		streams->target = OT_TYPE_DECLS;
+		arg->target = streams;
+		ret = asn1c_compile_expr(arg, NULL);
+		if(ret) {
+			FATAL("Cannot compile \"%s\" (%x:%x) at line %d",
+				arg->expr->Identifier, arg->expr->expr_type,
+				arg->expr->meta_type, arg->expr->_lineno);
+			return ret;
+		}
+		asn1_namespace_free(arg->ns);
+		arg->ns = NULL;
+	}
+	return 0;
+}
+
+/*
+ * Detach all temporary output streams from fixed-tree expressions.
+ * Parameters: asn is the tree whose compiler streams are released. Returns no
+ * value and raises no exception. Original source: historical C compiler loop.
+ * Version/date: 0.1.0, 2026-10-11. Responsible party: asn1c maintainers.
+ * History: extracted during bounded C target dispatch. Example:
+ * asn1c_cleanup_streams(asn).
+ */
+static void
+asn1c_cleanup_streams(asn1p_t *asn) {
+	asn1p_module_t *module;
+	asn1p_expr_t *expr;
+	TQ_FOR(module, &asn->modules, mod_next) {
+		TQ_FOR(expr, &module->members, next)
+			asn1c_detach_streams(expr);
+	}
 }
 
 static int

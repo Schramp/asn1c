@@ -361,6 +361,7 @@ tests/tests-asn1c-smoke/Makefile            \
 tests/tests-randomized/Makefile             \
 tests/tests-c-compiler/Makefile             \
 tests/tests-skeletons/Makefile              \
+tests/tests-rust-compiler/Makefile           \
 tests/ioc-v2x/Makefile                      \
 tests/ieee1609-ioc/Makefile                 \
 tests/f1ap-regression/Makefile              \

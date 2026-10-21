@@ -1,8 +1,156 @@
-v1.5.3: 2026-10-07
+Changes since v1.5.3:
+	* Fixed the retagged-string randomized bundle's GCC UBSan failure when a
+	  valid empty UTF8String reached OCTET_STRING_compare with a null backing
+	  buffer. Empty comparisons/copies now avoid null C-library arguments;
+	  hardened the corresponding BIT STRING operations and invalid copy-size
+	  handling. Added deterministic empty tagged-string regressions alongside
+	  the randomized cases. CI failure reported by the repository maintainer;
+	  fixes and tests by asn1c maintainers with Codex/Luna assistance. This is
+	  follow-up to the #578/#581 review; original reports by Ruud Schramp
+	  (@Schramp).
+	* Documented a proposed incremental JER design, covering per-PDU framing,
+	  persistent typed decoding, limits, transactional sinks and split-input
+	  testing against X.697/ECMA-404. This entry describes a proposal, not a
+	  new streaming implementation. Motivated by issue #578 and PR #579 from
+	  Ruud Schramp (@Schramp); design by asn1c maintainers with Codex assistance.
+	* Verified the #578/#581 fixes against ITU-T X.680, X.690 and X.697
+	  (2021), X.690 Erratum 1, and ECMA-404. The standards review found a
+	  remaining fragment-validation gap in generated character-string aliases:
+	  their final all_tags entry can still be the character-string tag.
+	  Built-in component matching now enforces universal OCTET STRING tag 4
+	  (or BIT STRING tag 3) below effective explicit wrappers, preserving ANY
+	  and custom-operation behavior. Added alias-fragment regressions and
+	  the published X.690 "Jones" examples. Corrected check-25's invalid
+	  positive component tags while retaining all old tag forms as explicit
+	  negative mutations; also covered all four JSON whitespace characters.
+	  Standards review and follow-up correction by asn1c maintainers with
+	  Codex/Luna assistance; original reporter and patch-provider credits
+	  follow below.
+	* Fixed issue #578: the JER converter now retains every PDU in large
+	  concatenated inputs and checks decode failures instead of returning a
+	  partial value as success. Replaced seek-based whole-file sizing with
+	  checked stream buffering, including pipes; checked buffer growth and
+	  released retained input before processing another file. Shared converter
+	  handling now rejects read errors and impossible decoder consumption.
+	  Added generated converter regressions for large/small multi-PDU inputs and malformed
+	  input. Report and original PR #579 by Ruud Schramp (@Schramp), with
+	  investigation assisted by Claude Code; security hardening and extended
+	  tests by asn1c maintainers with Codex/Luna assistance.
+	* Fixed issue #581 and completed PR #580: BER string wrapper checks use
+	  the effective wire tag chain while fragment checks retain the descriptor's
+	  final all_tags tag. The original PR changed the fragment fallback too,
+	  accepting invalid VisibleString fragments and failing check-25 in all
+	  three C CI jobs. Preserved that rejection test and added effective-tag,
+	  malformed-fragment, generated-alias and randomized-string coverage.
+	  Credits: Ruud Schramp (@Schramp) for issue #581 and its correct patch;
+	  javier (@mr-j0nes) for PR #580 and the original skeleton regression;
+	  asn1c maintainers with Codex/Luna assistance for security corrections
+	  and extended regression coverage. See docs/issues-578-581-security-review.md.
+	* Fixed PER security-review regressions in native unsigned 64-bit ranges:
+	  APER/UPER now interpret both signed metadata slots as unsigned when the
+	  type uses unsigned native storage, validate the complete range, and
+	  reject invalid offsets before addition. Bounds above INTMAX_MAX work
+	  without wrapping. Restored arbitrary-precision INTEGER (0..MAX)
+	  decoding; native storage conversion still rejects values that do not fit.
+	  Removed signed overflow in the APER encoder's full-range size calculation.
+	  Added sanitized boundary, malformed/truncated-input and native-overflow
+	  regressions, and generated uint64 coverage in the single-flavor smoke test.
+	  Split PER INTEGER entry points into documented, bounded helpers, with
+	  argument validation and checked fragmented-buffer growth.
+	* Fixed builds generated with -no-gen-UPER (APER only). The PER range
+	  helpers per_{long,imax,umax}_range_{rebase,unrebase}() used by both
+	  INTEGER_aper.c and INTEGER_uper.c were defined only in uper_support.[ch],
+	  which asn1c emits for the CODEC-UPER section alone. APER-only projects
+	  therefore failed to compile with "call to undeclared function". The
+	  helpers now live in per_support.[ch], which both CODEC-UPER and
+	  CODEC-APER emit. -no-gen-UPER/-no-gen-APER still omit every file of
+	  the disabled flavor. Added the check-PER-single-flavor.sh smoke test.
+	  It builds APER-only and UPER-only converters, checks that no file of the
+	  disabled flavor is emitted, round-trips constrained INTEGERs and checks
+	  that the bytes match a combined build. This fixes the 17 asn1c-smoke
+	  failures.
+	* Added a strict C CER decoder, cer_decode(), which runs ber_decode(),
+	  re-encodes the value with cer_encode(), and rejects input (EBADF) that
+	  is not byte-identical to the consumed TLV. asn_decode(ATS_CER) and the
+	  generated converter's -icer now use it; ATS_BER and ATS_DER remain
+	  permissive. -icer requires CER generation, is rejected under
+	  -no-gen-CER, and buffers the whole input. ASN_DISABLE_BER_SUPPORT or
+	  ASN_DISABLE_CER_SUPPORT builds a stub failing with ENOENT. The Rust
+	  runtime adds strict decode_boolean_cer, decode_null_cer, and
+	  decode_integer_cer, and generated Rust types emit decode_cer alongside
+	  encode_cer whenever CER is selected. Added skeleton, smoke, and Rust
+	  runtime/interop regressions, including live C-generated CER vectors.
+	* Skip unused randomized corpus generation when LibFuzzer is disabled.
+	  Added GENERATE_CORPUS=auto/yes/no and a local-only check-corpus target
+	  that splits bundles into parallel cases without timed fuzzing. Inner
+	  builds share the caller's job budget. Corpus/fuzz success markers are
+	  separate, and policy/failure regressions run in the ordinary checks.
+	* Corrected CER restricted-character-string fragments to use universal
+	  OCTET STRING tags, preserving the outer string type tag. BER decoding
+	  no longer accepts a character-type tag in a nested OCTET STRING-only
+	  fragment position. Restored legacy opaque ANY container compatibility
+	  without removing parent-length, nesting, or EOC validation. Added fixed
+	  byte-vector and malformed/streaming regressions for generated C tests
+	  25, 60, and 62; randomized corruption coverage is retained.
+	  All 71 generated C checks and 52 linked skeleton checks pass, along
+	  with CER codec-disable variants and Rust/C interoperability checks.
+	* Added --rust as a complete output mode with native safe Rust UPER
+	  encode/decode and CER encoding for BOOLEAN, NULL, and finite
+	  nonextensible INTEGER ranges fitting i64. Generated Cargo packages use
+	  a dependency-free Rust runtime. Rust CER is encode-only; other Rust
+	  codecs and ASN.1 type families remain incremental conversion work.
+	* Added a native descriptor-driven C CER encoder, exposed through
+	  cer_encode(), the generic ATS_CER encoder, and generated converter
+	  output. C CER support is enabled by default with BER dependencies. CER
+	  input still uses permissive BER decoding. Added string fragmentation,
+	  constructed values, SET/SET OF ordering, malformed-input, and converter
+	  regression coverage. Primitive content capture uses a single intrinsic tag;
+	  the descriptor walker reapplies wrappers under the configurable tag-chain
+	  limit. Existing BER corpora also feed decoded values to generic CER encoding
+	  in randomized tests; this is not a long fuzz run.
+	* Extended BER-family CER input handling for explicit/named wrappers,
+	  natural-tag string fragments, and definite constructed BER children for
+	  covered tagged scalar forms. Validated NativeInteger width/sign metadata
+	  while preserving default native storage and DEFAULT omission. Mixed lengths
+	  among nested constructed scalar wrappers remain limited by the existing
+	  BER tag-chain path. The corrected encoder passes the linked skeleton suite
+	  (52/52), and the Rust harness passes all 10 conformance checks with C parity.
+	  A short ASan/UBSan run passes 660,325 mutations. The generated CER converter
+	  script, all 28 generated smoke tests, and installed-toolchain qualification
+	  pass.
+	* Documented the proposed first stage of Rust conversion: an opt-in Rust
+	  generation backend, a safe Rust runtime for all current codec families,
+	  test migration, and supervised implementation milestones. This change
+	  initially added planning documentation; the first implementation is
+	  described above.
+	* Fixed an assertion when parsing nested constrained SEQUENCE OF and SET OF
+	  types. Element constraints now pass through nested collections while SIZE
+	  constraints remain attached to their collections. Added issue #575 coverage.
+	* Constraint checks now enforce SIZE bounds on constrained SEQUENCE OF and
+	  SET OF values, including collections nested in other types. The generated
+	  checker still validates each element. Added issue #570 regression coverage.
+	* The contents constraint (BIT STRING (CONTAINING Type), X.682 clause 11)
+	  is no longer ignored. The generated constraint check (-c) rejects
+	  content that does not decode as Type using the selected transfer syntax
+	  (BER by default), and the random generator (-R) encodes a random Type
+	  value using the selected output syntax. Adds syntax-aware variants of
+	  the constraint-checking and random-fill APIs, and the contained_type
+	  field of asn_encoding_constraints_t. OCTET STRING (CONTAINING Type) is
+	  not yet covered. Added issue #569 regression coverage.
 	* Fixed default tag-mode resolution for tagged SEQUENCE OF and SET OF
 	  elements. References to already-tagged CHOICE types now use IMPLICIT
 	  tagging, as required by X.680:2021 §31.2.7. Added issue #566 regression
 	  coverage for normalized ASN.1 and generated member descriptors.
+	* Corrected primitive runtime file dependencies for BER, XER, and JER when
+	  using -fgen-only-pdu-deps, so generated projects include required shared
+	  codec helpers. Added isolated dependency-generation regression coverage.
+	* BER SEQUENCE decoding now rejects a first unknown extension addition
+	  whose tag duplicates a trailing OPTIONAL or DEFAULT root component tag,
+	  as required by X.680:2021 §§25.6 and 52.7. Added issue #213 regression
+	  coverage.
+	* Added a repository code-review guide for contributors.
+
+v1.5.3: 2026-10-07
 	* Corrected IMPORTS resolution and diagnostics. Explicitly imported names
 	  resolve from the module named by FROM; -fprefer-import-source disables
 	  the legacy whole-module fallback. Duplicate module references are
@@ -37,7 +185,7 @@ Changes since v1.5.0:
 	  Fix suggested by <shakespark@gmail.com> in <https://github.com/vlm/asn1c/pull/551>.
 	* Generalized generated OER, UPER, and APER descriptor constraint-table
 	  inheritance for typedef aliases by deriving codec slots from the terminal
-	  ASN.1 type. 
+	  ASN.1 type.
 	  Issue #552, reported by @zhouvlia, was already avoided for ENUMERATED aliases
 	  by an earlier enum-specific branch in this fork; the new terminal-type rule
 	  covers the remaining alias classes and the added UPER/APER regression locks
@@ -320,7 +468,7 @@ Changes since v1.5.0:
 	FIXES:
 	* Fixed incorrect type descriptor selection when the same member name appears
 	  in different parent types with different type definitions. When embedded types
-	  like ssb-PositionsInBurst appeared as CHOICE in one parent and SEQUENCE in 
+	  like ssb-PositionsInBurst appeared as CHOICE in one parent and SEQUENCE in
 	  another, the decoder would incorrectly use the wrong type descriptor due to
 	  unsuffixed alias collisions at runtime. The fix ensures member table references
 	  always use suffixed type descriptors for embedded constructed types, avoiding
@@ -448,12 +596,12 @@ Changes since v1.5.0:
 	* Added support for OPEN TYPE in IOC, now V2X and C2X should work.
 	* Added support for JER encoding and decoding.
 	* Added ability to generate only codecs relevant to selected PDU(s)
-	
+
 	NOTABLE:
 	* OCTET STRING in XER now uses Base64 encoding, CXER-compliant.
 	* Hexadecimal encoding for OCTET STRING in XER may or may not work.
 	* Validation of constraints should now work for all types.
-	
+
 	FIXES:
 	* Numeral - addressed bugs and compiler warnings.
 

@@ -1,0 +1,5 @@
+UnconstrainedInteger DEFINITIONS ::= BEGIN
+
+Value ::= INTEGER
+
+END

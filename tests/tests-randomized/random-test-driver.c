@@ -64,8 +64,37 @@ static void __attribute__((constructor)) initialize() {
 
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 
+#if !defined(ASN_DISABLE_BER_SUPPORT) && !defined(ASN_DISABLE_CER_SUPPORT)
+/*
+ * Consume CER fuzz output without retaining bytes or adding output allocation.
+ * Source: new asn1c encoder fuzz integration. Version/date: 2026-10-11.
+ * Parameters: data/size are encoded bytes; key is unused. Returns zero;
+ * raises no exception. Responsible party: asn1c maintainers. History:
+ * added to exercise CER after BER-family decoding. Example:
+ * asn_encode(0, ATS_CER, &asn_DEF_T, value, discard_cer_bytes, 0).
+ */
+static int
+discard_cer_bytes(const void *data, size_t size, void *key) {
+    (void)data;
+    (void)size;
+    (void)key;
+    return 0;
+}
+#endif
+
+/*
+ * Fuzz decoding and CER encoding of successfully decoded BER-family values.
+ * Source: existing asn1c random-test-driver decoder fuzz entrypoint.
+ * Version/date: 2026-10-11. Parameters: Data contains arbitrary wire bytes;
+ * Size is their length. Returns zero; codec failures are expected and do not
+ * terminate fuzzing. Responsible party: asn1c maintainers. History: adds CER
+ * encoder coverage while preserving existing decoder corpora. Example:
+ * libFuzzer invokes this entrypoint with a mutated BER corpus value.
+ */
 int
 LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
+    asn_dec_rval_t decoded;
+    T_t *structure = 0;
     if(!initialized) exit(0);
 
     /*
@@ -73,8 +102,19 @@ LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
      * The idea is that we should not crash, and we should not leak memory,
      * no matter what garbage we're dealing with.
      */
-    T_t *structure = 0;
-    (void)asn_decode(0, syntax, &asn_DEF_T, (void **)&structure, Data, Size);
+    decoded = asn_decode(0, syntax, &asn_DEF_T, (void **)&structure, Data, Size);
+#if !defined(ASN_DISABLE_BER_SUPPORT) && !defined(ASN_DISABLE_CER_SUPPORT)
+    /* Exercise canonicalization and safe rejection using the decoded value.
+     * Encoder failure is valid for unsupported canonical forms or exhausted
+     * limits; a BER round trip alone does not prove canonical CER output. */
+    if(decoded.code == RC_OK && structure
+       && (syntax == ATS_BER || syntax == ATS_DER || syntax == ATS_CER)) {
+        (void)asn_encode(0, ATS_CER, &asn_DEF_T, structure,
+                         discard_cer_bytes, 0);
+    }
+#else
+    (void)decoded;
+#endif
     ASN_STRUCT_FREE(asn_DEF_T, structure);
 
     return 0;
@@ -115,7 +155,8 @@ file_write_cb(const void *data, size_t size, void *key) {
 #endif
 
 static void
-generate_random_data(enum asn_transfer_syntax syntax, const char *top_dirname, size_t max_random_value_size, int iterations, int debug) {
+generate_random_data(enum asn_transfer_syntax syntax, const char *top_dirname,
+                      size_t max_random_value_size, int iterations, int debug) {
     char dirname[PATH_MAX];
     size_t dirname_len = 0;
     dirname[dirname_len] = '\0';

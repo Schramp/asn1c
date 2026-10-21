@@ -1,0 +1,149 @@
+{
+  "suite": "generated Rust stage-one primitive UPER and CER slice",
+  "scope": "Only the listed nonextensible primitive subset is qualified.",
+  "cases": [
+    {
+      "asn1_type": "BOOLEAN",
+      "feature": "primitive, nonextensible",
+      "codec": "UPER",
+      "variants": ["basic/default UPER API"],
+      "directions": ["encode", "decode"],
+      "status": "tested",
+      "evidence": "conformance.rs; c_reference.c"
+    },
+    {
+      "asn1_type": "NULL",
+      "feature": "primitive, nonextensible, zero-width complete value",
+      "codec": "UPER",
+      "variants": ["basic/default UPER API"],
+      "directions": ["encode", "decode"],
+      "status": "tested",
+      "evidence": "conformance.rs; c_reference.c"
+    },
+    {
+      "asn1_type": "INTEGER",
+      "feature": "bounded signed i64, nonextensible, range -10..10",
+      "codec": "UPER",
+      "variants": ["basic/default UPER API"],
+      "directions": ["encode", "decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c"
+    },
+    {
+      "asn1_type": "INTEGER",
+      "feature": "singleton range 5..5",
+      "codec": "UPER",
+      "variants": ["basic/default UPER API"],
+      "directions": ["encode", "decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c"
+    },
+    {
+      "asn1_type": "INTEGER",
+      "feature": "full signed i64 range",
+      "codec": "UPER",
+      "variants": ["basic/default UPER API"],
+      "directions": ["encode", "decode"],
+      "status": "tested_against_fixed_golden_vectors",
+      "evidence": "conformance.rs"
+    },
+    {
+      "asn1_type": "BOOLEAN",
+      "feature": "primitive, nonextensible",
+      "codec": "CER",
+      "variants": ["canonical FALSE 00", "canonical TRUE FF"],
+      "directions": ["encode", "strict decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
+    },
+    {
+      "asn1_type": "NULL",
+      "feature": "primitive, nonextensible",
+      "codec": "CER",
+      "variants": ["empty primitive content"],
+      "directions": ["encode", "strict decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
+    },
+    {
+      "asn1_type": "INTEGER",
+      "feature": "finite signed i64, minimal two's-complement content",
+      "codec": "CER",
+      "variants": ["127", "128", "-128", "-129", "i64::MIN", "i64::MAX"],
+      "directions": ["encode", "strict decode"],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
+    }
+  ],
+  "not_yet_implemented_by_this_Rust_slice": [
+    {
+      "family": "BER/DER",
+      "status": "not_implemented",
+      "note": "No generated Rust encoder or decoder is qualified for these variants."
+    },
+    {
+      "family": "APER",
+      "status": "not_implemented",
+      "note": "No generated Rust encoder or decoder is qualified."
+    },
+    {
+      "family": "OER",
+      "status": "not_implemented",
+      "note": "Basic and canonical OER are not qualified."
+    },
+    {
+      "family": "XER/JER/CBOR",
+      "status": "not_implemented",
+      "note": "No generated Rust encoder or decoder is qualified."
+    },
+    {
+      "family": "constructed, string, CHOICE, ENUMERATED, REAL, open types",
+      "status": "outside_first_slice",
+      "note": "No Rust correctness or interoperability claim is made for these types."
+    },
+    {
+      "family": "extensible constraints and cross-codec conversion",
+      "status": "outside_first_slice",
+      "note": "Extension and cross-codec policies remain unqualified."
+    },
+    {
+      "family": "canonical syntax-specific API behavior",
+      "status": "outside_first_slice",
+      "note": "UPER and CER methods are selected independently; CER decoding is strict (canonical input only)."
+    }
+  ],
+  "comparison_policy": {
+    "C_role": "Current C implementation is a comparison implementation, not a protocol oracle.",
+    "independent_checks": "Rust fixed vectors, malformed-input checks, budgets, and round trips",
+    "canonicality": "CER claims are limited to listed primitive encoder vectors and full-TLV bit counts."
+  },
+  "compiler_boundary_checks": {
+    "rejected_before_output": [
+      "aliases and imports",
+      "explicit tags and encoding controls",
+      "unconstrained, extensible, union, and named-number INTEGER",
+      "unsupported constructed types and module-name sanitization collisions",
+      "unsupported codec and C-layout selectors",
+      "duplicate --rust selectors and disabling all Rust codecs",
+      "an incomplete runtime asset set beside explicit skeletons"
+    ],
+    "output_safety": [
+      "unowned destination preservation",
+      "interior symlink refusal",
+      "traversal and oversized ownership manifest refusal",
+      "deterministic regeneration"
+    ],
+    "identifier_handling": [
+      "generated names Limits, Error, Decoded, Result, and Ok compile and run",
+      "LIB, Core, and Asn1cRuntime map to safe filenames and pass offline cargo check"
+    ]
+  },
+  "observed_counts": {
+    "generated_rust_test_functions": 10,
+    "live_c_rust_vectors_each_direction": 8,
+    "unsupported_target_or_schema_cases": 23,
+    "single_octet_mutation_inputs": 768,
+    "wide_prefix_inputs_including_complete_value": 9,
+    "truncated_wide_prefix_inputs": 8
+  }
+}

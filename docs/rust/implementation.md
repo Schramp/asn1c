@@ -1,0 +1,109 @@
+# Initial Rust implementation
+
+This is the first slice of the [stage-one plan](stage-one-plan.md), implemented
+with three supervised Luna agents. The full conversion remains incomplete.
+The existing C parser and semantic fixer feed a separate Rust output backend.
+The matching runtime uses `std`, forbids unsafe Rust, and has no dependencies.
+
+## Compiler mode and output
+
+`--rust` selects the complete Rust output mode. It generates a Cargo package
+with typed Rust bindings and a local copy of the Rust runtime. The current
+defaults are UPER and CER. An explicit request for an unavailable
+codec or unsupported ASN.1 form fails before publishing output; the C
+compiler's default codec set does not select Rust codecs.
+
+```sh
+asn1c --rust -D generated schema.asn1
+cargo check --offline --manifest-path generated/Cargo.toml
+```
+
+To generate only CER encoding and decoding, disable UPER explicitly:
+
+```sh
+asn1c --rust -no-gen-UPER -D generated schema.asn1
+cargo check --offline --manifest-path generated/Cargo.toml
+```
+
+For a source checkout, select its matching assets explicitly when necessary:
+
+```sh
+./asn1c/asn1c --rust -S skeletons -D generated schema.asn1
+```
+
+The output contains `Cargo.toml`, `src/lib.rs`, one Rust source file per ASN.1
+module, and `runtime/` with a Cargo path dependency. The generated package is
+named `asn1c-generated`. Module names are normalized for Rust and namespace
+collisions are diagnosed. The default output directory is `asn1c-rust`.
+
+An ownership manifest records generated files. Output is staged before
+publication. Regeneration accepts an empty directory or a prior generated
+directory containing only owned files; unrelated files, build artifacts, and
+symlinks cause a failure that preserves the prior directory. Generate into a
+fresh directory after adding application code or running Cargo there.
+
+## Implemented boundary
+
+| Feature | First slice |
+| --- | --- |
+| Top-level BOOLEAN | UPER encoding and prefix decoding |
+| Top-level NULL | UPER complete zero-width encoding and prefix decoding |
+| Direct bounded INTEGER | Nonextensible finite signed i64 range; UPER codecs |
+| Top-level BOOLEAN, NULL, bounded INTEGER | CER encoding; INTEGER bounds are finite, nonextensible, and fit `i64` |
+| Runtime limits | Input bytes, output bytes, and meaningful bit work |
+| Top-level BOOLEAN, NULL, bounded INTEGER | Strict CER decoding; canonical short-form TLV only |
+| BER/DER decoding or encoding, OER, APER, XER, JER, CBOR | Planned; unavailable in Rust mode |
+| Collections, strings, ENUMERATED, aliases, imports, tagged types | Planned; rejected in this slice |
+| Encoding controls, information objects, parameterized types | Planned; rejected in this slice |
+
+BOOLEAN and INTEGER wrappers expose constructors, value getters, and the
+methods selected during generation. UPER methods encode and prefix-decode the
+supported primitives. CER adds `encode_cer` and strict `decode_cer` methods for
+BOOLEAN, NULL, and bounded INTEGER. NULL is a unit struct. INTEGER construction checks the
+declared range. Codecs return typed errors for malformed values, invalid
+constraints, exceeded limits, or allocation failure.
+
+CER methods emit complete TLV byte strings. `Encoded.bit_len` is the encoded
+byte length multiplied by eight. `decode_cer` accepts only the exact universal
+tag, a short-form definite length, and canonical content; it rejects long-form
+or indefinite lengths, BOOLEAN content other than `00`/`FF`, non-empty NULL,
+and non-minimal or out-of-range INTEGER. Trailing bytes are left unconsumed.
+The C `ATS_CER` decoder is likewise strict.
+
+`Encoded` carries output bytes and meaningful bit length. `Decoded<T>` carries
+the value and consumed bits and bytes. Prefix decoding may leave a suffix;
+input limits cover the entire supplied slice. For C compatibility, unused
+padding bits are accepted. NULL and singleton INTEGER complete encodings use
+one zero byte with zero meaningful bits; empty input requests more data and a
+nonzero filler byte is rejected.
+
+The defaults are 1 MiB input, 1 MiB output, and 8 MiBits of work per primitive
+operation. CER encoding applies the output and work limits before allocation;
+input limits apply to decoder input. Applications can supply smaller or larger
+finite limits. The [runtime README](../../rust/asn1c-runtime/README.md)
+documents the API.
+
+## Validation and next work
+
+The runtime tests cover independent vectors, signed and full-i64 endpoints,
+singleton ranges, spare codes, truncation, padding, consumption, and limits.
+A deterministic mutation test exhausts every first-byte pattern of a small
+constrained INTEGER. The compiler integration harness builds generated Cargo
+packages offline and checks CLI failures, schema gates, output ownership,
+repeat generation. Rust CI checks runtime formatting,
+unit tests, Clippy, generated codecs, and installed runtime packaging.
+
+The Rust runtime suite passed 10 tests. The generated Rust harness passed all
+10 conformance checks against the corrected C encoder, including fresh C
+UPER/CER reference comparisons, C decoding of generated Rust UPER/CER bytes,
+codec selection, and negative-schema checks. Earlier runtime formatting,
+Clippy, and generated CER-only offline checks passed. The installed-toolchain
+and source-distribution qualifications pass; the source distribution included
+all 13 required assets. Hosted Rust CI has not yet run for this slice. No
+minimum Rust compiler version is claimed.
+
+These are first-slice gates. The [test migration plan](testing.md) remains the
+stage-wide target; additional primitive types and constructed UPER types come
+next, followed by the remaining codec families. The CER encoder is also only a
+first slice and does not establish whole-runtime parity. No minimum Rust
+compiler version is claimed.
