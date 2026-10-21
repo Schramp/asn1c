@@ -200,3 +200,108 @@ tests, plus the expanded BER alias smoke, CER smoke, and four-whitespace JER
 smoke tests. Normal/C89 runtime build checks and direct ASan/UBSan regressions
 also pass. The corrected check-25 retains its deterministic mutations and
 incremental-decoding checks.
+
+## Randomized CI follow-up: empty strings
+
+The [GCC build-and-check job for d8be646a](https://github.com/mouse07410/asn1c/actions/runs/39648103241/job/119388925987)
+failed in `bundles/20-retagged-strings-bundle.txt`. Its detailed test log reports:
+
+```text
+Testing [T ::= [4] EXPLICIT UTF8String (SIZE(0..32))]
+Testing 100 iterations of round-trip for BER
+OCTET_STRING.c:251:19: runtime error: null pointer passed as argument 2,
+which is declared to never be null
+```
+
+The failing call is `memcmp` in `OCTET_STRING_compare()`, after decoding a
+valid empty string. A zero-length string can have a null backing buffer;
+the comparator previously passed that buffer to `memcmp` even when the
+common-prefix length was zero. The explicit tag did not cause the defect:
+the random empty value exposed a shared string-operation bug. The initial
+randomized bundle pass recorded above did not guarantee that every generated
+type encountered the empty case. Keep the original `SIZE(0..32)` cases and
+add `SIZE(0)` cases so that random selection cannot omit this boundary.
+The demonstrated impact is process termination under UBSan on valid input.
+The additional copy guards protect applications that supply inconsistent
+internal source metadata; they do not change decoder allocation rules.
+
+The follow-up bypasses memory comparison for an empty common prefix, retaining
+lexicographic and length ordering for valid OCTET STRING and character-string
+values. The corresponding BIT STRING operations receive the same protection,
+while preserving their existing trailing-zero compaction semantics. Copy
+operations also avoid zero-length copies from null buffers and reject invalid
+nonempty null-backed sources and allocation-size overflow before copying.
+These defensive checks do not make an arbitrary caller-supplied pointer or
+incorrect backing-buffer length safe; callers must still supply accessible
+objects with accurate lengths.
+
+For malformed internal values, comparator ordering is defensive behavior,
+not acceptance as ASN.1: absent objects precede present objects, valid present
+values precede malformed ones, and malformed values are ordered by their
+documented metadata. Validation/encoding remains a separate operation.
+
+The C library precondition matters even for a zero-byte operation in the C
+editions supported by this project: see the public
+[C11 committee draft N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf),
+7.24.1 paragraph 2 and 7.1.4. The fix avoids relying on a particular libc's
+tolerance of null arguments. It also preserves ASN.1 semantics:
+[X.690 (02/2021)](https://www.itu.int/rec/T-REC-X.690-202102-I/en), 8.7.2 permits
+zero content octets; 8.23.3 applies OCTET STRING content rules to restricted
+character strings; 8.14.2 supplies the explicit wrapper. Thus an empty
+`[4] EXPLICIT UTF8String` is valid BER/DER `a4 02 0c 00`. BIT STRING's empty
+primitive content includes its zero unused-bit count (8.6.2.3). The changes
+affect in-memory operations and introduce no new wire encodings or relaxed
+fragment-tag checks.
+
+Direct regressions exercise null-backed and allocated empty values, both
+comparison directions, nonempty prefixes, malformed internal values and copy
+boundaries. The direct copy test wraps the string implementations' `memcmp`
+and `memcpy` calls with pointer-precondition assertions, so a libc that happens
+to tolerate null pointers at length zero cannot hide a regression. The wrappers
+are confined to the OCTET STRING and BIT STRING source inclusions.
+Generated-type regressions exercise empty tagged aliases through
+actual BER decoding, DER encoding and descriptor comparison. The randomized
+bundle retains the original nine cases and adds guaranteed-empty cases for
+the same tag/type shapes. Fix and regression implementation by asn1c maintainers
+with Codex/Luna assistance, following the maintainer's CI failure report.
+The tagged-string bundle originated in the #581/PR #580 review; original issue
+#581 report and patch by Ruud Schramp (@Schramp), and PR #580 by javier
+(@mr-j0nes).
+
+To run the bundle without sharing generated files with an existing build,
+start in the configured source checkout with the compiler and
+`tests/tests-randomized/test-param-helper` already built:
+
+```sh
+review_source=$PWD
+review_work=$(mktemp -d "${TMPDIR:-/tmp}/asn1c-empty-review.XXXXXX")
+cd "$review_work"
+env -u MAKEFLAGS -u MFLAGS CC=clang GENERATE_CORPUS=no \
+    CFLAGS='-O1 -g -std=gnu99 -fsanitize=address,undefined -fno-sanitize-recover=all' \
+    abs_builddir="$review_source/tests/tests-randomized" \
+    abs_top_builddir="$review_source" abs_top_srcdir="$review_source" \
+    srcdir="$review_source/tests/tests-randomized" \
+    "$review_source/tests/tests-randomized/check-bundles.sh" -j 8 --bundle \
+    "$review_source/tests/tests-randomized/bundles/20-retagged-strings-bundle.txt"
+```
+
+The temporary directory retains the generated projects and diagnostics. Passing
+compiler flags through the script environment allows generated Makefiles to
+append their required flags and avoids inheriting another make job's overrides.
+
+Follow-up local validation on 2026-10-21: the linked skeleton suite passed
+57/57. The strengthened current-source copy test passes in isolation; restoring
+only the original OCTET STRING implementation makes it fail at the comparison
+precondition assertion, and restoring only the original BIT STRING
+implementation makes it fail at the copy precondition assertion. The generated
+retagging smoke test passes under Clang ASan/UBSan. GCC 15 with UBSan passes the
+exact `[4] EXPLICIT UTF8String (SIZE(0))` case across the harness's enabled
+encodings and copy operation. GCC ASan executables stalled before test output
+on this macOS host, so that configuration is not reported as passing. These
+results are local; the Linux GitHub job has not been rerun by this review.
+The full 18-case retagged-string bundle also passes in both default and
+`-fnative-types` generation modes (36 case runs) under Clang
+ASan/UBSan/unsigned-integer-overflow instrumentation, exercising round trips
+and copies across all enabled harness encodings. Corpus generation and timed
+fuzzing were disabled for this run; the new cases participate in those paths
+when explicitly enabled.

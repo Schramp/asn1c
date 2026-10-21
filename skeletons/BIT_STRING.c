@@ -182,8 +182,47 @@ BIT_STRING__compactify(const BIT_STRING_t *st, BIT_STRING_t *tmp) {
 }
 
 /*
- * Lexicographically compare the common prefix of both strings,
- * and if it is the same return -1 for the smallest string.
+ * Return whether a BIT STRING can be compared safely.
+ *
+ * Purpose: Classify absent, well-formed, and malformed values before reading
+ *          their storage.
+ * Original source: asn1c BIT STRING skeleton, adapted for safe comparisons.
+ * Version: 2026-10-21.
+ * Parameters: value is the BIT STRING value to classify, or NULL if absent.
+ * Returns: 0 for absent, 1 for well-formed, and 2 for malformed values.
+ * Errors: Does not throw; malformed values are reported through the result.
+ * Responsible party: asn1c maintainers.
+ * History: Added for safe handling of empty and malformed values.
+ * Example: BIT_STRING__compare_status(NULL) returns 0.
+ */
+static int
+BIT_STRING__compare_status(const BIT_STRING_t *value) {
+    if(!value) {
+        return 0;
+    }
+    if(value->bits_unused < 0 || value->bits_unused > 7
+       || (value->size == 0 && value->bits_unused != 0)
+       || (value->size != 0 && !value->buf)) {
+        return 2;
+    }
+    return 1;
+}
+
+/*
+ * Compare two BIT STRING values while ignoring semantically trailing zero
+ * bits.
+ *
+ * Purpose: Order absent, valid, and malformed values safely, then compare
+ *          valid values according to X.680 trailing-zero semantics.
+ * Original source: asn1c BIT STRING skeleton, based on the X.680 comparison.
+ * Version: 2026-10-21.
+ * Parameters: td is the BIT STRING descriptor; aptr and bptr are values.
+ * Returns: A negative value, zero, or a positive value according to order.
+ * Errors: Does not throw. Malformed values sort after valid values by size;
+ *         an invalid descriptor returns zero because it has no defined order.
+ * Responsible party: asn1c maintainers.
+ * History: Added absent and malformed input handling and guarded empty compares.
+ * Example: Two empty BIT STRING values compare equal.
  */
 int
 BIT_STRING_compare(const asn_TYPE_descriptor_t *td, const void *aptr,
@@ -194,51 +233,99 @@ BIT_STRING_compare(const asn_TYPE_descriptor_t *td, const void *aptr,
      * "associated with [values that differ only in] the trailing 0 bits."
      */
     BIT_STRING_t compact_a, compact_b;
-    const BIT_STRING_t *a = BIT_STRING__compactify(aptr, &compact_a);
-    const BIT_STRING_t *b = BIT_STRING__compactify(bptr, &compact_b);
-    const asn_OCTET_STRING_specifics_t *specs = td->specifics;
+    const BIT_STRING_t *input_a = (const BIT_STRING_t *)aptr;
+    const BIT_STRING_t *input_b = (const BIT_STRING_t *)bptr;
+    int status_a = BIT_STRING__compare_status(input_a);
+    int status_b = BIT_STRING__compare_status(input_b);
+    const asn_OCTET_STRING_specifics_t *specs;
+    const BIT_STRING_t *a;
+    const BIT_STRING_t *b;
 
-    (void)specs;
-    assert(specs && specs->subvariant == ASN_OSUBV_BIT);
+    /* Invalid descriptors have no meaningful BIT STRING ordering. */
+    if(!td || !td->specifics) {
+        return 0;
+    }
+    specs = td->specifics;
+    if(specs->subvariant != ASN_OSUBV_BIT) {
+        return 0;
+    }
 
-    if(a && b) {
-        size_t common_prefix_size = a->size <= b->size ? a->size : b->size;
-        int ret = memcmp(a->buf, b->buf, common_prefix_size);
-        if(ret == 0) {
-            /* Figure out which string with equal prefixes is longer. */
-            if(a->size < b->size) {
-                return -1;
-            } else if(a->size > b->size) {
-                return 1;
-            } else {
-                /* Figure out how many unused bits */
-                if(a->bits_unused > b->bits_unused) {
-                    return -1;
-                } else if(a->bits_unused < b->bits_unused) {
-                    return 1;
-                } else {
-                    return 0;
-                }
-            }
+    /* Absent values sort first; malformed values sort after valid values. */
+    if(status_a != status_b) {
+        return status_a < status_b ? -1 : 1;
+    }
+    if(status_a == 0) {
+        return 0;
+    }
+    if(status_a == 2) {
+        if(input_a->size < input_b->size) {
+            return -1;
+        } else if(input_a->size > input_b->size) {
+            return 1;
         } else {
+            return 0;
+        }
+    }
+
+    /* Compactification retains the BIT STRING trailing-zero comparison rule. */
+    a = BIT_STRING__compactify(input_a, &compact_a);
+    b = BIT_STRING__compactify(input_b, &compact_b);
+
+    {
+        size_t common_prefix_size = a->size <= b->size ? a->size : b->size;
+        int ret = common_prefix_size
+                      ? memcmp(a->buf, b->buf, common_prefix_size)
+                      : 0;
+        if(ret != 0) {
             return ret;
         }
-    } else if(!a && !b) {
-        return 0;
-    } else if(!a) {
+    }
+    if(a->size < b->size) {
         return -1;
-    } else {
+    } else if(a->size > b->size) {
+        return 1;
+    } else if(a->bits_unused > b->bits_unused) {
+        return -1;
+    } else if(a->bits_unused < b->bits_unused) {
         return 1;
     }
+    return 0;
 }
 
+/*
+ * Copy a BIT STRING value, including its unused-bit count.
+ *
+ * Purpose: Replace the destination with an independent copy of the source.
+ * Original source: asn1c BIT STRING skeleton, adapted from OCTET STRING copy.
+ * Version: 2026-10-21.
+ * Parameters: td is the BIT STRING descriptor; aptr points to destination;
+ *             bptr is the source value, or NULL to clear the destination.
+ * Returns: 0 on success; -1 for invalid metadata, source storage, overflow,
+ *          or allocation failure.
+ * Errors: Does not throw. Invalid metadata and nonempty NULL storage are
+ *         rejected without changing the destination.
+ * Responsible party: asn1c maintainers.
+ * History: Added metadata, empty-copy, and allocation-size overflow guards.
+ * Example: Copying a zero-length value allocates a terminated empty buffer.
+ */
 int
 BIT_STRING_copy(const asn_TYPE_descriptor_t *td, void **aptr,
                 const void *bptr) {
-    const asn_OCTET_STRING_specifics_t *specs = td->specifics;
-    BIT_STRING_t *a = (BIT_STRING_t *)*aptr;
+    const asn_OCTET_STRING_specifics_t *specs;
+    BIT_STRING_t *a;
     const BIT_STRING_t *b = (const BIT_STRING_t *)bptr;
 
+    /* Validate descriptor metadata before allocating or clearing a value. */
+    if(!td || !td->specifics || !aptr) {
+        return -1;
+    }
+    specs = td->specifics;
+    if(specs->subvariant != ASN_OSUBV_BIT
+       || specs->struct_size < sizeof(BIT_STRING_t)) {
+        return -1;
+    }
+
+    a = (BIT_STRING_t *)*aptr;
     if(!b) {
         if(a) {
             FREEMEM(a->buf);
@@ -248,6 +335,11 @@ BIT_STRING_copy(const asn_TYPE_descriptor_t *td, void **aptr,
         return 0;
     }
 
+    /* Reject invalid source storage before allocating or changing destination. */
+    if(b->size == (size_t)-1 || BIT_STRING__compare_status(b) == 2) {
+        return -1;
+    }
+
     if(!a) {
         a = *aptr = CALLOC(1, specs->struct_size);
         if(!a) return -1;
@@ -255,7 +347,9 @@ BIT_STRING_copy(const asn_TYPE_descriptor_t *td, void **aptr,
 
     uint8_t* buf = MALLOC(b->size + 1);
     if(!buf) return -1;
-    memcpy(buf, b->buf, b->size);
+    if(b->size != 0) {
+        memcpy(buf, b->buf, b->size);
+    }
     buf[b->size] = 0;
 
     FREEMEM(a->buf);

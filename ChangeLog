@@ -1,4 +1,13 @@
 Changes since v1.5.3:
+	* Fixed the retagged-string randomized bundle's GCC UBSan failure when a
+	  valid empty UTF8String reached OCTET_STRING_compare with a null backing
+	  buffer. Empty comparisons/copies now avoid null C-library arguments;
+	  hardened the corresponding BIT STRING operations and invalid copy-size
+	  handling. Added deterministic empty tagged-string regressions alongside
+	  the randomized cases. CI failure reported by the repository maintainer;
+	  fixes and tests by asn1c maintainers with Codex/Luna assistance. This is
+	  follow-up to the #578/#581 review; original reports by Ruud Schramp
+	  (@Schramp).
 	* Documented a proposed incremental JER design, covering per-PDU framing,
 	  persistent typed decoding, limits, transactional sinks and split-input
 	  testing against X.697/ECMA-404. This entry describes a proposal, not a
