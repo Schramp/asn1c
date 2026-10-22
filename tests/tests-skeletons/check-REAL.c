@@ -835,6 +835,28 @@ check_ber_encoding() {
         CHECK_BER_NONSTRICT(-3.14, "-3.14", "-3.14E0", b_3_14_mo1);
         CHECK_BER_NONSTRICT(3.14, "3.14", "3.14E0", b_3_14_mo2);
     }
+
+    /* 8.5.7.4 d): the second octet is the number of exponent octets */
+    {
+        uint8_t b_1_0_x1[] = {0x83, 0x01, 0x00, 0x01};
+        uint8_t b_1_0_x2[] = {0x83, 0x02, 0x00, 0x00, 0x01};
+        uint8_t b_2_0_x3[] = {0x83, 0x03, 0x00, 0x00, 0x01, 0x01};
+        uint8_t b_x0[] = {0x83, 0x00, 0x00, 0x01};
+        uint8_t b_x1_no_mantissa[] = {0x83, 0x01, 0x00};
+        REAL_t rn;
+        double d;
+
+        CHECK_BER_NONSTRICT(1.0, "1.0", "1.0E0", b_1_0_x1);
+        CHECK_BER_NONSTRICT(1.0, "1.0", "1.0E0", b_1_0_x2);
+        CHECK_BER_NONSTRICT(2.0, "2.0", "2.0E0", b_2_0_x3);
+
+        rn.buf = b_x0;
+        rn.size = sizeof(b_x0);
+        assert(asn_REAL2double(&rn, &d) == -1);
+        rn.buf = b_x1_no_mantissa;
+        rn.size = sizeof(b_x1_no_mantissa);
+        assert(asn_REAL2double(&rn, &d) == -1);
+    }
 }
 
 int
