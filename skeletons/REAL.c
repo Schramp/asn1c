@@ -536,21 +536,22 @@ asn_REAL2double(const REAL_t *st, double *dbl_value) {
 	sign = (octv & 0x40);	/* bit 7 */
 	scaleF = (octv & 0x0C) >> 2;	/* bits 4 to 3 */
 
-	if(st->size <= 1 + (octv & 0x03)) {
-		errno = EINVAL;
-		return -1;
-	}
-
 	elen = (octv & 0x03);	/* bits 2 to 1; 8.5.6.4 */
 	if(elen == 0x03) {	/* bits 2 to 1 = 11; 8.5.6.4, case d) */
-		elen = st->buf[1];	/* unsigned binary number */
-		if(elen == 0 || st->size <= (2 + elen)) {
+		/* Second octet is the exponent length X itself */
+		if(st->size < 2 || st->buf[1] == 0
+		|| st->size <= (2 + (size_t)st->buf[1])) {
 			errno = EINVAL;
 			return -1;
 		}
+		elen = st->buf[1] - 1;	/* exponent octets, minus one */
 		/* FIXME: verify constraints of case d) */
 		ptr = &st->buf[2];
 	} else {
+		if(st->size <= 1 + elen) {
+			errno = EINVAL;
+			return -1;
+		}
 		ptr = &st->buf[1];
 	}
 
