@@ -166,6 +166,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Tree_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Tree = {
 	"Tree",
@@ -499,6 +500,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_anything_Member_specs_9 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_anything_Member_9 = {
@@ -972,6 +974,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

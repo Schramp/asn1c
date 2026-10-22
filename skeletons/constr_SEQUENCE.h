@@ -38,6 +38,7 @@ typedef struct asn_SEQUENCE_specifics_s {
 	 * whereas extensions are clustered at the end. -1 means not extensible.
 	 */
 	signed first_extension;       /* First extension addition */
+	int extension_group;          /* Group body has no enclosing SEQUENCE TLV */
 } asn_SEQUENCE_specifics_t;
 
 

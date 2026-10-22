@@ -61,6 +61,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_Message_specs_1 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Message = {
 	"Message",
@@ -386,6 +387,7 @@ asn_SEQUENCE_specifics_t asn_SPC_RegionalExtension_specs_1 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_RegionalExtension = {
 	"RegionalExtension",
@@ -693,6 +695,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	asn_MAP_EXTERNAL_oms_1,	/* Optional members */
 	3, 0,	/* Root/Additions */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

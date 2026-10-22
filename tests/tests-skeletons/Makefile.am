@@ -28,6 +28,8 @@ check_PROGRAMS =                \
     check-CER                   \
     check-CER-decode            \
     check-BER-expected-tag      \
+    check-OCTET_STRING-der-guard \
+    check-OCTET_STRING-rfill-guard \
     check-CER-limits            \
     check-CER-resources         \
     check-CER-work              \
@@ -179,6 +181,10 @@ check_CER_decode_SOURCES = check-CER-decode.c
 check_CER_decode_LDADD = $(LDADD)
 check_BER_expected_tag_SOURCES = check-BER-expected-tag.c
 check_BER_expected_tag_LDADD = $(LDADD)
+check_OCTET_STRING_der_guard_SOURCES = check-OCTET_STRING-der-guard.c
+check_OCTET_STRING_der_guard_LDADD = $(LDADD)
+check_OCTET_STRING_rfill_guard_SOURCES = check-OCTET_STRING-rfill-guard.c
+check_OCTET_STRING_rfill_guard_LDADD = $(LDADD)
 check_CER_limits_SOURCES = check-CER-limits.c \
     $(top_srcdir)/skeletons/cer_encoder.c
 check_CER_limits_CPPFLAGS = \

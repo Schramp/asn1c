@@ -108,6 +108,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_nested_sos_Member_specs_7 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_nested_sos_Member_7 = {
@@ -252,6 +253,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_sos_Member_specs_4 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_sos_Member_4 = {
@@ -396,6 +398,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_SeqWithNestedSOS_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_SeqWithNestedSOS = {
 	"SeqWithNestedSOS",
@@ -691,6 +694,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

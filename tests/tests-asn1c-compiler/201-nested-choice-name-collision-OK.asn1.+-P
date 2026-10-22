@@ -128,6 +128,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_r8_specs_4 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_r8_4 = {
@@ -193,6 +194,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_r11_specs_7 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_r11_7 = {
@@ -233,6 +235,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_criticalExtensions_specs_9 = {
 	0,	/* No tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_criticalExtensions_9 = {
@@ -481,6 +484,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_HandoverCommand_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_HandoverCommand = {
 	"HandoverCommand",
@@ -776,6 +780,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

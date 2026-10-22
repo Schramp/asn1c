@@ -91,6 +91,7 @@ DUP_NAMEFORM="$T/exit-status/imports-same-nameform-oid.asn1"
 EXPORTS_OK="$T/16-constraint-OK.asn1"     # own non-exported symbol in a constraint
 CLASH="$T/72-same-names-OK.asn1"          # C name clash without -fcompound-names
 PARAM="$T/165-param-class-governed-objectset-OK.asn1"
+DUP_ENUM_MARKER="$T/exit-status/584-duplicate-enum-extension-marker.asn1"
 
 expect_status ok-parse            0  --no-fatal -E "$OK"
 expect_status ok-fix              0  --no-fatal -E -F "$OK"
@@ -101,6 +102,8 @@ mkdir -p "$TMPDIR_TEST/not-a-file.asn1"   # opened, but not a regular file
 expect_status not-a-regular-file  65 -E "$TMPDIR_TEST/not-a-file.asn1"
 expect_status syntax-error        65 -E "$NP"
 expect_status semantic-error      65 --fatal -E -F "$SE"
+expect_status duplicate-enum-extension-marker 65 --fatal-with \
+    "Second extension marker" -E -F "$DUP_ENUM_MARKER"
 expect_status class-ref-error    65 --fatal -E -F "$SE_CLASS"
 expect_status imported-not-exported 65 --fatal-with "does not mention Y" -E -F "$NOT_EXPORTED"
 expect_status unreturned-fatal    65 --fatal-with "does not mention Y" -E -F -fcompound-names "$UNRETURNED"

@@ -279,6 +279,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Everything_specs_1 = {
 	.tag2el_count = 10,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Everything = {
 	"Everything",
@@ -685,6 +686,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_a_specs_2 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_a_2 = {
@@ -1046,6 +1048,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_Set_Member_specs_2 = {
 	.tag2el_count = 5,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	4,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_Set_Member_2 = {
@@ -1270,6 +1273,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Sequence_specs_1 = {
 	.tag2el_count = 4,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	2,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Sequence = {
 	"Sequence",
@@ -1431,6 +1435,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_b_specs_3 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_b_3 = {
@@ -1516,6 +1521,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Alpha_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Alpha = {
 	"Alpha",
@@ -1633,6 +1639,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Beta_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Beta = {
 	"Beta",
@@ -1774,6 +1781,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Gamma_specs_1 = {
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Gamma = {
 	"Gamma",
@@ -2433,6 +2441,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

@@ -726,6 +726,10 @@ asn1c_lang_C_type_SEQUENCE_def(arg_t *arg, asn1c_ioc_table_and_objset_t *opt_ioc
 		OUT("0, 0, 0,\t/* Optional elements (not needed) */\n");
 	}
 	OUT("%d,\t/* First extension addition */\n", first_extension);
+	OUT("%d\t/* Extension addition group body */\n",
+		(expr->marker.flags & EM_EXTENSION_GROUP)
+		&& expr->parent_expr
+		&& expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE);
 	INDENT(-1);
 	OUT("};\n");
 
@@ -2315,6 +2319,19 @@ _add_tag2el_member(arg_t *arg, tag2el_t **tag2el, int *count, int el_no, fte_e f
 	int ret;
 
 	assert(el_no >= 0);
+	if((arg->expr->marker.flags & EM_EXTENSION_GROUP)
+	&& arg->expr->parent_expr
+	&& arg->expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE) {
+		asn1p_expr_t *member;
+		arg_t tmp = *arg;
+		TQ_FOR(member, &(arg->expr->members), next) {
+			if(member->expr_type == A1TC_EXTENSIBLE) continue;
+			tmp.expr = member;
+			if(_add_tag2el_member(&tmp, tag2el, count, el_no, flags))
+				return -1;
+		}
+		return 0;
+	}
 
     ret = WITH_MODULE_NAMESPACE(
         arg->expr->module, expr_ns,
@@ -4446,6 +4463,11 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
         OUT("ATF_OPEN_TYPE | ");
     } else if(outmost_tag && outmost_tag->tag_value == -1) {
         OUT("ATF_ANY_TYPE | ");
+    }
+    if((expr->marker.flags & EM_EXTENSION_GROUP)
+	&& expr->parent_expr
+	&& expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE) {
+        OUT("ATF_EXTENSION_GROUP | ");
     }
     OUT("%s, ",
 		(expr->marker.flags & EM_INDIRECT)?"ATF_POINTER":"ATF_NOFLAGS");

@@ -54,6 +54,7 @@ enum cpr_flags {
 	CPR_strict_JER_visibility	= 0x04,
 	CPR_simulate_fbless_SIZE	= 0x08,
 	CPR_ignore_extension_additions = 0x10,
+	CPR_alphabet_validation = 0x20, /* Abstract FROM check, not wire encoding. */
 };
 asn1cnst_range_t *asn1constraint_compute_OER_range(const char *dbg_name,
 	asn1p_expr_type_e expr_type,

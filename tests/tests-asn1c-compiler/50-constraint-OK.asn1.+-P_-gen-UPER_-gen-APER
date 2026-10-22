@@ -799,6 +799,27 @@ per_type_encoder_f Str3_encode_aper;
 /*** <<< CTABLES [Str3] >>> ***/
 
 static const int permitted_alphabet_table_1[256] = {
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,1,2,3,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,4,5,6,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+static const int permitted_alphabet_code2value_1[6] = {
+65,66,67,100,101,102,};
+
+static const int permitted_alphabet_validation_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
@@ -807,9 +828,6 @@ static const int permitted_alphabet_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*     def          */
 };
-static const int permitted_alphabet_code2value_1[6] = {
-65,66,67,100,101,102,};
-
 
 /**
  * Purpose: Validate every code unit against this type's permitted alphabet.
@@ -824,7 +842,7 @@ static const int permitted_alphabet_code2value_1[6] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is IA5String */
 	const IA5String_t *st = (const IA5String_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -1483,7 +1501,7 @@ static int check_permitted_alphabet_1(const void *sptr) {
 	
 	for(; ch < end; ch++) {
 		uint8_t cv = *ch;
-		if(!(cv >= 65UL && cv <= 66UL)) return -1;
+		if(!(cv >= 65UL && cv <= 70UL)) return -1;
 	}
 	return 0;
 }
@@ -1524,7 +1542,7 @@ Not_PER_Visible_2_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 static asn_per_constraints_t asn_PER_type_Not_PER_Visible_2_constr_1 CC_NOTUSED = {
-	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
+	{ APC_CONSTRAINED,	 3,  3,  65,  70 }	/* (65..70) */,
 	{ APC_SEMI_CONSTRAINED,	-1, -1,  0,  0 }	/* (SIZE(0..MAX)) */,
 	0, 0	/* No PER character map necessary */
 };
@@ -1610,7 +1628,7 @@ static int check_permitted_alphabet_1(const void *sptr) {
 	
 	for(; ch < end; ch++) {
 		uint8_t cv = *ch;
-		if(!(cv >= 65UL && cv <= 66UL)) return -1;
+		if(!(cv >= 65UL && cv <= 70UL)) return -1;
 	}
 	return 0;
 }
@@ -1651,7 +1669,7 @@ Not_PER_Visible_3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 static asn_per_constraints_t asn_PER_type_Not_PER_Visible_3_constr_1 CC_NOTUSED = {
-	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
+	{ APC_CONSTRAINED,	 3,  3,  65,  70 }	/* (65..70) */,
 	{ APC_SEMI_CONSTRAINED,	-1, -1,  0,  0 }	/* (SIZE(0..MAX)) */,
 	0, 0	/* No PER character map necessary */
 };
@@ -1737,7 +1755,7 @@ static int check_permitted_alphabet_1(const void *sptr) {
 	
 	for(; ch < end; ch++) {
 		uint8_t cv = *ch;
-		if(!(cv >= 65UL && cv <= 68UL)) return -1;
+		if(!(cv >= 65UL && cv <= 70UL)) return -1;
 	}
 	return 0;
 }
@@ -1781,7 +1799,7 @@ SIZE_but_not_FROM_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 static asn_per_constraints_t asn_PER_type_SIZE_but_not_FROM_constr_1 CC_NOTUSED = {
-	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
+	{ APC_CONSTRAINED,	 3,  3,  65,  70 }	/* (65..70) */,
 	{ APC_CONSTRAINED,	 2,  2,  1,  4 }	/* (SIZE(1..4)) */,
 	0, 0	/* No PER character map necessary */
 };
@@ -2223,7 +2241,7 @@ per_type_encoder_f Utf8_3_encode_aper;
 
 /*** <<< CTABLES [Utf8-3] >>> ***/
 
-static const int permitted_alphabet_table_1[128] = {
+static const int permitted_alphabet_validation_table_1[128] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
@@ -2247,7 +2265,7 @@ static const int permitted_alphabet_table_1[128] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is UTF8String */
 	const UTF8String_t *st = (const UTF8String_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -2544,6 +2562,31 @@ per_type_encoder_f VisibleIdentifier_encode_aper;
 /*** <<< CTABLES [VisibleIdentifier] >>> ***/
 
 static const int permitted_alphabet_table_1[256] = {
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+2,3,4,5,6,7,8,9,10,11,0,0,0,0,0,0,
+0,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,
+27,28,29,30,31,32,33,34,35,36,37,0,0,0,0,38,
+0,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,
+54,55,56,57,58,59,60,61,62,63,64,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+static const int permitted_alphabet_code2value_1[64] = {
+36,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,
+70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,
+86,87,88,89,90,95,97,98,99,100,101,102,103,104,105,106,
+107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,
+};
+
+static const int permitted_alphabet_validation_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*     $            */
@@ -2553,13 +2596,6 @@ static const int permitted_alphabet_table_1[256] = {
  0,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,	/*  abcdefghijklmno */
 54,55,56,57,58,59,60,61,62,63,64, 0, 0, 0, 0, 0,	/* pqrstuvwxyz      */
 };
-static const int permitted_alphabet_code2value_1[64] = {
-36,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,
-70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,
-86,87,88,89,90,95,97,98,99,100,101,102,103,104,105,106,
-107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,
-};
-
 
 /**
  * Purpose: Validate every code unit against this type's permitted alphabet.
@@ -2574,7 +2610,7 @@ static const int permitted_alphabet_code2value_1[64] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is VisibleString */
 	const VisibleString_t *st = (const VisibleString_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -3123,6 +3159,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Sequence_specs_1 = {
 	asn_MAP_Sequence_oms_1,	/* Optional members */
 	2, 2,	/* Root/Additions */
 	5,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Sequence = {
 	"Sequence",
@@ -3568,6 +3605,31 @@ per_type_encoder_f Identifier_encode_aper;
 /*** <<< CTABLES [Identifier] >>> ***/
 
 static const int permitted_alphabet_table_1[256] = {
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,
+2,3,4,5,6,7,8,9,10,11,0,0,0,0,0,0,
+0,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,
+27,28,29,30,31,32,33,34,35,36,37,0,0,0,0,38,
+0,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,
+54,55,56,57,58,59,60,61,62,63,64,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+static const int permitted_alphabet_code2value_1[64] = {
+36,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,
+70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,
+86,87,88,89,90,95,97,98,99,100,101,102,103,104,105,106,
+107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,
+};
+
+static const int permitted_alphabet_validation_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*     $            */
@@ -3577,13 +3639,6 @@ static const int permitted_alphabet_table_1[256] = {
  0,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,	/*  abcdefghijklmno */
 54,55,56,57,58,59,60,61,62,63,64, 0, 0, 0, 0, 0,	/* pqrstuvwxyz      */
 };
-static const int permitted_alphabet_code2value_1[64] = {
-36,48,49,50,51,52,53,54,55,56,57,65,66,67,68,69,
-70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,
-86,87,88,89,90,95,97,98,99,100,101,102,103,104,105,106,
-107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,
-};
-
 
 /**
  * Purpose: Validate every code unit against this type's permitted alphabet.
@@ -3598,7 +3653,7 @@ static const int permitted_alphabet_code2value_1[64] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is VisibleString */
 	const VisibleString_t *st = (const VisibleString_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -3978,6 +4033,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	asn_MAP_EXTERNAL_oms_1,	/* Optional members */
 	3, 0,	/* Root/Additions */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

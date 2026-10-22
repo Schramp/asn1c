@@ -1073,68 +1073,178 @@ OCTET_STRING_decode_ber(const asn_codec_ctx_t *opt_codec_ctx,
 }
 
 /*
- * Encode an OCTET STRING-family value using DER.
- * Original source: Existing asn1c OCTET STRING DER encoder.
- * Version/date: 1.1, 2026-10-11.
- * Parameters: td describes the string; sptr points to its value; tag_mode/tag
- *             control tagging; cb/app_key receive encoded bytes.
- * Returns: DER encoding result, or failure details when encoding fails.
- * Errors: Invalid string storage, tag generation, or callback failures fail.
- * Responsible party: asn1c maintainers. History: Documentation completed.
- * Example: encodes an OCTET STRING using its universal or descriptor tag.
+ * Purpose: validate OCTET STRING storage and derive the DER content size.
+ * Original source: input validation extracted from the OCTET STRING DER encoder.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: st is the value; variant selects OCTET STRING or BIT STRING rules;
+ *         content_size receives the payload length including BIT metadata.
+ * Returns: 1 for valid storage and representable size; otherwise 0.
+ * Errors: rejects absent nonempty buffers, invalid BIT STRING unused bits, and
+ *         lengths above the portable signed-size limit.
+ * Responsible party: asn1c maintainers. History: added after issue #583 review.
+ * Example: accepts an empty OCTET STRING with a null buffer and size zero.
+ */
+static int
+octet_string_der_validate_storage(const BIT_STRING_t *st,
+                                 enum asn_OS_Subvariant variant,
+                                 size_t *content_size) {
+    size_t bit_extra = (variant == ASN_OSUBV_BIT);
+
+    if(!st || !content_size || st->size > SIZE_MAX - bit_extra
+       || (st->size && !st->buf))
+        return 0;
+    if(variant == ASN_OSUBV_BIT
+       && (st->bits_unused < 0 || st->bits_unused > 7
+           || (!st->size && st->bits_unused)))
+        return 0;
+    *content_size = st->size + bit_extra;
+    return *content_size <= (size_t)RSSIZE_MAX;
+}
+
+/*
+ * Purpose: preflight the DER tag chain and complete encoded size.
+ * Original source: tag sizing extracted from the OCTET STRING DER encoder.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: td/tag_mode/tag describe tagging; content_size is validated payload;
+ *         tag_size receives the encoded tag-and-length byte count.
+ * Returns: 1 if the chain and total fit DER encoder size limits; otherwise 0.
+ * Errors: rejects invalid tag metadata, excessive tag depth, and overflow.
+ * Responsible party: asn1c maintainers. History: added after issue #583 review.
+ * Example: checks the size before any tag or payload callback is invoked.
+ */
+static int
+octet_string_der_preflight_tags(const asn_TYPE_descriptor_t *td,
+                                enum asn_OS_Subvariant variant,
+                                size_t content_size, int tag_mode,
+                                ber_tlv_tag_t tag, ssize_t *tag_size) {
+    ssize_t encoded_tag_size;
+
+    if(!td || !tag_size) return 0;
+    if(variant == ASN_OSUBV_ANY && tag_mode != 1) {
+        encoded_tag_size = 0;
+    } else {
+        /* Keep the preflight bound aligned with der_write_tags' four-tag cap. */
+        if(td->tags_count >= 4 || (td->tags_count && !td->tags))
+            return 0;
+        encoded_tag_size = der_write_tags(td, content_size, tag_mode,
+                                          variant == ASN_OSUBV_ANY, tag, 0, 0);
+        if(encoded_tag_size < 0) return 0;
+    }
+    if((size_t)encoded_tag_size > (size_t)RSSIZE_MAX - content_size)
+        return 0;
+    *tag_size = encoded_tag_size;
+    return 1;
+}
+
+/*
+ * Purpose: validate DER encoder arguments and prepare checked string metadata.
+ * Original source: eligibility checks extracted from the OCTET STRING encoder.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: td/sptr/tag_mode/tag describe the encoding; output pointers receive
+ *         the checked value, variant, content size, and tag-chain size.
+ * Returns: 1 when all inputs and sizes are valid; otherwise 0.
+ * Errors: Rejects null arguments, invalid tag modes, and unsupported variants.
+ * Responsible party: asn1c maintainers. History: extracted for complexity cap.
+ * Example: call before any DER callback to prevent partial invalid output.
+ */
+static int
+octet_string_der_prepare(const asn_TYPE_descriptor_t *td, const void *sptr,
+                         int tag_mode, ber_tlv_tag_t tag,
+                         const BIT_STRING_t **st,
+                         enum asn_OS_Subvariant *variant,
+                         size_t *content_size, ssize_t *tag_size) {
+    const asn_OCTET_STRING_specifics_t *specs;
+    enum asn_OS_Subvariant type_variant;
+    const BIT_STRING_t *value;
+
+    if(!td || !sptr || !st || !variant || !content_size || !tag_size ||
+       tag_mode < -1 || tag_mode > 1)
+        return 0;
+    specs = td->specifics
+        ? (const asn_OCTET_STRING_specifics_t *)td->specifics
+        : &asn_SPC_OCTET_STRING_specs;
+    type_variant = specs->subvariant;
+    if(type_variant == ASN_OSUBV_ANY && tag_mode == -1)
+        return 0;
+    if(type_variant < ASN_OSUBV_ANY || type_variant > ASN_OSUBV_U32)
+        return 0;
+    value = (const BIT_STRING_t *)sptr;
+    if(!octet_string_der_validate_storage(value, type_variant, content_size) ||
+       !octet_string_der_preflight_tags(td, type_variant, *content_size,
+                                        tag_mode, tag, tag_size))
+        return 0;
+    *st = value;
+    *variant = type_variant;
+    return 1;
+}
+
+/*
+ * Purpose: encode an OCTET STRING-family value using DER.
+ * Original source: asn1c's OCTET STRING DER encoder, hardened after issue #583.
+ * Version/date: 1.2, 2026-10-21.
+ * Inputs: td describes the string; sptr supplies its storage; tag_mode/tag
+ *         select effective tagging; cb/app_key receive encoded bytes.
+ * Returns: DER encoded size, or -1 with failed_type/structure_ptr on error.
+ * Errors: Null values, invalid BIT STRING metadata, absent nonempty storage,
+ *         unrepresentable lengths, and callback failures return failure.
+ * Responsible party: asn1c maintainers.
+ * History: rejects invalid storage before tag or content callbacks and avoids
+ *          zero-length callbacks that may pass null pointers to libc routines.
+ * Example: encodes an empty OCTET STRING with a null buffer and zero size.
  */
 asn_enc_rval_t
 OCTET_STRING_encode_der(const asn_TYPE_descriptor_t *td, const void *sptr,
                         int tag_mode, ber_tlv_tag_t tag,
                         asn_app_consume_bytes_f *cb, void *app_key) {
     asn_enc_rval_t er = { 0, 0, 0 };
-    const asn_OCTET_STRING_specifics_t *specs = td->specifics
-        ? (const asn_OCTET_STRING_specifics_t *)td->specifics
-        : &asn_SPC_OCTET_STRING_specs;
-    const BIT_STRING_t *st = (const BIT_STRING_t *)sptr;
-    enum asn_OS_Subvariant type_variant = specs->subvariant;
+    const BIT_STRING_t *st;
+    enum asn_OS_Subvariant type_variant;
+    size_t content_size;
+    ssize_t tag_size;
     int fix_last_byte = 0;
 
-    ASN_DEBUG("%s %s as OCTET STRING",
-              cb?"Estimating":"Encoding", td->name);
+    /* Reject invalid inputs before dereferencing or invoking any callback. */
+    if(!octet_string_der_prepare(td, sptr, tag_mode, tag, &st, &type_variant,
+                                 &content_size, &tag_size))
+        ASN__ENCODE_FAILED;
 
-    /*
-     * Write tags.
-     */
+    ASN_DEBUG("%s %s as OCTET STRING",
+              cb ? "Encoding" : "Estimating",
+              td->name ? td->name : "(unnamed)");
+
+    /* Write tags only after the content length and total size are safe. */
     if(type_variant != ASN_OSUBV_ANY || tag_mode == 1) {
-        er.encoded = der_write_tags(td,
-                                    (type_variant == ASN_OSUBV_BIT) + st->size,
-                                    tag_mode, type_variant == ASN_OSUBV_ANY, tag,
-                                    cb, app_key);
+        er.encoded = cb
+            ? der_write_tags(td, content_size, tag_mode,
+                             type_variant == ASN_OSUBV_ANY, tag, cb, app_key)
+            : tag_size;
         if(er.encoded == -1) {
             er.failed_type = td;
             er.structure_ptr = sptr;
             return er;
         }
     } else {
-        /* Disallow: [<tag>] IMPLICIT ANY */
-        assert(type_variant != ASN_OSUBV_ANY || tag_mode != -1);
+        /* Untagged ANY carries its already encoded contents verbatim. */
         er.encoded = 0;
     }
 
     if(!cb) {
-        er.encoded += (type_variant == ASN_OSUBV_BIT) + st->size;
+        er.encoded += content_size;
         ASN__ENCODED_OK(er);
     }
 
-    /*
-     * Prepare to deal with the last octet of BIT STRING.
-     */
+    /* Emit BIT STRING's unused-bit count; it is a local non-null byte. */
     if(type_variant == ASN_OSUBV_BIT) {
-        uint8_t b = st->bits_unused & 0x07;
+        uint8_t b = (uint8_t)st->bits_unused;
         if(b && st->size) fix_last_byte = 1;
         ASN__CALLBACK(&b, 1);
     }
 
-    /* Invoke callback for the main part of the buffer */
-    ASN__CALLBACK(st->buf, st->size - fix_last_byte);
+    /* Skip zero-byte callbacks because callback implementations may call memcpy. */
+    if(st->size > (size_t)fix_last_byte)
+        ASN__CALLBACK(st->buf, st->size - (size_t)fix_last_byte);
 
-    /* The last octet should be stripped off the unused bits */
+    /* Clear unused low bits in the final data octet when required. */
     if(fix_last_byte) {
         uint8_t b = st->buf[st->size-1] & (0xff << st->bits_unused);
         ASN__CALLBACK(&b, 1);

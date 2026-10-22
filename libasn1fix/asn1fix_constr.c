@@ -3,6 +3,31 @@
 static int _asn1f_check_if_tag_must_be_explicit(arg_t *arg, asn1p_expr_t *v);
 static int _asn1f_compare_tags(arg_t *arg, asn1p_expr_t *a, asn1p_expr_t *b);
 static int _asn1f_fix_type_tag(arg_t *arg, asn1p_expr_t *expr);
+static int _asn1f_autotag_group(arg_t *arg, asn1p_expr_t *group,
+		asn1c_integer_t *tag_value);
+static int _asn1f_autotag_leaf(arg_t *arg, asn1p_expr_t *member,
+		asn1c_integer_t *tag_value);
+static int _asn1f_check_group_tags(arg_t *arg, asn1p_expr_t *group,
+		int component_number, int *root_tagged, int *ext_tagged);
+static int _asn1f_is_sequence_extension_group(const asn1p_expr_t *expr);
+static int _asn1f_validate_extension_group(arg_t *arg, asn1p_expr_t *group);
+static int _asn1f_validate_extension_group_position(
+		arg_t *arg, asn1p_expr_t *parent, asn1p_expr_t *member,
+		int ext_count);
+static int _asn1f_process_extension_marker(arg_t *arg, asn1p_expr_t *marker,
+		int *ext_count, int *remove_marker);
+static int _asn1f_check_component_tag(arg_t *arg, asn1p_expr_t *member,
+		int component_number, int *root_tagged, int *ext_tagged);
+static int _asn1f_compare_group_tags(arg_t *arg, asn1p_expr_t *a,
+		asn1p_expr_t *b, int *handled);
+static int _asn1f_compare_unresolved_tags(arg_t *arg, asn1p_expr_t *a,
+		asn1p_expr_t *b, int ra, int rb);
+static int _asn1f_check_sequence_flat_tags(arg_t *arg,
+		asn1p_expr_t *sequence);
+static asn1p_expr_t *_asn1f_sequence_first_flat_component(
+		asn1p_expr_t *sequence);
+static asn1p_expr_t *_asn1f_sequence_next_flat_component(
+		asn1p_expr_t *component);
 
 int
 asn1f_pull_components_of(arg_t *arg) {
@@ -87,6 +112,17 @@ asn1f_pull_components_of(arg_t *arg) {
 /*
  * Fix extensibility parts inside constructed types (SEQUENCE, SET, CHOICE).
  */
+/*
+ * Purpose: normalize extension markers and validate group placement.
+ * Source: Existing constructed-type extension fixup, extended for X.680 groups.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the current module and constructed expression.
+ * Returns: zero on success, or -1 when extension syntax is invalid.
+ * Errors: reports misplaced/nested groups and malformed extension markers.
+ * Author: asn1c maintainers.
+ * History: Added extension-group marker validation for issue #583.
+ * Example: a group after `...` remains one optional extension descriptor.
+ */
 int
 asn1f_fix_constr_ext(arg_t *arg) {
 	typedef TQ_HEAD(asn1p_expr_t) asn1p_expr_list_t;
@@ -109,6 +145,9 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	}
 
 	DEBUG("(%s) for line %d", expr->Identifier, expr->_lineno);
+	if(_asn1f_is_sequence_extension_group(expr)) {
+		return _asn1f_validate_extension_group(arg, expr);
+	}
 
 	TQ_INIT(&root_list);
 	TQ_INIT(&ext_list);
@@ -119,30 +158,15 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	 * and the extensions list.
 	 */
 	while((v = TQ_REMOVE(&(expr->members), next))) {
+		int remove_marker = 0;
+		if(_asn1f_validate_extension_group_position(arg, expr, v, ext_count))
+			r_value = -1;
 		if(v->expr_type == A1TC_EXTENSIBLE) {
-			ext_count++;
-			switch(ext_count) {
-			case 1: cur_list = &ext_list; break;
-			case 2:
-				/* Second extension marker: continue with extensions,
-				 * do not switch back to root_list */
-				cur_list = &ext_list;
-				if(v->value) {
-					FATAL("Optional extension marker "
-						"must not contain "
-						"an exception mark "
-						"at line %d", v->_lineno);
-					r_value = -1;
-				}
-				asn1p_expr_free(v);
-				continue;
-			case 3:
-				FATAL("Third extension marker "
-				"is not allowed at line %d", v->_lineno);
-                /* Fall through */
-			default:
+			cur_list = &ext_list;
+			if(_asn1f_process_extension_marker(arg, v, &ext_count,
+					&remove_marker))
 				r_value = -1;
-			}
+			if(remove_marker) continue;
 		}
 
 		TQ_ADD(cur_list, v, next);
@@ -155,7 +179,8 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	while((v = TQ_REMOVE(&ext_list, next)))
 		TQ_ADD(&(expr->members), v, next);
 
-	if(arg->mod->module_flags & MSF_EXTENSIBILITY_IMPLIED
+	if((arg->mod->module_flags & MSF_EXTENSIBILITY_IMPLIED)
+	&& !_asn1f_is_sequence_extension_group(expr)
 	&& ext_count == 0) {
 		v = asn1p_expr_new(0, arg->mod);
 		if(v) {
@@ -177,13 +202,113 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	return r_value;
 }
 
+/*
+ * Purpose: reject markers and nested groups inside one synthetic group.
+ * Source: X.680 extension addition group component-list restrictions.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the fixer context; group is the synthetic group.
+ * Returns: zero when every child is a component, or -1 if a marker is found.
+ * Errors: emits one diagnostic for each nested marker or group.
+ * Author: asn1c maintainers.
+ * History: Extracted from extension normalization to bound its complexity.
+ * Example: an extension marker inside [[...]] is rejected.
+ */
+static int
+_asn1f_validate_extension_group(arg_t *arg, asn1p_expr_t *group) {
+	asn1p_expr_t *member;
+	int result = 0;
 
+	TQ_FOR(member, &(group->members), next) {
+		if(member->expr_type == A1TC_EXTENSIBLE
+		|| (member->marker.flags & EM_EXTENSION_GROUP)) {
+			FATAL("Nested extension marker or group inside "
+				"extension addition group at line %d", member->_lineno);
+			result = -1;
+		}
+	}
+	return result;
+}
+
+/*
+ * Purpose: reject a SEQUENCE group placed before its extension marker.
+ * Source: X.680 placement of extension addition groups.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the fixer context; parent is the constructed type;
+ *             member is the current component; ext_count counts prior markers.
+ * Returns: zero when placement is valid, or -1 after reporting an error.
+ * Errors: reports a SEQUENCE group before the first extension marker.
+ * Author: asn1c maintainers.
+ * History: Extracted from the member-list normalization loop.
+ * Example: `[[a INTEGER]], ...` is rejected.
+ */
+static int
+_asn1f_validate_extension_group_position(arg_t *arg, asn1p_expr_t *parent,
+		asn1p_expr_t *member, int ext_count) {
+	if(parent->expr_type != ASN_CONSTR_SEQUENCE || ext_count != 0
+	|| !(member->marker.flags & EM_EXTENSION_GROUP)) return 0;
+	FATAL("Extension addition group before extension marker at line %d",
+		member->_lineno);
+	return -1;
+}
+
+/*
+ * Purpose: count an extension marker and remove the optional second marker.
+ * Source: Existing constructed-type extension-list normalization.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the fixer context; marker is the marker expression;
+ *             ext_count is updated; remove_marker receives whether to omit it.
+ * Returns: zero for an accepted marker, or -1 for an invalid exception/marker.
+ * Errors: diagnoses exception marks on marker two and a third marker.
+ * Author: asn1c maintainers.
+ * History: Extracted from the normalizer without changing marker semantics.
+ * Example: marker two is freed and later extension fields remain in the list.
+ */
+static int
+_asn1f_process_extension_marker(arg_t *arg, asn1p_expr_t *marker,
+		int *ext_count,
+		int *remove_marker) {
+	int result = 0;
+
+	*remove_marker = 0;
+	switch(++*ext_count) {
+	case 1:
+		return 0;
+	case 2:
+		if(marker->value) {
+			FATAL("Optional extension marker must not contain an exception mark "
+				"at line %d", marker->_lineno);
+			result = -1;
+		}
+		asn1p_expr_free(marker);
+		*remove_marker = 1;
+		return result;
+	case 3:
+		FATAL("Third extension marker is not allowed at line %d",
+			marker->_lineno);
+		/* Fall through */
+	default:
+		return -1;
+	}
+}
+
+
+/*
+ * Purpose: resolve explicit tags and automatic-tag eligibility for components.
+ * Source: Existing constructed-type tag fixup, extended for extension groups.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the expression; fix_top_level selects its own tag.
+ * Returns: zero on success, or -1 for invalid tag combinations.
+ * Errors: reports implicit/explicit conflicts and mixed automatic tagging.
+ * Author: asn1c maintainers.
+ * History: Group leaves now contribute as flat extension components.
+ * Example: explicit tags inside [[...]] are checked as enclosing SEQUENCE tags.
+ */
 int
 asn1f_fix_constr_tag(arg_t *arg, int fix_top_level) {
 	asn1p_expr_t *expr = arg->expr;
 	asn1p_expr_t *v;
-	int root_tagged = 0;	/* The root component is manually tagged */
-	int ext_tagged = 0;	/* The extensions are manually tagged */
+	int root_tagged = 0;	/* A root component is manually tagged */
+	int ext_tagged = 0;	/* An extension component is manually tagged */
 	int component_number = 0;
 	int r_value = 0;
 
@@ -220,6 +345,7 @@ asn1f_fix_constr_tag(arg_t *arg, int fix_top_level) {
 	default:
 		return 0;
 	}
+	if(_asn1f_is_sequence_extension_group(expr)) return 0;
 
 	TQ_FOR(v, &(expr->members), next) {
 
@@ -227,21 +353,16 @@ asn1f_fix_constr_tag(arg_t *arg, int fix_top_level) {
 			component_number++;
 			continue;
 		}
-
-		if(v->tag.tag_class == TC_NOCLASS) {
+		if(_asn1f_is_sequence_extension_group(v)) {
+			if(_asn1f_check_group_tags(arg, v, component_number,
+					&root_tagged, &ext_tagged))
+				r_value = -1;
 			continue;
 		}
 
-		switch(component_number) {
-		case 0: case 2:
-			root_tagged = 1; break;
-		default:
-			ext_tagged = 1; break;
-		}
-
-		if(_asn1f_fix_type_tag(arg, v))
+		if(_asn1f_check_component_tag(arg, v, component_number,
+				&root_tagged, &ext_tagged))
 			r_value = -1;
-
 	}
 
 	if((arg->mod->module_flags & MSF_AUTOMATIC_TAGS)
@@ -260,6 +381,83 @@ asn1f_fix_constr_tag(arg_t *arg, int fix_top_level) {
 	}
 
 	return r_value;
+}
+
+/*
+ * Purpose: classify and fix the explicit tag of one constructed component.
+ * Source: Existing X.690 automatic-tag eligibility and type-tag validation.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the type; member is the component; component_number
+ *             selects root versus extension; both flags receive classification.
+ * Returns: zero when untagged or valid, or -1 when tag fixup fails.
+ * Errors: propagates diagnostics from _asn1f_fix_type_tag.
+ * Author: asn1c maintainers.
+ * History: Shared by parent SEQUENCE fields and extension-group leaves.
+ * Example: a tagged extension-group leaf updates ext_tagged.
+ */
+static int
+_asn1f_check_component_tag(arg_t *arg, asn1p_expr_t *member,
+		int component_number, int *root_tagged, int *ext_tagged) {
+	if(member->tag.tag_class == TC_NOCLASS) return 0;
+	if(component_number == 0 || component_number == 2)
+		*root_tagged = 1;
+	else
+		*ext_tagged = 1;
+	return _asn1f_fix_type_tag(arg, member);
+}
+
+/*
+ * Purpose: classify and validate explicit tags on the flat members of a group.
+ * Source: ASN.1 extension-group tag handling, adapted from this module's tag fixup.
+ * Version: 2026-10-21.
+ * Parameters: arg is the active fixer; group is the synthetic group expression;
+ *             component_number identifies the enclosing root/extension region;
+ *             root_tagged and ext_tagged receive tagging classifications.
+ * Returns: zero on success, or -1 if a child tag cannot be fixed.
+ * Errors: propagates _asn1f_fix_type_tag failures.
+ * Author: asn1c maintainers.
+ * History: Added for flat extension-group component tagging.
+ * Example: a tagged group member contributes to ext_tagged, not the wrapper.
+ */
+static int
+_asn1f_check_group_tags(arg_t *arg, asn1p_expr_t *group,
+		int component_number, int *root_tagged, int *ext_tagged) {
+	asn1p_expr_t *member;
+	int result = 0;
+
+	TQ_FOR(member, &(group->members), next) {
+		if(member->expr_type == A1TC_EXTENSIBLE) {
+			component_number++;
+			continue;
+		}
+		if(member->marker.flags & EM_EXTENSION_GROUP) {
+			if(_asn1f_check_group_tags(arg, member, component_number,
+					root_tagged, ext_tagged))
+				result = -1;
+			continue;
+		}
+		if(_asn1f_check_component_tag(arg, member, component_number,
+				root_tagged, ext_tagged)) result = -1;
+	}
+	return result;
+}
+
+/*
+ * Purpose: identify synthetic extension groups used by SEQUENCE wire codecs.
+ * Source: Parser metadata added for X.680 extension addition groups.
+ * Version: 2026-10-21.
+ * Parameters: expr is the candidate component expression.
+ * Returns: nonzero only for a marked group directly contained by SEQUENCE.
+ * Errors: none.
+ * Author: asn1c maintainers.
+ * History: Keeps SET's previous nested behavior outside this issue's scope.
+ * Example: a marked synthetic child of Rec SEQUENCE returns nonzero.
+ */
+static int
+_asn1f_is_sequence_extension_group(const asn1p_expr_t *expr) {
+	return (expr->marker.flags & EM_EXTENSION_GROUP)
+		&& expr->parent_expr
+		&& expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE;
 }
 
 static int
@@ -293,6 +491,17 @@ _asn1f_fix_type_tag(arg_t *arg, asn1p_expr_t *expr) {
 	return r_value;
 }
 
+/*
+ * Purpose: apply automatic tags to constructed type components.
+ * Source: Existing automatic-tag fixup, extended for flat SEQUENCE groups.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the constructed expression and active module.
+ * Returns: zero on success, or -1 if group leaf tagging fails.
+ * Errors: reports invalid component tags through the helper.
+ * Author: asn1c maintainers.
+ * History: Counts group leaves without tagging their synthetic wrapper.
+ * Example: `before, [[g1, g2]], after` receives consecutive tags 0 through 3.
+ */
 int
 asn1f_fix_constr_autotag(arg_t *arg) {
 	asn1p_expr_t *expr = arg->expr;
@@ -311,14 +520,17 @@ asn1f_fix_constr_autotag(arg_t *arg) {
 	default:
 		return 0;
 	}
+	if(_asn1f_is_sequence_extension_group(expr)) return 0;
 
 	DEBUG("(%s) for line %d", expr->Identifier, expr->_lineno);
 
 	TQ_FOR(v, &(expr->members), next) {
-		int must_explicit;
-
 		if(v->expr_type == A1TC_EXTENSIBLE) {
 			/* 28.5, d) */
+			continue;
+		}
+		if(_asn1f_is_sequence_extension_group(v)) {
+			if(_asn1f_autotag_group(arg, v, &tag_value)) r_value = -1;
 			continue;
 		}
 
@@ -327,18 +539,76 @@ asn1f_fix_constr_autotag(arg_t *arg) {
 			assert(v->tag.tag_class == TC_NOCLASS);
 		}
 
-		must_explicit = _asn1f_check_if_tag_must_be_explicit(arg, v);
-
-		v->tag.tag_class = TC_CONTEXT_SPECIFIC;
-		v->tag.tag_mode = must_explicit ? TM_EXPLICIT : TM_IMPLICIT;
-		v->tag.tag_value = tag_value++;
+		if(_asn1f_autotag_leaf(arg, v, &tag_value)) r_value = -1;
 	}
 
 	return r_value;
 }
 
 /*
+ * Purpose: apply automatic tags to group leaves in their enclosing flat order.
+ * Source: ASN.1 X.680 automatic tagging for extension addition groups.
+ * Version: 2026-10-21.
+ * Parameters: arg is the active fixer; group is a synthetic group; tag_value
+ *             points to the next parent-level automatic tag number.
+ * Returns: zero on success, or -1 if a member tag cannot be resolved.
+ * Errors: reports invalid implicit tags via _asn1f_fix_type_tag.
+ * Author: asn1c maintainers.
+ * History: Added so group wrappers do not consume an automatic tag number.
+ * Example: group members following tags 0 and 1 receive tags 2 and 3.
+ */
+static int
+_asn1f_autotag_group(arg_t *arg, asn1p_expr_t *group,
+		asn1c_integer_t *tag_value) {
+	asn1p_expr_t *member;
+	int result = 0;
+
+	TQ_FOR(member, &(group->members), next) {
+		if(member->expr_type == A1TC_EXTENSIBLE) continue;
+		if(member->marker.flags & EM_EXTENSION_GROUP) {
+			if(_asn1f_autotag_group(arg, member, tag_value)) result = -1;
+			continue;
+		}
+		if(_asn1f_autotag_leaf(arg, member, tag_value)) result = -1;
+	}
+	return result;
+}
+
+/*
+ * Purpose: assign the next automatic tag to one non-group component.
+ * Source: Existing automatic-tag rule, shared by ordinary and group members.
+ * Version: 2026-10-21.
+ * Parameters: arg is the active fixer; member is the component; tag_value points
+ *             to the next available parent-level tag number.
+ * Returns: zero on success, or -1 if the member tag is invalid.
+ * Errors: reports invalid implicit tags via _asn1f_fix_type_tag.
+ * Author: asn1c maintainers.
+ * History: Extracted to maintain one counter across extension-group boundaries.
+ * Example: a component receives [3] when the current counter is three.
+ */
+static int
+_asn1f_autotag_leaf(arg_t *arg, asn1p_expr_t *member,
+		asn1c_integer_t *tag_value) {
+	int must_explicit = _asn1f_check_if_tag_must_be_explicit(arg, member);
+	member->tag.tag_class = TC_CONTEXT_SPECIFIC;
+	member->tag.tag_mode = must_explicit ? TM_EXPLICIT : TM_IMPLICIT;
+	member->tag.tag_value = (*tag_value)++;
+	return 0;
+}
+
+/*
  * Check that tags are distinct.
+ */
+/*
+ * Purpose: reject ambiguous tags among components that may be absent.
+ * Source: Existing SEQUENCE/SET/CHOICE tag uniqueness check.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the constructed expression being checked.
+ * Returns: zero on success, or -1 when two candidate fields share a tag.
+ * Errors: emits a diagnostic naming the conflicting components.
+ * Author: asn1c maintainers.
+ * History: Group comparisons now expand the group's leaf tags for SEQUENCE.
+ * Example: duplicate tags in adjacent optional group components are rejected.
  */
 int
 asn1f_check_constr_tags_distinct(arg_t *arg) {
@@ -353,6 +623,9 @@ asn1f_check_constr_tags_distinct(arg_t *arg) {
 		break;
 	default:
 		return 0;
+	}
+	if(expr->expr_type == ASN_CONSTR_SEQUENCE) {
+		return _asn1f_check_sequence_flat_tags(arg, expr);
 	}
 
 	TQ_FOR(v, &(expr->members), next) {
@@ -377,6 +650,102 @@ asn1f_check_constr_tags_distinct(arg_t *arg) {
 	}
 
 	return r_value;
+}
+
+/*
+ * Purpose: walk SEQUENCE components in wire order while exposing group leaves.
+ * Source: X.680 extension-addition-group component-list flattening.
+ * Version: 2026-10-21.
+ * Parameters: component is a current component or NULL to request the first.
+ * Returns: the next flattened component, or NULL at the end.
+ * Errors: none; parser/fixer validation rejects nested groups beforehand.
+ * Author: asn1c maintainers.
+ * History: Added to apply tag checks to actual group leaves, not wrappers.
+ * Example: the next component after the last group leaf is the parent's tail.
+ */
+static asn1p_expr_t *
+_asn1f_sequence_next_flat_component(asn1p_expr_t *component) {
+	asn1p_expr_t *owner;
+	asn1p_expr_t *next;
+
+	if(component == NULL) return NULL;
+	owner = component;
+	if(_asn1f_is_sequence_extension_group(component->parent_expr)) {
+		next = TQ_NEXT(component, next);
+		if(next) return next;
+		owner = component->parent_expr;
+	}
+
+	next = TQ_NEXT(owner, next);
+	while(next && _asn1f_is_sequence_extension_group(next)) {
+		asn1p_expr_t *first = TQ_FIRST(&next->members);
+		if(first) return first;
+		next = TQ_NEXT(next, next);
+	}
+	return next;
+}
+
+/*
+ * Purpose: find the first flattened SEQUENCE component, expanding a leading group.
+ * Source: X.680 extension-addition-group component-list flattening.
+ * Version: 2026-10-21.
+ * Parameters: sequence is the constructed SEQUENCE expression.
+ * Returns: first component, or NULL for an empty sequence.
+ * Errors: none; invalid nested groups are rejected before this phase.
+ * Author: asn1c maintainers.
+ * History: Added with flattened tag-run validation.
+ * Example: returns a group's first leaf when that group is the first component.
+ */
+static asn1p_expr_t *
+_asn1f_sequence_first_flat_component(asn1p_expr_t *sequence) {
+	asn1p_expr_t *member;
+
+	member = TQ_FIRST(&sequence->members);
+	while(member) {
+		if(_asn1f_is_sequence_extension_group(member)) {
+			asn1p_expr_t *group = member;
+			member = TQ_FIRST(&group->members);
+			if(member) return member;
+			member = TQ_NEXT(group, next);
+			continue;
+		}
+		return member;
+	}
+	return NULL;
+}
+
+/*
+ * Purpose: check optional-run tag uniqueness across flattened group boundaries.
+ * Source: Existing SEQUENCE tag-run check, adapted to X.680 group components.
+ * Version: 2026-10-21.
+ * Parameters: arg is the active fixer; sequence is its SEQUENCE expression.
+ * Returns: zero on success, or -1 if an optional run has an ambiguous tag.
+ * Errors: reports duplicate tags through _asn1f_compare_tags.
+ * Author: asn1c maintainers.
+ * History: Compares only leaves required by the optional-run rule.
+ * Example: adjacent mandatory [3] group/tail components remain valid.
+ */
+static int
+_asn1f_check_sequence_flat_tags(arg_t *arg, asn1p_expr_t *sequence) {
+	asn1p_expr_t *component;
+	int result = 0;
+
+	for(component = _asn1f_sequence_first_flat_component(sequence);
+	    component;
+	    component = _asn1f_sequence_next_flat_component(component)) {
+		asn1p_expr_t *next;
+
+		if(component->expr_type == A1TC_EXTENSIBLE
+		|| !component->marker.flags) continue;
+		for(next = _asn1f_sequence_next_flat_component(component);
+		    next;
+		    next = _asn1f_sequence_next_flat_component(next)) {
+			if(next->expr_type == A1TC_EXTENSIBLE) break;
+			if(_asn1f_compare_tags(arg, component, next)) result = -1;
+			if(!next->marker.flags) break;
+		}
+	}
+	return result;
 }
 
 static int
@@ -411,13 +780,113 @@ _asn1f_check_if_tag_must_be_explicit(arg_t *arg, asn1p_expr_t *v) {
 }
 
 /*
- * Check that the tags are distinct.
+ * Purpose: compare group leaves against one neighboring component.
+ * Source: X.680 flat extension-addition-group component semantics.
+ * Version: 2026-10-21.
+ * Parameters: arg is the active fixer; a and b are candidate components;
+ *             handled reports whether a group was expanded.
+ * Returns: zero for no collision, or the first nonzero leaf comparison result.
+ * Errors: propagates tag diagnostics from _asn1f_compare_tags.
+ * Author: asn1c maintainers.
+ * History: Extracted group recursion to keep the tag comparator bounded.
+ * Example: a group's leaf tags are checked against the following field.
+ */
+static int
+_asn1f_compare_group_tags(arg_t *arg, asn1p_expr_t *a, asn1p_expr_t *b,
+		int *handled) {
+	asn1p_expr_t *group = NULL;
+	asn1p_expr_t *other = NULL;
+	int group_is_left = 0;
+	int ret;
+
+	*handled = 0;
+	if(_asn1f_is_sequence_extension_group(a)) {
+		group = a;
+		other = b;
+		group_is_left = 1;
+	} else if(_asn1f_is_sequence_extension_group(b)) {
+		group = b;
+		other = a;
+	}
+	if(!group) return 0;
+
+	*handled = 1;
+	TQ_FOR(a, &(group->members), next) {
+		if(a->expr_type == A1TC_EXTENSIBLE) continue;
+		ret = group_is_left ? _asn1f_compare_tags(arg, a, other)
+				: _asn1f_compare_tags(arg, other, a);
+		if(ret) return ret;
+	}
+	return 0;
+}
+
+/*
+ * Purpose: compare unresolved tags by following references and CHOICE members.
+ * Source: Existing constructed-type tag distinctness recursion.
+ * Version: 2026-10-21.
+ * Parameters: arg is the active fixer; a and b are components; ra and rb are
+ *             their outmost-tag lookup results.
+ * Returns: zero for no collision or an unresolved lookup, otherwise the first
+ *          nonzero comparison result.
+ * Errors: propagates diagnostics from symbol lookup and recursive comparisons.
+ * Author: asn1c maintainers.
+ * History: Extracted to keep _asn1f_compare_tags at or below CC 20.
+ * Example: an untagged CHOICE is compared through every alternative.
+ */
+static int
+_asn1f_compare_unresolved_tags(arg_t *arg, asn1p_expr_t *a,
+		asn1p_expr_t *b, int ra, int rb) {
+	int ret;
+
+	DEBUG("Comparing tags %s:%x <-> %s:%x",
+		a->Identifier, a->expr_type, b->Identifier, b->expr_type);
+	if(ra && a->meta_type == AMT_TYPEREF) {
+		DEBUG(" %s is a type reference", a->Identifier);
+		a = asn1f_lookup_symbol(arg, a->rhs_pspecs, a->reference);
+		if(!a) return 0;
+		return WITH_MODULE(a->module, _asn1f_compare_tags(arg, a, b));
+	}
+	if(ra && a->expr_type == ASN_CONSTR_CHOICE) {
+		asn1p_expr_t *member;
+		DEBUG(" %s is a choice type (%d)", a->Identifier, a->_mark);
+		TQ_FOR(member, &(a->members), next) {
+			ret = _asn1f_compare_tags(arg, member, b);
+			if(ret) return ret;
+		}
+		return 0;
+	}
+	if(rb && b->expr_type == ASN_CONSTR_CHOICE)
+		return _asn1f_compare_tags(arg, b, a);
+	if(a->_mark & TM_RECURSION) return 0;
+	if(b->_mark & TM_RECURSION) return 0;
+	a->_mark |= TM_RECURSION;
+	b->_mark |= TM_RECURSION;
+	ret = _asn1f_compare_tags(arg, b, a);
+	a->_mark &= ~TM_RECURSION;
+	b->_mark &= ~TM_RECURSION;
+	return ret;
+}
+
+/*
+ * Purpose: determine whether two ASN.1 components can have the same tag.
+ * Source: Existing constructed-type tag distinctness checker.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the enclosing type; a and b are compared components.
+ * Returns: zero for distinct tags, or -1 when tags may collide.
+ * Errors: emits diagnostics for duplicate or imaginary ANY tags.
+ * Author: asn1c maintainers.
+ * History: group leaf expansion moved to _asn1f_compare_group_tags.
+ * Example: optional SEQUENCE fields are checked against their following component.
  */
 static int
 _asn1f_compare_tags(arg_t *arg, asn1p_expr_t *a, asn1p_expr_t *b) {
 	struct asn1p_type_tag_s ta, tb;
 	int ra, rb;
 	int ret;
+	int group_handled;
+
+	ret = _asn1f_compare_group_tags(arg, a, b, &group_handled);
+	if(group_handled) return ret;
 
 	ra = asn1f_fetch_outmost_tag(arg->asn, arg->ns, arg->mod, a,
 			&ta, AFT_IMAGINARY_ANY);
@@ -477,53 +946,5 @@ _asn1f_compare_tags(arg_t *arg, asn1p_expr_t *a, asn1p_expr_t *b) {
 		}
 	}
 
-	/**********************************************************
-	 * Now we must perform some very funny recursion to check
-	 * multiple components of CHOICE type, etc.
-	 */
-
-	DEBUG("Comparing tags %s:%x <-> %s:%x",
-		a->Identifier, a->expr_type,
-		b->Identifier, b->expr_type);
-
-	if(ra && a->meta_type == AMT_TYPEREF) {
-
-		DEBUG(" %s is a type reference", a->Identifier);
-
-        a = asn1f_lookup_symbol(arg, a->rhs_pspecs, a->reference);
-        if(!a) return 0;	/* Already FATAL()'ed somewhere else */
-        return WITH_MODULE(a->module, _asn1f_compare_tags(arg, a, b));
-    }
-
-	if(ra && a->expr_type == ASN_CONSTR_CHOICE) {
-		asn1p_expr_t *v;
-
-		DEBUG(" %s is a choice type (%d)", a->Identifier, a->_mark);
-
-		/*
-		 * Iterate over members of CHOICE.
-		 */
-		//if(a->_mark & TM_RECURSION) return 0;
-		TQ_FOR(v, &(a->members), next) {
-			//a->_mark |= TM_RECURSION;
-			ret = _asn1f_compare_tags(arg, v, b);
-			//a->_mark &= ~TM_RECURSION;
-			if(ret) return ret;
-		}
-		return 0;
-	}
-
-	if(rb && b->expr_type == ASN_CONSTR_CHOICE) {
-		return _asn1f_compare_tags(arg, b, a);
-	}
-
-	if(a->_mark & TM_RECURSION) return 0;
-	if(b->_mark & TM_RECURSION) return 0;
-	a->_mark |= TM_RECURSION;
-	b->_mark |= TM_RECURSION;
-	ret = _asn1f_compare_tags(arg, b, a);
-	a->_mark &= ~TM_RECURSION;
-	b->_mark &= ~TM_RECURSION;
-
-	return ret;
+	return _asn1f_compare_unresolved_tags(arg, a, b, ra, rb);
 }

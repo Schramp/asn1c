@@ -6,6 +6,74 @@
 #include <asn_internal.h>
 #include <constr_SEQUENCE.h>
 #include <OPEN_TYPE.h>
+#include <limits.h>
+
+/*
+ * Purpose: match an XML tag to a direct child of a synthetic extension group.
+ * Original source: XER handling for ASN.1 extension addition groups.
+ * Version/date: 2026-10-21.
+ * Inputs: td is the candidate group descriptor; ptr/tag_size identify the
+ *         current XML token; first limits the search to unprocessed members.
+ * Returns: 1 if a direct child tag matches, otherwise 0.
+ * Exceptions: none; invalid descriptors, sizes, and missing names do not match.
+ * Responsible party: asn1c maintainers.
+ * History: added for issue #583; group children are encoded without a wrapper.
+ * Example: use the result to dispatch <field> to its containing group.
+ */
+static int
+SEQUENCE_xer_group_has_child_tag(const asn_TYPE_descriptor_t *td,
+                                 const void *ptr, ssize_t tag_size,
+                                 size_t first) {
+    const asn_SEQUENCE_specifics_t *specs;
+    size_t i;
+
+    if(!td || !td->specifics || !td->elements || !ptr || tag_size <= 0
+       || tag_size > INT_MAX)
+        return 0;
+    specs = (const asn_SEQUENCE_specifics_t *)td->specifics;
+    if(!specs->extension_group)
+        return 0;
+
+    for(i = first; i < td->elements_count; i++) {
+        xer_check_tag_e tcv;
+        const char *name = td->elements[i].name;
+
+        if(!name)
+            continue;
+        tcv = xer_check_tag(ptr, (int)tag_size, name);
+        if(tcv == XCT_OPENING || tcv == XCT_BOTH)
+            return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * Purpose: determine whether every unprocessed group member is optional.
+ * Original source: XER handling for ASN.1 extension addition groups.
+ * Version/date: 2026-10-21.
+ * Inputs: td is the group descriptor; first is the first unprocessed member.
+ * Returns: 1 when the remainder is optional or empty; 0 for invalid metadata
+ *          or if any remaining member is mandatory.
+ * Exceptions: none; invalid descriptors are treated as having mandatory data.
+ * Responsible party: asn1c maintainers.
+ * History: added for issue #583 to distinguish an absent optional group tail
+ *          from a missing mandatory group component.
+ * Example: return success at the next parent tag after all mandatory children.
+ */
+static int
+SEQUENCE_xer_group_tail_optional(const asn_TYPE_descriptor_t *td,
+                                 size_t first) {
+    size_t i;
+
+    if(!td || !td->elements || first > td->elements_count)
+        return 0;
+    for(i = first; i < td->elements_count; i++) {
+        if(!td->elements[i].optional)
+            return 0;
+    }
+    return 1;
+}
 
 /*
  * Return a standardized complex structure.
@@ -35,7 +103,19 @@
     } while(0)
 
 /*
- * Decode the XER (XML) data.
+ * Purpose: decode a SEQUENCE's XER contents, including flat extension groups.
+ * Original source: asn1c's XER SEQUENCE decoder.
+ * Version/date: 2026-10-21.
+ * Inputs: opt_codec_ctx controls recursion; td describes the sequence;
+ *         struct_ptr receives/retains the decoded object; opt_mname is the
+ *         member's expected XML tag; ptr/size contain the available XML data.
+ * Returns: RC_OK for a complete value, RC_WMORE for incomplete data, or
+ *          RC_FAIL for invalid XML or missing mandatory data.
+ * Exceptions: allocation failures return RC_FAIL; nested decoder failures
+ *             propagate, while the caller retains any partial object to free.
+ * Responsible party: asn1c maintainers.
+ * History: the extension-group path was added for issue #583.
+ * Example: decode a SEQUENCE whose extension group members appear as siblings.
  */
 asn_dec_rval_t
 SEQUENCE_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
@@ -53,7 +133,7 @@ SEQUENCE_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
      * ... and parts of the structure being constructed.
      */
     void *st = *struct_ptr;  /* Target structure. */
-    asn_struct_ctx_t *ctx;   /* Decoder context */
+    asn_struct_ctx_t *ctx;   /* Decoder state variable. */
 
     asn_dec_rval_t rval;          /* Return value from a decoder */
     ssize_t consumed_myself = 0;  /* Consumed bytes from ptr */
@@ -161,6 +241,28 @@ SEQUENCE_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
         ASN_DEBUG("XER/SEQUENCE: tcv = %d, ph=%d [%s]",
                   tcv, ctx->phase, xml_tag);
 
+        /* A synthetic group has no opening wrapper: its first child starts it. */
+        if(specs->extension_group && ctx->phase == 0) {
+            if(!SEQUENCE_xer_group_has_child_tag(td, ptr, ch_size, edx)) {
+                if(SEQUENCE_xer_group_tail_optional(td, edx)) {
+                    ctx->phase = 4;
+                    RETURN(RC_OK);
+                }
+                RETURN(RC_FAIL);
+            }
+            ctx->phase = 1;
+            tcv = XCT_UNKNOWN_OP;
+        } else if(specs->extension_group && ctx->phase == 1
+                  && !SEQUENCE_xer_group_has_child_tag(td, ptr, ch_size,
+                                                       edx)) {
+            /* Leave the next parent's tag untouched after an optional tail. */
+            if(SEQUENCE_xer_group_tail_optional(td, edx)) {
+                ctx->phase = 4;
+                RETURN(RC_OK);
+            }
+            RETURN(RC_FAIL);
+        }
+
         /* Skip the extensions section */
         if(ctx->phase == 3) {
             switch(xer_skip_unknown(tcv, &ctx->left)) {
@@ -240,7 +342,13 @@ SEQUENCE_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
                     edx_end = td->elements_count;
                 for(n = edx; n < edx_end; n++) {
                     elm = &td->elements[n];
-                    tcv = xer_check_tag(ptr, ch_size, elm->name);
+                    if(elm->flags & ATF_EXTENSION_GROUP) {
+                        tcv = SEQUENCE_xer_group_has_child_tag(
+                            elm->type, ptr, ch_size, 0)
+                            ? XCT_OPENING : XCT_UNKNOWN_OP;
+                    } else {
+                        tcv = xer_check_tag(ptr, ch_size, elm->name);
+                    }
                     
                     ASN_DEBUG("XER/SEQUENCE: Checking member n=%zu, name='%s', tcv=%d, tag='%.*s'",
                               n, elm->name ? elm->name : "(null)", tcv, 
@@ -304,7 +412,8 @@ SEQUENCE_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
                                     xer_check_tag_e peek_tcv = xer_check_tag(peek_ptr, peek_ch_size, elm->name);
                                     if(peek_tcv == XCT_CLOSING) {
                                         /* This is an empty optional field! */
-                                        ASN_DEBUG("XER/SEQUENCE: Empty optional field '%s' (separate tags), treating as absent",
+                                        ASN_DEBUG("XER/SEQUENCE: Empty optional field '%s' "
+                                                  "(separate tags), treating as absent",
                                                   elm->name ? elm->name : "(null)");
                                         /* Capture closing tag size before using it */
                                         closing_tag_size = peek_ch_size;
@@ -440,12 +549,89 @@ SEQUENCE_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
     RETURN(RC_FAIL);
 }
 
+/*
+ * Purpose: serialize one SEQUENCE member, flattening synthetic group wrappers.
+ * Original source: XER member-emission logic from asn1c's SEQUENCE encoder.
+ * Version/date: 1.0, 2026-10-21.
+ * Inputs: td/sptr identify the parent; elm/member identify the field; edx and
+ *         previous_bytes set indentation; ilevel/flags/cb/app_key set XER mode.
+ * Returns: Encoded byte count, or the failing child/member descriptor.
+ * Errors: Callback and child encoder failures propagate in the result.
+ * Responsible party: asn1c maintainers. History: extracted to bound complexity.
+ * Example: emit a group's child tags at the current parent indentation.
+ */
+static asn_enc_rval_t
+SEQUENCE_xer_encode_member(const asn_TYPE_descriptor_t *td, const void *sptr,
+                           asn_TYPE_member_t *elm, const void *member,
+                           size_t edx, ssize_t previous_bytes, int ilevel,
+                           enum xer_encoder_flags_e flags,
+                           asn_app_consume_bytes_f *cb, void *app_key) {
+    const asn_SEQUENCE_specifics_t *specs =
+        (const asn_SEQUENCE_specifics_t *)td->specifics;
+    asn_enc_rval_t er = {0, 0, 0};
+    asn_enc_rval_t child;
+    const char *mname = elm->name;
+    size_t mlen = strlen(mname);
+
+    /* A synthetic group is represented by its child elements in XER. */
+    if(elm->flags & ATF_EXTENSION_GROUP)
+        return elm->type->op->xer_encoder(elm->type, member, ilevel, flags,
+                                          cb, app_key);
+
+    /* Separate wrapped members with indentation in the selected XER form. */
+    if(!(flags & XER_F_CANONICAL)) {
+        if((edx == 0 || previous_bytes == 0)
+           && !(specs && specs->extension_group)) {
+            ASN__TEXT_INDENT(1, ilevel);
+        } else {
+            int tmp_i;
+            for(tmp_i = 0; tmp_i < ilevel; tmp_i++)
+                ASN__CALLBACK("    ", 4);
+        }
+    }
+    ASN__CALLBACK3("<", 1, mname, mlen, ">", 1);
+
+    /* Encode the member value, including open types, inside its XML element. */
+    if(elm->flags & ATF_OPEN_TYPE) {
+        child = OPEN_TYPE_xer_put(td, sptr, elm, ilevel + 1, flags, cb, app_key);
+    } else {
+        child = elm->type->op->xer_encoder(elm->type, member, ilevel + 1,
+                                           flags, cb, app_key);
+    }
+    if(child.encoded < 0) return child;
+    er.encoded += child.encoded;
+
+    /* Match pretty-mode child indentation and canonical wrapper spelling. */
+    if(!(flags & XER_F_CANONICAL)) {
+        if(child.encoded > 0
+           && (ASN__IS_STRUCTURED_TYPE(elm) || (elm->flags & ATF_OPEN_TYPE)))
+            ASN__TEXT_INDENT(0, ilevel);
+        ASN__CALLBACK3("</", 2, mname, mlen, ">\n", 2);
+    } else {
+        ASN__CALLBACK3("</", 2, mname, mlen, ">", 1);
+    }
+    ASN__ENCODED_OK(er);
+cb_failed:
+    ASN__ENCODE_FAILED;
+}
+
+/*
+ * Purpose: encode SEQUENCE contents as XER, flattening extension groups.
+ * Original source: asn1c's XER SEQUENCE encoder.
+ * Version/date: 2026-10-21.
+ * Inputs: td describes the sequence; sptr is its value; ilevel controls
+ *         indentation; flags selects canonical form; cb/app_key collect bytes.
+ * Returns: encoded byte count, or an error result if a child fails.
+ * Exceptions: callback and child encoder errors propagate as encoding failure.
+ * Responsible party: asn1c maintainers.
+ * History: the extension-group path was added for issue #583.
+ * Example: encode group members as sibling tags inside the parent sequence.
+ */
 asn_enc_rval_t
 SEQUENCE_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
                     int ilevel, enum xer_encoder_flags_e flags,
                     asn_app_consume_bytes_f *cb, void *app_key) {
     asn_enc_rval_t er = {0,0,0};
-    int xcan = (flags & XER_F_CANONICAL);
     asn_TYPE_descriptor_t *tmp_def_val_td = 0;
     void *tmp_def_val = 0;
     size_t edx;
@@ -458,11 +644,9 @@ SEQUENCE_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
     er.encoded = 0;
 
     for(edx = 0; edx < td->elements_count; edx++) {
-        asn_enc_rval_t tmper = {0,0,0};
+        asn_enc_rval_t tmper;
         asn_TYPE_member_t *elm = &td->elements[edx];
         const void *memb_ptr;
-        const char *mname = elm->name;
-        unsigned int mlen = strlen(mname);
 
         if(elm->flags & ATF_POINTER) {
             memb_ptr =
@@ -489,25 +673,9 @@ SEQUENCE_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
             memb_ptr = (const void *)((const char *)sptr + elm->memb_offset);
         }
 
-        if(!xcan) {
-            if(edx == 0 || er.encoded == 0) {
-                /* First member: output newline + indent */
-                ASN__TEXT_INDENT(1, ilevel);
-            } else {
-                /* Subsequent members: output only indent (newline comes from previous closing tag) */
-                int tmp_i;
-                for(tmp_i = 0; tmp_i < ilevel; tmp_i++) ASN__CALLBACK("    ", 4);
-            }
-        }
-        ASN__CALLBACK3("<", 1, mname, mlen, ">", 1);
-
-        /* Print the member itself */
-        if(elm->flags & ATF_OPEN_TYPE) {
-            tmper = OPEN_TYPE_xer_put(td, sptr, elm, ilevel + 1, flags, cb, app_key);
-        } else {
-            tmper = elm->type->op->xer_encoder(elm->type, memb_ptr, ilevel + 1,
-                                               flags, cb, app_key);
-        }
+        tmper = SEQUENCE_xer_encode_member(td, sptr, elm, memb_ptr, edx,
+                                            er.encoded, ilevel, flags, cb,
+                                            app_key);
         if(tmp_def_val) {
             ASN_STRUCT_FREE(*tmp_def_val_td, tmp_def_val);
             tmp_def_val = 0;
@@ -517,19 +685,6 @@ SEQUENCE_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
             return tmper;
         }
         er.encoded += tmper.encoded;
-
-        if(!xcan) {
-            /* Add indentation before closing tag only if element is a structured type
-             * that outputs newlines in its content (SEQUENCE, SET, CHOICE, etc.)
-             * Primitive types like INTEGER output inline content, so no indent needed. */
-            if(tmper.encoded > 0 && 
-               (ASN__IS_STRUCTURED_TYPE(elm) || elm->flags & ATF_OPEN_TYPE)) {
-                ASN__TEXT_INDENT(0, ilevel);
-            }
-            ASN__CALLBACK3("</", 2, mname, mlen, ">\n", 2);
-        } else {
-            ASN__CALLBACK3("</", 2, mname, mlen, ">", 1);
-        }
     }
 
     XER_ENCODER_RECURSION_DEPTH_DEC();

@@ -101,6 +101,9 @@ static int cer_encode_value(cer_context_t *, const asn_TYPE_descriptor_t *,
 static int cer_encode_member(cer_context_t *, const asn_TYPE_descriptor_t *,
                              const void *, const asn_TYPE_member_t *,
                              cer_buffer_t *, cer_member_view_t *);
+static int cer_encode_extension_group_body(cer_context_t *,
+                                           const asn_TYPE_descriptor_t *,
+                                           const void *, cer_buffer_t *);
 static int cer_capture_bytes_cb(const void *, size_t, void *);
 static int cer_check_tag_depth(cer_context_t *,
                                const asn_TYPE_descriptor_t *, const void *,
@@ -2699,20 +2702,76 @@ cer_encode_sequence_members(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
     for(i = 0; i < count; i++) {
         cer_member_view_t view;
         cer_buffer_t child = {0};
+        const asn_TYPE_member_t *member = &td->elements[i];
         if(cer_charge_work(ctx, td, value) ||
-           cer_encode_member(ctx, td, value, &td->elements[i], NULL, &view)) {
+           cer_encode_member(ctx, td, value, member, NULL, &view)) {
             return -1;
         }
-        if(view.present &&
-           (cer_encode_value(ctx, view.type, view.value, view.tag_mode,
-                             view.tag, &child) ||
-            cer_buffer_append(ctx, body, child.data, child.length, td, value))) {
-            cer_buffer_release(ctx, &child);
-            return -1;
+        if(view.present) {
+            int encode_status;
+
+            /* X.690 SEQUENCE extension groups contribute only their children. */
+            if(member->flags & ATF_EXTENSION_GROUP) {
+                encode_status = cer_encode_extension_group_body(
+                    ctx, view.type, view.value, &child);
+            } else {
+                encode_status = cer_encode_value(ctx, view.type, view.value,
+                                                 view.tag_mode, view.tag, &child);
+            }
+            if(encode_status ||
+               cer_buffer_append(ctx, body, child.data, child.length, td,
+                                 value)) {
+                cer_buffer_release(ctx, &child);
+                return -1;
+            }
         }
         cer_buffer_release(ctx, &child);
     }
     return 0;
+}
+
+/*
+ * Encode a synthetic extension group's members without its SEQUENCE TLV.
+ * Original source: New asn1c CER extension-group encoder, following X.690 8.9.
+ * Version/date: 1.0, 2026-10-21.
+ * Parameters: ctx tracks depth/work/scratch; td/value identify the synthetic
+ *   group; body receives the concatenated CER encodings of its components.
+ * Returns: 0 on success, or -1 after recording malformed data/resource errors.
+ * Errors: EBADF for a non-group descriptor; EOVERFLOW/ENOMEM for bounded work.
+ * Responsible party: asn1c maintainers. History: Added for issue #583 CER.
+ * Example: append the group body directly within its containing SEQUENCE TLV.
+ */
+static int
+cer_encode_extension_group_body(cer_context_t *ctx,
+                                const asn_TYPE_descriptor_t *td,
+                                const void *value, cer_buffer_t *body) {
+    const asn_SEQUENCE_specifics_t *specs;
+    size_t structure_size;
+    int status;
+
+    if(!ctx) return -1;
+    if(!td || !td->op || td->op->kind != ASN_KIND_SEQUENCE || !value ||
+       !body || cer_descriptor_size(td, &structure_size)) {
+        return cer_fail(ctx, EBADF, td, value);
+    }
+    specs = (const asn_SEQUENCE_specifics_t *)td->specifics;
+    if(!specs->extension_group) return cer_fail(ctx, EBADF, td, value);
+    if(ctx->depth >= ASN_STACK_OVERFLOW_LIMIT ||
+       ASN__STACK_OVERFLOW_CHECK(ctx->codec_ctx) != 0) {
+        return cer_fail(ctx, EOVERFLOW, td, value);
+    }
+    if(cer_charge_work(ctx, td, value)) return -1;
+    ctx->depth++;
+    if(td->elements_count > ASN_CER_MAX_ELEMENTS ||
+       (td->elements_count && !td->elements)) {
+        status = cer_fail(ctx, td->elements_count > ASN_CER_MAX_ELEMENTS
+                          ? EOVERFLOW : EBADF, td, value);
+    } else {
+        status = cer_encode_sequence_members(ctx, td, value,
+                                              td->elements_count, body);
+    }
+    ctx->depth--;
+    return status;
 }
 
 /*

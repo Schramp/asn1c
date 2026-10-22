@@ -1,0 +1,71 @@
+PerExtGroupTest DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+Rec ::= SEQUENCE {
+    id INTEGER (0..255),
+    ...,
+    before BOOLEAN,
+    [[ g1 INTEGER (0..15), g2 BOOLEAN OPTIONAL ]],
+    after INTEGER (0..3)
+}
+
+Wide ::= SEQUENCE {
+    id INTEGER (0..255),
+    optional1 INTEGER OPTIONAL,
+    optional2 INTEGER OPTIONAL,
+    optional3 INTEGER OPTIONAL,
+    optional4 INTEGER OPTIONAL,
+    optional5 INTEGER OPTIONAL,
+    optional6 INTEGER OPTIONAL,
+    optional7 INTEGER OPTIONAL,
+    optional8 INTEGER OPTIONAL,
+    ...,
+    [[ groupValue INTEGER (0..255) ]],
+    tail INTEGER OPTIONAL
+}
+
+ManualTags ::= SEQUENCE {
+    id [0] INTEGER (0..255),
+    ...,
+    [[
+        g1 [2] INTEGER (0..255),
+        g2 [3] INTEGER (0..255)
+    ]],
+    after [3] INTEGER (0..255)
+}
+
+MandatoryGroup ::= SEQUENCE {
+    id INTEGER (0..255),
+    ...,
+    [[ g1 INTEGER (0..255), g2 INTEGER (0..255) ]],
+    tail INTEGER (0..255) OPTIONAL
+}
+
+TwoGroups ::= SEQUENCE {
+    id INTEGER (0..255),
+    ...,
+    [[ first INTEGER (0..255) ]],
+    [[ second BOOLEAN ]],
+    tail INTEGER (0..255)
+}
+
+InvalidDer ::= SEQUENCE {
+    data OCTET STRING
+}
+
+END
+
+ChoiceGroupModule DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+ChoiceGroup ::= SEQUENCE {
+    id [0] INTEGER (0..255),
+    ...,
+    [[
+        pick CHOICE {
+            number [2] INTEGER (0..255),
+            flag [3] BOOLEAN
+        }
+    ]],
+    after [4] INTEGER (0..255)
+}
+
+END

@@ -89,6 +89,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_Type_Member_specs_2 = {
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_Type_Member_2 = {
@@ -301,6 +302,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_another_name_specs_3 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_another_name_3 = {
@@ -426,6 +428,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Type1_specs_1 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Type1 = {
 	"Type1",
@@ -782,6 +785,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_another_name_specs_3 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_another_name_3 = {
@@ -846,6 +850,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_one_name_specs_2 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_one_name_2 = {
@@ -967,6 +972,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_another_name_specs_8 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_another_name_8 = {
@@ -1415,6 +1421,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
