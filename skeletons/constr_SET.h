@@ -6,6 +6,7 @@
 #define	_CONSTR_SET_H_
 
 #include <asn_application.h>
+#include <limits.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,23 @@ typedef struct asn_SET_specifics_s {
 	int extensible;                             /* Whether SET is extensible */
 	const unsigned int *_mandatory_elements;    /* Bitmask of mandatory ones */
 } asn_SET_specifics_t;
+
+/*
+ * A read-only view of a SET member and the SET presence map that owns it.
+ * For transparent extension groups, member points to a child leaf while
+ * owner and owner_specs refer to the synthetic group's storage and metadata.
+ */
+typedef struct asn_SET_member_view_s {
+	const asn_TYPE_member_t *member; /* Leaf or ordinary member descriptor. */
+	const void *value;               /* Value address, or NULL if pointer absent. */
+	const void *owner;               /* Structure containing member. */
+	const asn_SET_specifics_t *owner_specs; /* Presence metadata for owner. */
+	unsigned owner_index;            /* Member index in owner. */
+	int present;                     /* Whether a pointer-backed value exists. */
+} asn_SET_member_view_t;
+
+/* Use this child_index to request an ordinary, non-group SET member. */
+#define ASN_SET_DIRECT_MEMBER UINT_MAX
 
 /*
  * A set specialized functions dealing with the SET type.
@@ -89,6 +107,18 @@ extern asn_TYPE_operation_t asn_OP_SET;
 
 /* Check that all the mandatory members are present */
 int _SET_is_populated(const asn_TYPE_descriptor_t *td, const void *st);
+
+/*
+ * Resolve a SET member to const storage without allocating or changing it.
+ * child_index is ASN_SET_DIRECT_MEMBER for an ordinary member, or the leaf
+ * index inside a one-level transparent extension group.
+ */
+int SET_member_view(const asn_TYPE_descriptor_t *td, const void *st,
+                    unsigned outer_index, unsigned child_index,
+                    asn_SET_member_view_t *view);
+
+/* Check mandatory values in a synthetic extension-group SET by storage. */
+int SET_group_is_populated(const asn_TYPE_descriptor_t *td, const void *st);
 
 /***********************
  * Some handy helpers. *

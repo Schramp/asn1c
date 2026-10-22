@@ -92,6 +92,18 @@ EXPORTS_OK="$T/16-constraint-OK.asn1"     # own non-exported symbol in a constra
 CLASH="$T/72-same-names-OK.asn1"          # C name clash without -fcompound-names
 PARAM="$T/165-param-class-governed-objectset-OK.asn1"
 DUP_ENUM_MARKER="$T/exit-status/584-duplicate-enum-extension-marker.asn1"
+SET_EXTENSION_ORDER="$T/exit-status/set-extension-out-of-order.asn1"
+SET_EXTENSION_DUPLICATE_NAME="$T/exit-status/set-extension-duplicate-name.asn1"
+SET_EXTENSION_DUPLICATE_ROOT_TAG="$T/exit-status/set-extension-duplicate-root-tag.asn1"
+SET_EXTENSION_DUPLICATE_GROUP_TAG="$T/exit-status/set-extension-duplicate-group-tag.asn1"
+SET_EXTENSION_GROUP_BEFORE_MARKER="$T/exit-status/set-extension-group-before-marker.asn1"
+SET_EXTENSION_NESTED_GROUP="$T/exit-status/set-extension-nested-group.asn1"
+SET_EXTENSION_CHOICE_OVERLAP="$T/exit-status/set-extension-choice-overlap.asn1"
+SET_EXTENSION_CHOICE_ORDERED="$T/exit-status/set-extension-choice-ordered.asn1"
+SET_EXTENSION_CHOICE_ALIAS="$T/exit-status/set-extension-choice-alias.asn1"
+SET_TRAILING_ROOT_EXPLICIT="$T/exit-status/set-trailing-root-explicit.asn1"
+SET_TRAILING_ROOT_AUTOMATIC="$T/exit-status/set-trailing-root-automatic.asn1"
+SET_EXTENSION_GROUP_AFTER_ENDMARKER="$T/exit-status/set-extension-group-after-endmarker.asn1"
 
 expect_status ok-parse            0  --no-fatal -E "$OK"
 expect_status ok-fix              0  --no-fatal -E -F "$OK"
@@ -104,6 +116,43 @@ expect_status syntax-error        65 -E "$NP"
 expect_status semantic-error      65 --fatal -E -F "$SE"
 expect_status duplicate-enum-extension-marker 65 --fatal-with \
     "Second extension marker" -E -F "$DUP_ENUM_MARKER"
+expect_status set-extension-out-of-order 65 --fatal -E -F \
+    "$SET_EXTENSION_ORDER"
+expect_status set-extension-duplicate-name 65 --fatal -E -F \
+    -fcompound-names "$SET_EXTENSION_DUPLICATE_NAME"
+expect_status set-extension-duplicate-root-tag 65 --fatal -E -F \
+    "$SET_EXTENSION_DUPLICATE_ROOT_TAG"
+expect_status set-extension-duplicate-group-tag 65 --fatal -E -F \
+    "$SET_EXTENSION_DUPLICATE_GROUP_TAG"
+expect_status set-extension-group-before-marker 65 --no-fatal -E -F \
+    "$SET_EXTENSION_GROUP_BEFORE_MARKER"
+expect_status set-extension-nested-group 65 --fatal -E -F \
+    "$SET_EXTENSION_NESTED_GROUP"
+expect_status set-extension-choice-overlap 65 --fatal -E -F \
+	"$SET_EXTENSION_CHOICE_OVERLAP"
+expect_status set-extension-choice-ordered 0 --no-fatal -E -F \
+	"$SET_EXTENSION_CHOICE_ORDERED"
+expect_status set-extension-choice-alias 0 --no-fatal -E -F \
+	"$SET_EXTENSION_CHOICE_ALIAS"
+expect_status set-trailing-root-explicit 0 --no-fatal -E -F \
+	"$SET_TRAILING_ROOT_EXPLICIT"
+expect_status set-trailing-root-automatic 0 --no-fatal -E -F \
+	"$SET_TRAILING_ROOT_AUTOMATIC"
+if grep -E 'trailingRoot[[:space:]]+\[0\]' \
+	"$TMPDIR_TEST/set-trailing-root-automatic.out" >/dev/null \
+|| ! grep -E 'trailingRoot[[:space:]]+\[1\]' \
+	"$TMPDIR_TEST/set-trailing-root-automatic.out" >/dev/null \
+|| ! grep -E 'addition[[:space:]]+\[2\]' \
+	"$TMPDIR_TEST/set-trailing-root-automatic.out" >/dev/null \
+|| ! grep -E 'grouped[[:space:]]+\[3\]' \
+	"$TMPDIR_TEST/set-trailing-root-automatic.out" >/dev/null; then
+	echo "FAIL: automatic trailing-root tags do not follow root/extension numbering"
+	failures=$((failures + 1))
+else
+	echo "PASS: automatic trailing-root and extension tags"
+fi
+expect_status set-extension-group-after-endmarker 65 --fatal -E -F \
+	"$SET_EXTENSION_GROUP_AFTER_ENDMARKER"
 expect_status class-ref-error    65 --fatal -E -F "$SE_CLASS"
 expect_status imported-not-exported 65 --fatal-with "does not mention Y" -E -F "$NOT_EXPORTED"
 expect_status unreturned-fatal    65 --fatal-with "does not mention Y" -E -F -fcompound-names "$UNRETURNED"

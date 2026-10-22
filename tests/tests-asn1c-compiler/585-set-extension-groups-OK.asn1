@@ -1,0 +1,30 @@
+SetExtGroupTest DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+SetRec ::= SET {
+    selectedRoot CHOICE {
+        nested CHOICE {
+            low [1] INTEGER (0..255),
+            high [9] BOOLEAN
+        },
+        other [10] BOOLEAN
+    },
+    rootValue [20] INTEGER (0..255),
+    ...,
+    before [2] BOOLEAN,
+    [[ optionalFlag [3] BOOLEAN OPTIONAL,
+       defaultFlag [4] BOOLEAN DEFAULT TRUE,
+       first [5] INTEGER (0..255) ]],
+    [[ selected CHOICE {
+        number [6] INTEGER (0..255),
+        flag [7] BOOLEAN
+    } ]],
+    after [8] INTEGER (0..255) OPTIONAL,
+    defaulted [12] INTEGER (0..255) DEFAULT 9
+}
+
+Node ::= SET {
+    value INTEGER (0..255),
+    next Node OPTIONAL
+}
+
+END

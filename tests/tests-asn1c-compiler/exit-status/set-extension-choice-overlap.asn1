@@ -1,0 +1,12 @@
+SetExtensionChoiceOverlap DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    ...,
+    choices CHOICE {
+        low [3] INTEGER,
+        high [9] BOOLEAN
+    },
+    middle [5] NULL
+}
+
+END

@@ -54,7 +54,9 @@ The [extension semantics and security review](docs/issues-582-584-review.md)
 documents fixes for extensible permitted alphabets, SEQUENCE extension addition
 groups, and implied ENUMERATED extensibility (#582–#584). Regenerate C output
 with the matching updated runtime because SEQUENCE group descriptors now carry
-additional metadata. SET group encoding retains its existing behavior.
+additional metadata. The follow-up [SET extension-group notes](docs/set-extension-groups.md)
+describe transparent SET groups, regenerated descriptor layout, stack bounds,
+and the current PER support boundary.
 
 The [incremental JER design proposal](docs/jer-streaming-design.md) describes
 how to progress from buffering one PDU to decoding large messages in chunks,

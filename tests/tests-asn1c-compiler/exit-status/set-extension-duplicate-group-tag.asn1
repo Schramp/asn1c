@@ -1,0 +1,10 @@
+SetDuplicateGroupTag DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    root [0] INTEGER,
+    ...,
+    [[ first [2] INTEGER ]],
+    [[ second [2] BOOLEAN ]]
+}
+
+END

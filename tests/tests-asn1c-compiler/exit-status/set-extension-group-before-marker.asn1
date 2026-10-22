@@ -1,0 +1,9 @@
+SetGroupBeforeMarker DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    [[ added [1] INTEGER ]],
+    root [2] BOOLEAN,
+    ...
+}
+
+END

@@ -1,4 +1,22 @@
 Changes since v1.5.3:
+	* Added transparent BER, DER, CER, and XER handling for SET extension
+	  addition groups. Group leaves remain in a nested C allocation but encode
+	  as independent members of the enclosing SET, with global canonical SET
+	  ordering and required-member checks. CER applies the encoder's bounded
+	  work, depth, element, and scratch limits while collecting flattened
+	  members. Canonical XER sorts root members by their minimum effective tag,
+	  then writes extension additions in textual order. It materializes grouped
+	  DEFAULT members only when their group is present; ordinary SET defaults keep
+	  their normal handling. Recursive SET XER decoding honors the configured
+	  stack bound. The generated synthetic group is now a SET with
+	  its own presence bitmap and mandatory mask, so regenerate generated C and
+	  use the matching runtime.
+	  SET extension-group PER support remains unavailable. The compiler also
+	  restores trailing roots after a second ellipsis before tag assignment; the
+	  31-set-of golden output covers this case. See docs/set-extension-groups.md.
+	  Follow-up to issue #583, reported by Ruud Schramp (@Schramp). Architecture,
+	  standards, and security review by Sol; runtime, test, fuzz, and documentation
+	  implementation by Luna.
 	* Fixed issues #582, #583 and #584 after validation against ITU-T X.680,
 	  X.690, X.691 and X.693 (2021). Extensible FROM constraints now use the
 	  built-in effective PER alphabet while abstract alphabet validation
@@ -8,7 +26,8 @@ Changes since v1.5.3:
 	  EXTENSIBILITY IMPLIED now adds the ENUMERATED extension marker in its
 	  defining module before numbering, including inline and imported types.
 	  Regenerate generated C with the matching runtime: the SEQUENCE descriptor
-	  interface has new group metadata. SET group encoding is not changed.
+	  interface has new group metadata. At that stage SET group encoding was
+	  unchanged; transparent SET groups are covered by the follow-up above.
 	  Reports by Ruud Schramp (@Schramp), cross-validated with the gambas-asn1
 	  C++ and Rust backends with Claude Code assistance. Architecture, standards
 	  and security review by asn1c maintainers with Codex/Sol; implementation,

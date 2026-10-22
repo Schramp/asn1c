@@ -1,0 +1,10 @@
+SetExtensionOrder DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+InvalidSet ::= SET {
+    root [20] INTEGER,
+    ...,
+    [[ first [2] INTEGER, later [4] BOOLEAN ]],
+    tail [3] INTEGER
+}
+
+END

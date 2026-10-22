@@ -103,11 +103,13 @@ confirmed the exact bytes `30 80 80 01 01 81 01 ff 82 01 03 84 01 02 00 00`,
 strict CER decode/re-encode, and BER decoding in 1–17 byte chunks. The new
 group-body helper validates the synthetic descriptor, charges work and
 recursion depth, enforces the configured element bound, and uses the encoder's
-existing bounded scratch buffers; SET handling is unchanged.
+existing bounded scratch buffers. SET group handling was added separately in
+the [SET extension-group follow-up](set-extension-groups.md).
 
-This fix covers SEQUENCE extension addition groups. Pre-existing SET groups
-retain their nested encoding behavior; CHOICE extension groups are outside
-this change.
+This portion of the review covers SEQUENCE extension addition groups.
+Pre-existing SET groups retained their nested encoding behavior at that stage;
+the follow-up now adds flat SET encoding, decoding, XER handling, and regenerated
+descriptors. CHOICE extension groups are outside the SEQUENCE change.
 
 Security review exercised the decoder with 3,598 one-octet mutations of the
 BER vector and every truncation length under ASan, UBSan, and unsigned-integer
@@ -174,8 +176,9 @@ editions.
 The review covered compiler constraint/group normalization, generated metadata,
 untrusted BER/XER/PER input, partial-object ownership, and invalid in-memory DER
 encoder values. Generated type descriptors remain trusted metadata. The fixes
-do not claim a complete audit of other transfer syntaxes or pre-existing SET
-group handling.
+do not claim a complete audit of other transfer syntaxes. SET group handling
+was outside this review and is covered separately by
+[the SET extension-group follow-up](set-extension-groups.md).
 
 The new decoder and encoder helpers were kept below 20 in a conservative
 branch-count scan and below 200 source lines. Existing large BER/XER state
@@ -193,23 +196,27 @@ an additional LLVM 22 ASan/UBSan/LeakSanitizer build where noted:
 | Parser unit test | 1/1 passed |
 | Fixer/range unit tests | 2/2 passed |
 | Compiler scripts, including reviewed generated-output references | 7/7 passed |
-| Generated C regressions | 74/74 passed |
+| Generated C regressions, including SET follow-up | 75/75 passed |
 | Runtime/skeleton regressions | 59/59 passed |
 | Clean issue-specific generated C regressions | 3/3 passed |
+| SET extension-group security and codec validation | [Focused and full results](set-extension-groups.md#validation) |
 | Additional UniversalString high-bit regression | Passed under UBSan |
 | Range allocation-failure sweep | Passed ASan, UBSan, unsigned-overflow checks and LSan |
 | Random-fill guard | Passed configured sanitizers and a separate LLVM 22 LSan build |
 | Selected randomized alphabets, normal build flags | 18/18 passed: nine cases in default and native modes, UPER and APER |
 | Independent #583 converter | Exact DER/CER, flat XER, unchanged UPER/APER, BER chunks 1–17 passed |
+| Independent SET converter | Exact DER/CER and strict CER-to-DER byte identity passed |
 | Independent DER failure probes | Invalid OCTET STRING rejected; SEQUENCE depth restored from 0 to 0 |
-| Decoder libFuzzer smoke run | 2,070,594 inputs in 16 seconds; no codec sanitizer or leak finding |
+| Decoder fuzz runs | #583: 2,070,594; SET: 1,201,498 in 16s (BER/CER/XER); no findings |
+| Disabled-codec minimal SET PDU build | 44-source C compile/link/run passed |
 
 The runtime check libraries were explicitly rebuilt with
 `make -C skeletons check` before running `make -C tests/tests-skeletons check`;
 `make all` alone does not rebuild these check-only libraries. This includes
 normal, C89, and strict-unknown-extension library builds. The final generated-C
-run passed all 74 tests; 24 tests whose random-fill objects predated the final
-helper changes were additionally rebuilt and passed. The selected randomized
+run, including the SET extension-group follow-up, passed all 75 tests; 24 tests
+whose random-fill objects predated the final helper changes were additionally
+rebuilt and passed. The selected randomized
 cases used an eight-unit budget and generated values without skipped fills.
 The release archive was built and checked for the new documentation, fixtures,
 standalone regressions, and fuzz seeds.
@@ -217,6 +224,7 @@ standalone regressions, and fuzz seeds.
 The initial LLVM 22 fuzz run reported 56 leaked bytes from libFuzzer's own
 `StartRssThread`, rather than from codec allocation stacks. The successful run
 kept LeakSanitizer enabled and disabled that background monitor with
-`-rss_limit_mb=0 -purge_allocator_interval=-1`. Both runs used four decoder
-entry points and a 512-byte maximum input. This bounded smoke run is not an
-exhaustive security proof.
+`-rss_limit_mb=0 -purge_allocator_interval=-1`. The #583 run used four decoder
+entry points and the SET run used BER, CER, and XER decoders, each with a
+512-byte maximum input. These bounded smoke runs are not exhaustive security
+proofs.

@@ -83,6 +83,7 @@ TESTS += check-src/check-561.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-563.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-583.-fcompound-names.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-584.-gen-UPER.-gen-APER.c
+TESTS += check-src/check-585.-fcompound-names.c
 TESTS += check-src/check-582.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-569.-gen-UPER.c
 TESTS += check-src/check-570.c
@@ -106,6 +107,7 @@ XFAIL_TESTS =
 
 EXTRA_DIST =    \
     data-583    \
+    data-585    \
     data-62     \
     data-70     \
     data-119    \

@@ -51,14 +51,17 @@ It validates the synthetic descriptor, counts the group toward the existing
 work and recursion limits, checks its element array against the configured
 element ceiling, and stores emitted children in the existing bounded scratch
 buffers. This keeps CER's indefinite parent framing while omitting an `a2`
-group wrapper. SET member collection and ordering do not use this path.
+group wrapper. This path applies only to SEQUENCE. A later
+[SET extension-group follow-up](set-extension-groups.md) adds SET descriptor,
+decoder, encoder, and XER handling with a separate canonical member-collection
+path.
 
 ## Scope and compatibility
 
-This change handles extension addition groups in SEQUENCE. SET groups retain
-their prior nested behavior and are not claimed as fixed here. CHOICE
-extension addition groups were already flattened by the parser and are not
-changed by this work.
+This document describes the original SEQUENCE extension-group change. At that
+stage SET groups retained their prior nested behavior; the follow-up linked
+above now handles SET groups. CHOICE extension addition groups were already
+flattened by the parser and are not changed by either implementation.
 
 The current parser grammar accepts a component list inside `[[...]]` but has
 no version-prefix production for extension groups, so versioned group notation

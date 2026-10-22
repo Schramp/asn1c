@@ -30,6 +30,11 @@ typedef enum fte {
 } fte_e;
 static int _fill_tag2el_map(arg_t *arg, tag2el_t **tag2el, int *count, int el_no, fte_e flags);
 static int _add_tag2el_member(arg_t *arg, tag2el_t **tag2el, int *count, int el_no, fte_e flags);
+static int _tag2el_maps_emitted_equal(const tag2el_t *left,
+		const tag2el_t *right, int count);
+static void emit_set_mandatory_map(arg_t *arg, asn1p_expr_t *expr,
+		int elements);
+static int assign_set_extension_group_names(asn1p_expr_t *expr);
 
 enum onc_flags {
 	ONC_noflags		= 0x00,
@@ -548,7 +553,7 @@ asn1c_lang_C_type_SEQUENCE(arg_t *arg) {
         } else {
             char ext_name[20];
 
-            if((v->expr_type == ASN_CONSTR_SEQUENCE) &&
+			if((v->marker.flags & EM_EXTENSION_GROUP) &&
                (v->marker.flags & EM_OPTIONAL) &&
                (v->Identifier == NULL)) {
                 sprintf(ext_name, "ext%d", ext_num++);
@@ -756,6 +761,8 @@ asn1c_lang_C_type_SET(arg_t *arg) {
 	int saved_target = arg->target->target;
 	int ext_num = 1;
 
+	if(assign_set_extension_group_names(expr)) return -1;
+
 	DEPENDENCIES;
 
 	REDIR(OT_DEPS);
@@ -798,7 +805,7 @@ asn1c_lang_C_type_SET(arg_t *arg) {
 			v->marker.flags |= EM_OMITABLE | EM_INDIRECT;
 		try_inline_default(arg, v, 1);
 
-		if((v->expr_type == ASN_CONSTR_SEQUENCE) &&
+		if((v->marker.flags & EM_EXTENSION_GROUP) &&
 		   (v->marker.flags & EM_OPTIONAL) &&
 		   (v->Identifier == NULL)) {
 			sprintf(ext_name, "ext%d", ext_num++);
@@ -863,7 +870,7 @@ asn1c_lang_C_type_SET_def(arg_t *arg) {
 		return -1;
 	}
 	if(tag2el_cxer_count == tag2el_count
-	&& memcmp(tag2el, tag2el_cxer, tag2el_count) == 0) {
+	&& _tag2el_maps_emitted_equal(tag2el, tag2el_cxer, tag2el_count)) {
 		free(tag2el_cxer);
 		tag2el_cxer = 0;
 	}
@@ -910,36 +917,8 @@ asn1c_lang_C_type_SET_def(arg_t *arg) {
 	if(tag2el_cxer)
 	emit_tag2member_map(arg, tag2el_cxer, tag2el_cxer_count, "_cxer");
 
-	/*
-	 * Emit a map of mandatory elements.
-	 */
-	OUT("static const uint8_t asn_MAP_%s_mmap_%d",
-		MKID(expr), expr->_type_unique_index);
-	p = MKID_safe(expr);
-	OUT("[(%d + (8 * sizeof(unsigned int)) - 1) / 8]", elements);
-	OUT(" = {\n");
-	INDENTED(
-	if(elements) {
-		int el = 0;
-		TQ_FOR(v, &(expr->members), next) {
-			if(v->expr_type == A1TC_EXTENSIBLE) continue;
-			if(el) {
-				if((el % 8) == 0)
-					OUT(",\n");
-				else
-					OUT(" | ");
-			}
-			OUT("(%d << %d)",
-				(v->marker.flags & EM_OMITABLE) != EM_OMITABLE,
-				7 - (el % 8));
-			el++;
-		}
-	} else {
-		OUT("0");
-	}
-	);
-	OUT("\n");
-	OUT("};\n");
+	/* Emit the mandatory-member bit map in outer SET component order. */
+	emit_set_mandatory_map(arg, expr, elements);
 
 	if(!(expr->_type_referenced)) OUT("static \n");
 	OUT("asn_SET_specifics_t asn_SPC_%s_specs_%d = {\n",
@@ -978,6 +957,112 @@ asn1c_lang_C_type_SET_def(arg_t *arg) {
 
 	return 0;
 } /* _SET_def() */
+
+/*
+ * Purpose: compare the fields emitted for two SET tag-to-member maps.
+ * Source: Existing SET tag-map generation, corrected for map field semantics.
+ * Version: 2026-10-22.
+ * Parameters: left and right are candidate maps; count is their shared length.
+ * Returns: nonzero when all emitted tag, index, and offset fields match.
+ * Errors: none; zero-length or missing maps are treated as unequal.
+ * Author: asn1c maintainers.
+ * History: Replaces a byte-count and padding-sensitive memcmp.
+ * Example: maps with matching emitted entries can share one generated array.
+ */
+static int
+_tag2el_maps_emitted_equal(const tag2el_t *left, const tag2el_t *right,
+		int count) {
+	int i;
+
+	if(count <= 0 || !left || !right) return 0;
+	for(i = 0; i < count; i++) {
+		if(left[i].el_tag.tag_class != right[i].el_tag.tag_class
+		|| left[i].el_tag.tag_value != right[i].el_tag.tag_value
+		|| left[i].el_no != right[i].el_no
+		|| left[i].toff_first != right[i].toff_first
+		|| left[i].toff_last != right[i].toff_last)
+			return 0;
+	}
+	return 1;
+}
+
+/*
+ * Purpose: emit the SET mandatory-member presence map in component order.
+ * Source: Existing SET specifics generation.
+ * Version: 2026-10-22.
+ * Parameters: arg selects the output target; expr is the SET; elements is the
+ *             number of non-marker members represented by the map.
+ * Returns: none.
+ * Errors: output errors are handled by the compiler output layer.
+ * Author: asn1c maintainers.
+ * History: Extracted to reduce complexity in SET descriptor generation.
+ * Example: an optional second field emits a cleared second mandatory bit.
+ */
+static void
+emit_set_mandatory_map(arg_t *arg, asn1p_expr_t *expr, int elements) {
+	asn1p_expr_t *member;
+
+	OUT("static const uint8_t asn_MAP_%s_mmap_%d",
+		MKID(expr), expr->_type_unique_index);
+	OUT("[(%d + (8 * sizeof(unsigned int)) - 1) / 8]", elements);
+	OUT(" = {\n");
+	INDENTED(
+	if(elements) {
+		int element = 0;
+		TQ_FOR(member, &(expr->members), next) {
+			if(member->expr_type == A1TC_EXTENSIBLE) continue;
+			if(element) {
+				if((element % 8) == 0)
+					OUT(",\n");
+				else
+					OUT(" | ");
+			}
+			OUT("(%d << %d)",
+				(member->marker.flags & EM_OMITABLE) != EM_OMITABLE,
+				7 - (element % 8));
+			element++;
+		}
+	} else {
+		OUT("0");
+	}
+	);
+	OUT("\n");
+	OUT("};\n");
+}
+
+/*
+ * Purpose: assign stable C identifiers to anonymous synthetic SET groups.
+ * Source: Existing anonymous SET member naming, extended for group wrappers.
+ * Version: 2026-10-22.
+ * Parameters: expr is the SET whose member names are prepared for codegen.
+ * Returns: zero on success, or -1 if a generated name cannot be allocated.
+ * Errors: none; the caller aborts code generation on allocation failure.
+ * Author: asn1c maintainers.
+ * History: Runs before the SET presence enum is emitted to prevent name clashes.
+ * Example: two anonymous groups receive `ext1` and `ext2` member names.
+ */
+static int
+assign_set_extension_group_names(asn1p_expr_t *expr) {
+	asn1p_expr_t *member;
+	int extension_number = 1;
+
+	TQ_FOR(member, &(expr->members), next) {
+		char extension_name[20];
+		char *name;
+		int length;
+
+		if(!(member->marker.flags & EM_EXTENSION_GROUP)) continue;
+		if(member->Identifier && strcmp(member->Identifier, "Member")) continue;
+		length = snprintf(extension_name, sizeof(extension_name), "ext%d",
+			extension_number++);
+		if(length < 0 || (size_t)length >= sizeof(extension_name)) return -1;
+		name = strdup(extension_name);
+		if(!name) return -1;
+		free(member->Identifier);
+		member->Identifier = name;
+	}
+	return 0;
+}
 
 /* Compute IoS for a member that is an OPEN TYPE (&Type ...) */
 static int
@@ -2319,9 +2404,11 @@ _add_tag2el_member(arg_t *arg, tag2el_t **tag2el, int *count, int el_no, fte_e f
 	int ret;
 
 	assert(el_no >= 0);
-	if((arg->expr->marker.flags & EM_EXTENSION_GROUP)
+	if(flags != FTE_CANONICAL_XER
+	&& (arg->expr->marker.flags & EM_EXTENSION_GROUP)
 	&& arg->expr->parent_expr
-	&& arg->expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE) {
+	&& (arg->expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE
+		|| arg->expr->parent_expr->expr_type == ASN_CONSTR_SET)) {
 		asn1p_expr_t *member;
 		arg_t tmp = *arg;
 		TQ_FOR(member, &(arg->expr->members), next) {
@@ -4466,7 +4553,8 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
     }
     if((expr->marker.flags & EM_EXTENSION_GROUP)
 	&& expr->parent_expr
-	&& expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE) {
+	&& (expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE
+		|| expr->parent_expr->expr_type == ASN_CONSTR_SET)) {
         OUT("ATF_EXTENSION_GROUP | ");
     }
     OUT("%s, ",

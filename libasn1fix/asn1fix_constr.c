@@ -9,11 +9,14 @@ static int _asn1f_autotag_leaf(arg_t *arg, asn1p_expr_t *member,
 		asn1c_integer_t *tag_value);
 static int _asn1f_check_group_tags(arg_t *arg, asn1p_expr_t *group,
 		int component_number, int *root_tagged, int *ext_tagged);
+static int _asn1f_is_extension_group(const asn1p_expr_t *expr);
 static int _asn1f_is_sequence_extension_group(const asn1p_expr_t *expr);
 static int _asn1f_validate_extension_group(arg_t *arg, asn1p_expr_t *group);
 static int _asn1f_validate_extension_group_position(
 		arg_t *arg, asn1p_expr_t *parent, asn1p_expr_t *member,
 		int ext_count);
+static int _asn1f_prepare_extension_member(arg_t *arg,
+		asn1p_expr_t *parent, asn1p_expr_t *member, int ext_count);
 static int _asn1f_process_extension_marker(arg_t *arg, asn1p_expr_t *marker,
 		int *ext_count, int *remove_marker);
 static int _asn1f_check_component_tag(arg_t *arg, asn1p_expr_t *member,
@@ -24,6 +27,25 @@ static int _asn1f_compare_unresolved_tags(arg_t *arg, asn1p_expr_t *a,
 		asn1p_expr_t *b, int ra, int rb);
 static int _asn1f_check_sequence_flat_tags(arg_t *arg,
 		asn1p_expr_t *sequence);
+static int _asn1f_check_set_extension_order(arg_t *arg, asn1p_expr_t *set);
+static int _asn1f_check_set_extension_leaf_order(arg_t *arg,
+		asn1p_expr_t *member, struct asn1p_type_tag_s *previous_max,
+		int *have_previous);
+static int _asn1f_get_extension_tag_bounds(arg_t *arg,
+		asn1p_expr_t *member, struct asn1p_type_tag_s *minimum,
+		struct asn1p_type_tag_s *maximum);
+static int _asn1f_collect_extension_tag_bounds(arg_t *arg,
+		asn1p_expr_t *member, struct asn1p_type_tag_s *minimum,
+		struct asn1p_type_tag_s *maximum);
+static int _asn1f_add_extension_tag_bound(struct asn1p_type_tag_s *tag,
+		struct asn1p_type_tag_s *minimum,
+		struct asn1p_type_tag_s *maximum);
+static int _asn1f_tag_precedes(const struct asn1p_type_tag_s *left,
+		const struct asn1p_type_tag_s *right);
+static int _asn1f_check_set_group_identifiers(arg_t *arg,
+		asn1p_expr_t *set);
+static int _asn1f_check_set_group_name_pair(arg_t *arg,
+		asn1p_expr_t *left, asn1p_expr_t *right);
 static asn1p_expr_t *_asn1f_sequence_first_flat_component(
 		asn1p_expr_t *sequence);
 static asn1p_expr_t *_asn1f_sequence_next_flat_component(
@@ -145,9 +167,12 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	}
 
 	DEBUG("(%s) for line %d", expr->Identifier, expr->_lineno);
-	if(_asn1f_is_sequence_extension_group(expr)) {
+	if(_asn1f_is_extension_group(expr)) {
 		return _asn1f_validate_extension_group(arg, expr);
 	}
+	if(expr->expr_type == ASN_CONSTR_SET
+	&& _asn1f_check_set_group_identifiers(arg, expr))
+		r_value = -1;
 
 	TQ_INIT(&root_list);
 	TQ_INIT(&ext_list);
@@ -159,14 +184,18 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	 */
 	while((v = TQ_REMOVE(&(expr->members), next))) {
 		int remove_marker = 0;
-		if(_asn1f_validate_extension_group_position(arg, expr, v, ext_count))
+		if(_asn1f_prepare_extension_member(arg, expr, v, ext_count))
 			r_value = -1;
 		if(v->expr_type == A1TC_EXTENSIBLE) {
 			cur_list = &ext_list;
 			if(_asn1f_process_extension_marker(arg, v, &ext_count,
 					&remove_marker))
 				r_value = -1;
-			if(remove_marker) continue;
+			if(remove_marker) {
+				if(expr->expr_type == ASN_CONSTR_SET && ext_count == 2)
+					cur_list = &root_list;
+				continue;
+			}
 		}
 
 		TQ_ADD(cur_list, v, next);
@@ -180,7 +209,7 @@ asn1f_fix_constr_ext(arg_t *arg) {
 		TQ_ADD(&(expr->members), v, next);
 
 	if((arg->mod->module_flags & MSF_EXTENSIBILITY_IMPLIED)
-	&& !_asn1f_is_sequence_extension_group(expr)
+	&& !_asn1f_is_extension_group(expr)
 	&& ext_count == 0) {
 		v = asn1p_expr_new(0, arg->mod);
 		if(v) {
@@ -200,6 +229,28 @@ asn1f_fix_constr_ext(arg_t *arg) {
 	}
 
 	return r_value;
+}
+
+/*
+ * Purpose: apply SET group representation and placement checks to a member.
+ * Source: X.680 extension-group placement plus SET group descriptor handling.
+ * Version: 2026-10-22.
+ * Parameters: arg identifies the fixer context; parent is the constructed type;
+ *             member is one current component; ext_count counts prior markers.
+ * Returns: zero when valid, or -1 after reporting invalid group placement.
+ * Errors: reports misplaced extension groups through the position validator.
+ * Author: asn1c maintainers.
+ * History: Extracted from extension normalization to bound its complexity.
+ * Example: a direct SET extension group becomes a synthetic SET child.
+ */
+static int
+_asn1f_prepare_extension_member(arg_t *arg, asn1p_expr_t *parent,
+		asn1p_expr_t *member, int ext_count) {
+	if(parent->expr_type == ASN_CONSTR_SET
+	&& (member->marker.flags & EM_EXTENSION_GROUP))
+		member->expr_type = ASN_CONSTR_SET;
+	return _asn1f_validate_extension_group_position(arg, parent, member,
+		ext_count);
 }
 
 /*
@@ -230,22 +281,29 @@ _asn1f_validate_extension_group(arg_t *arg, asn1p_expr_t *group) {
 }
 
 /*
- * Purpose: reject a SEQUENCE group placed before its extension marker.
- * Source: X.680 placement of extension addition groups.
+ * Purpose: reject SET groups outside extension additions and pre-marker
+ *          SEQUENCE groups.
+ * Source: ITU-T X.680 (02/2021), clause 25.1.
  * Version: 2026-10-21.
  * Parameters: arg identifies the fixer context; parent is the constructed type;
  *             member is the current component; ext_count counts prior markers.
  * Returns: zero when placement is valid, or -1 after reporting an error.
- * Errors: reports a SEQUENCE group before the first extension marker.
+ * Errors: reports a misplaced SET group or pre-marker SEQUENCE group.
  * Author: asn1c maintainers.
  * History: Extracted from the member-list normalization loop.
- * Example: `[[a INTEGER]], ...` is rejected.
+ * Example: a SET group before `...` or after its second marker is rejected.
  */
 static int
 _asn1f_validate_extension_group_position(arg_t *arg, asn1p_expr_t *parent,
 		asn1p_expr_t *member, int ext_count) {
-	if(parent->expr_type != ASN_CONSTR_SEQUENCE || ext_count != 0
-	|| !(member->marker.flags & EM_EXTENSION_GROUP)) return 0;
+	if(!(member->marker.flags & EM_EXTENSION_GROUP)) return 0;
+	if(parent->expr_type == ASN_CONSTR_SET) {
+		if(ext_count == 1) return 0;
+		FATAL("SET extension addition group outside extension additions at line %d",
+			member->_lineno);
+		return -1;
+	}
+	if(parent->expr_type != ASN_CONSTR_SEQUENCE || ext_count != 0) return 0;
 	FATAL("Extension addition group before extension marker at line %d",
 		member->_lineno);
 	return -1;
@@ -345,7 +403,7 @@ asn1f_fix_constr_tag(arg_t *arg, int fix_top_level) {
 	default:
 		return 0;
 	}
-	if(_asn1f_is_sequence_extension_group(expr)) return 0;
+	if(_asn1f_is_extension_group(expr)) return 0;
 
 	TQ_FOR(v, &(expr->members), next) {
 
@@ -353,7 +411,7 @@ asn1f_fix_constr_tag(arg_t *arg, int fix_top_level) {
 			component_number++;
 			continue;
 		}
-		if(_asn1f_is_sequence_extension_group(v)) {
+		if(_asn1f_is_extension_group(v)) {
 			if(_asn1f_check_group_tags(arg, v, component_number,
 					&root_tagged, &ext_tagged))
 				r_value = -1;
@@ -443,14 +501,33 @@ _asn1f_check_group_tags(arg_t *arg, asn1p_expr_t *group,
 }
 
 /*
- * Purpose: identify synthetic extension groups used by SEQUENCE wire codecs.
+ * Purpose: identify marked synthetic groups directly owned by SET or SEQUENCE.
+ * Source: Parser metadata for X.680 extension addition groups.
+ * Version: 2026-10-22.
+ * Parameters: expr is the candidate component expression.
+ * Returns: nonzero for a direct group child of SET or SEQUENCE.
+ * Errors: none.
+ * Author: asn1c maintainers.
+ * History: Extended the original SEQUENCE-only group predicate to SET.
+ * Example: a marked child of a SET returns nonzero after fixer normalization.
+ */
+static int
+_asn1f_is_extension_group(const asn1p_expr_t *expr) {
+	return (expr->marker.flags & EM_EXTENSION_GROUP)
+		&& expr->parent_expr
+		&& (expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE
+			|| expr->parent_expr->expr_type == ASN_CONSTR_SET);
+}
+
+/*
+ * Purpose: identify synthetic extension groups directly contained by SEQUENCE.
  * Source: Parser metadata added for X.680 extension addition groups.
  * Version: 2026-10-21.
  * Parameters: expr is the candidate component expression.
  * Returns: nonzero only for a marked group directly contained by SEQUENCE.
  * Errors: none.
  * Author: asn1c maintainers.
- * History: Keeps SET's previous nested behavior outside this issue's scope.
+ * History: Retained for SEQUENCE-specific flat component traversal.
  * Example: a marked synthetic child of Rec SEQUENCE returns nonzero.
  */
 static int
@@ -520,7 +597,7 @@ asn1f_fix_constr_autotag(arg_t *arg) {
 	default:
 		return 0;
 	}
-	if(_asn1f_is_sequence_extension_group(expr)) return 0;
+	if(_asn1f_is_extension_group(expr)) return 0;
 
 	DEBUG("(%s) for line %d", expr->Identifier, expr->_lineno);
 
@@ -529,7 +606,7 @@ asn1f_fix_constr_autotag(arg_t *arg) {
 			/* 28.5, d) */
 			continue;
 		}
-		if(_asn1f_is_sequence_extension_group(v)) {
+		if(_asn1f_is_extension_group(v)) {
 			if(_asn1f_autotag_group(arg, v, &tag_value)) r_value = -1;
 			continue;
 		}
@@ -648,8 +725,281 @@ asn1f_check_constr_tags_distinct(arg_t *arg) {
 			}
 		}
 	}
+	if(expr->expr_type == ASN_CONSTR_SET
+	&& _asn1f_check_set_extension_order(arg, expr))
+		r_value = -1;
 
 	return r_value;
+}
+
+/*
+ * Purpose: require SET extension leaves to increase by canonical tag order.
+ * Source: ITU-T X.680 (02/2021), clauses 8.6 and 27.3.
+ * Version: 2026-10-22.
+ * Parameters: arg is the active fixer; set is the containing SET expression.
+ * Returns: zero when additions are ordered, or -1 after reporting a violation.
+ * Errors: reports unresolved tags and non-increasing extension tags.
+ * Author: asn1c maintainers.
+ * History: Added for SET extension groups, whose leaves remain separate fields.
+ * Example: additions tagged [2], [[a [3], b [4]]] pass; [4], then [3] fails.
+ */
+static int
+_asn1f_check_set_extension_order(arg_t *arg, asn1p_expr_t *set) {
+	asn1p_expr_t *component;
+	struct asn1p_type_tag_s previous;
+	int have_previous = 0;
+	int in_extensions = 0;
+	int result = 0;
+
+	TQ_FOR(component, &(set->members), next) {
+		if(component->expr_type == A1TC_EXTENSIBLE) {
+			in_extensions = 1;
+			continue;
+		}
+		if(!in_extensions) continue;
+		if(_asn1f_is_extension_group(component)) {
+			asn1p_expr_t *leaf;
+			TQ_FOR(leaf, &(component->members), next) {
+				if(leaf->expr_type == A1TC_EXTENSIBLE) continue;
+				if(_asn1f_check_set_extension_leaf_order(arg, leaf,
+						&previous, &have_previous))
+					result = -1;
+			}
+		} else if(_asn1f_check_set_extension_leaf_order(arg, component,
+				&previous, &have_previous)) {
+			result = -1;
+		}
+	}
+	return result;
+}
+
+/*
+ * Purpose: compare one SET extension leaf with the prior leaf's canonical tag.
+ * Source: ITU-T X.680 (02/2021), clauses 8.6 and 27.3.
+ * Version: 2026-10-22.
+ * Parameters: arg is the active fixer; member is a flattened extension leaf;
+ *             previous is updated to its tag; have_previous tracks prior tags.
+ * Returns: zero when order holds, or -1 after reporting a tag/order error.
+ * Errors: reports a tag that cannot be resolved or is not canonically greater.
+ * Author: asn1c maintainers.
+ * History: CHOICE contributes its minimum and maximum exposed tags so every
+ *          possible branch tag is strictly later than the previous component.
+ * Example: CHOICE tags [3] and [9] cannot precede a component tagged [5].
+ */
+static int
+_asn1f_check_set_extension_leaf_order(arg_t *arg, asn1p_expr_t *member,
+		struct asn1p_type_tag_s *previous_max, int *have_previous) {
+	struct asn1p_type_tag_s current_min;
+	struct asn1p_type_tag_s current_max;
+
+	if(_asn1f_get_extension_tag_bounds(arg, member, &current_min,
+			&current_max)) {
+		FATAL("Cannot determine canonical extension tag for %s at line %d",
+			member->Identifier ? member->Identifier : "component",
+			member->_lineno);
+		return -1;
+	}
+
+	if(*have_previous && !_asn1f_tag_precedes(previous_max, &current_min)) {
+			FATAL("SET extension component %s at line %d must have a "
+				"minimum tag canonically greater than every tag of the "
+				"preceding extension component",
+				member->Identifier ? member->Identifier : "component",
+				member->_lineno);
+			return -1;
+	}
+
+	*previous_max = current_max;
+	*have_previous = 1;
+	return 0;
+}
+
+/*
+ * Purpose: derive the lowest and highest exposed tags for a SET extension leaf.
+ * Source: ITU-T X.680 (02/2021), clauses 8.6, 27.3, and 29.8.
+ * Version: 2026-10-22.
+ * Parameters: arg is the active fixer; member is one flattened component;
+ *             minimum and maximum receive its exposed tag bounds.
+ * Returns: zero when all exposed tags are known, or -1 when unresolved.
+ * Errors: none; the caller reports a useful component-level diagnostic.
+ * Author: asn1c maintainers.
+ * History: Applies the documented all-tags ordering interpretation for CHOICE.
+ * Example: CHOICE tags [3] and [9] yields bounds [3] and [9].
+ */
+static int
+_asn1f_get_extension_tag_bounds(arg_t *arg, asn1p_expr_t *member,
+		struct asn1p_type_tag_s *minimum,
+		struct asn1p_type_tag_s *maximum) {
+	int result;
+
+	minimum->tag_class = TC_PRIVATE + 1;
+	maximum->tag_class = TC_NOCLASS;
+	result = _asn1f_collect_extension_tag_bounds(arg, member, minimum, maximum);
+	if(result) return -1;
+	return minimum->tag_class >= TC_UNIVERSAL
+		&& minimum->tag_class <= TC_PRIVATE ? 0 : -1;
+}
+
+/*
+ * Purpose: add every finite effective tag of a component to its bounds.
+ * Source: ITU-T X.680 (02/2021), clauses 8.6 and 29.8.
+ * Version: 2026-10-22.
+ * Parameters: arg is the active fixer; member is a component or CHOICE branch;
+ *             minimum and maximum accumulate the canonical tag-set bounds.
+ * Returns: zero when tags are collected, or -1 for an unknown/recursive type.
+ * Errors: none; invalid or unresolved tags are reported by the caller.
+ * Author: asn1c maintainers.
+ * History: Resolves aliases and visits all finite CHOICE alternatives.
+ * Example: an untagged CHOICE contributes every root and extension branch tag.
+ */
+static int
+_asn1f_collect_extension_tag_bounds(arg_t *arg, asn1p_expr_t *member,
+		struct asn1p_type_tag_s *minimum,
+		struct asn1p_type_tag_s *maximum) {
+	asn1p_expr_t *terminal;
+	struct asn1p_type_tag_s tag;
+	int result;
+
+	if(arg->mod != member->module)
+		return WITH_MODULE(member->module,
+			_asn1f_collect_extension_tag_bounds(arg, member, minimum, maximum));
+	memset(&tag, 0, sizeof(tag));
+	result = asn1f_fetch_outmost_tag(arg->asn, arg->ns, arg->mod,
+			member, &tag, AFT_IMAGINARY_ANY);
+	if(result == 0 && tag.tag_class != TC_NOCLASS)
+		return _asn1f_add_extension_tag_bound(&tag, minimum, maximum);
+
+	terminal = asn1f_find_terminal_type(arg, member);
+	if(!terminal) return -1;
+	if(terminal->expr_type != ASN_CONSTR_CHOICE) return -1;
+
+	if(terminal->_mark & TM_RECURSION) return -1;
+	terminal->_mark |= TM_RECURSION;
+	result = 0;
+	TQ_FOR(member, &(terminal->members), next) {
+		if(member->expr_type == A1TC_EXTENSIBLE) continue;
+		if(_asn1f_collect_extension_tag_bounds(arg, member, minimum, maximum)) {
+			result = -1;
+			break;
+		}
+	}
+	terminal->_mark &= ~TM_RECURSION;
+	return result;
+}
+
+/*
+ * Purpose: update canonical extrema with one effective tag.
+ * Source: ITU-T X.680 (02/2021), clause 8.6.
+ * Version: 2026-10-22.
+ * Parameters: tag is one possible tag; minimum and maximum are in/out bounds.
+ * Returns: zero for a valid finite tag, or -1 for an unknown tag value.
+ * Errors: none.
+ * Author: asn1c maintainers.
+ * History: Added for strict SET extension ordering across untagged CHOICE.
+ * Example: tags [3] and [9] update the bounds to [3] and [9].
+ */
+static int
+_asn1f_add_extension_tag_bound(struct asn1p_type_tag_s *tag,
+		struct asn1p_type_tag_s *minimum,
+		struct asn1p_type_tag_s *maximum) {
+	if(tag->tag_class < TC_UNIVERSAL || tag->tag_class > TC_PRIVATE
+	|| tag->tag_value < 0)
+		return -1;
+	if(minimum->tag_class > TC_PRIVATE || _asn1f_tag_precedes(tag, minimum))
+		*minimum = *tag;
+	if(maximum->tag_class == TC_NOCLASS || _asn1f_tag_precedes(maximum, tag))
+		*maximum = *tag;
+	return 0;
+}
+
+/*
+ * Purpose: compare tags in X.680 canonical class/number order.
+ * Source: ITU-T X.680 (02/2021), clause 8.6.
+ * Version: 2026-10-22.
+ * Parameters: left and right are effective ASN.1 tags.
+ * Returns: nonzero when left canonically precedes right.
+ * Errors: none.
+ * Author: asn1c maintainers.
+ * History: Shared by SET extension tag-bound validation.
+ * Example: [APPLICATION 2] precedes [CONTEXT 0].
+ */
+static int
+_asn1f_tag_precedes(const struct asn1p_type_tag_s *left,
+		const struct asn1p_type_tag_s *right) {
+	return left->tag_class < right->tag_class
+		|| (left->tag_class == right->tag_class
+			&& left->tag_value < right->tag_value);
+}
+
+/*
+ * Purpose: enforce component-name uniqueness across SET extension-group edges.
+ * Source: ITU-T X.680 (02/2021), clauses 25.14 and 27.4.
+ * Version: 2026-10-22.
+ * Parameters: arg is the active fixer; set is the containing SET expression.
+ * Returns: zero when names are unique, or -1 after reporting a duplicate.
+ * Errors: reports equal identifiers in different SET component lists.
+ * Author: asn1c maintainers.
+ * History: Complements per-list checks, which cannot see across a synthetic group.
+ * Example: `root INTEGER, ..., [[root BOOLEAN]]` is rejected.
+ */
+static int
+_asn1f_check_set_group_identifiers(arg_t *arg, asn1p_expr_t *set) {
+	asn1p_expr_t *left;
+	int result = 0;
+
+	TQ_FOR(left, &(set->members), next) {
+		asn1p_expr_t *right;
+		for(right = TQ_NEXT(left, next); right;
+		    right = TQ_NEXT(right, next)) {
+			if(!_asn1f_is_extension_group(left)
+			&& !_asn1f_is_extension_group(right)) continue;
+			if(_asn1f_check_set_group_name_pair(arg, left, right))
+				result = -1;
+		}
+	}
+	return result;
+}
+
+/*
+ * Purpose: compare names across a SET extension group and a later component.
+ * Source: ITU-T X.680 (02/2021), clauses 25.14 and 27.4.
+ * Version: 2026-10-22.
+ * Parameters: arg is the active fixer; left and right are adjacent list items.
+ * Returns: zero when names differ, or -1 after reporting a duplicate name.
+ * Errors: emits a diagnostic for the first duplicate in this component pair.
+ * Author: asn1c maintainers.
+ * History: Expands group leaves so names remain unique across SET list levels.
+ * Example: a group leaf named `id` conflicts with a later outer `id` field.
+ */
+static int
+_asn1f_check_set_group_name_pair(arg_t *arg, asn1p_expr_t *left,
+		asn1p_expr_t *right) {
+	asn1p_expr_t *left_member;
+	asn1p_expr_t *right_member;
+	int left_is_group = _asn1f_is_extension_group(left);
+	int right_is_group = _asn1f_is_extension_group(right);
+
+	left_member = left_is_group
+		? TQ_FIRST(&left->members) : left;
+	while(left_member) {
+		right_member = right_is_group
+			? TQ_FIRST(&right->members) : right;
+		while(right_member) {
+			if(left_member->Identifier && right_member->Identifier
+			&& strcmp(left_member->Identifier, right_member->Identifier) == 0) {
+				FATAL("Clash detected: \"%s\" at line %d has similar identifier "
+					"with \"%s\" at line %d",
+					left_member->Identifier, left_member->_lineno,
+					right_member->Identifier, right_member->_lineno);
+				return -1;
+			}
+			if(!right_is_group) break;
+			right_member = TQ_NEXT(right_member, next);
+		}
+		if(!left_is_group) break;
+		left_member = TQ_NEXT(left_member, next);
+	}
+	return 0;
 }
 
 /*
@@ -800,11 +1150,11 @@ _asn1f_compare_group_tags(arg_t *arg, asn1p_expr_t *a, asn1p_expr_t *b,
 	int ret;
 
 	*handled = 0;
-	if(_asn1f_is_sequence_extension_group(a)) {
+	if(_asn1f_is_extension_group(a)) {
 		group = a;
 		other = b;
 		group_is_left = 1;
-	} else if(_asn1f_is_sequence_extension_group(b)) {
+	} else if(_asn1f_is_extension_group(b)) {
 		group = b;
 		other = a;
 	}

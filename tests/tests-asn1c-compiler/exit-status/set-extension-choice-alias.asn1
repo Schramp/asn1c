@@ -1,0 +1,20 @@
+ChoiceTypes DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+ChoiceAlias ::= [3] CHOICE {
+    low [1] INTEGER,
+    high [9] BOOLEAN
+}
+
+END
+
+SetAliasOrder DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+IMPORTS ChoiceAlias FROM ChoiceTypes;
+
+T ::= SET {
+    ...,
+    aliased ChoiceAlias,
+    later [4] NULL
+}
+
+END

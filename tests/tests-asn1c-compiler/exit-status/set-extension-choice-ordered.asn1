@@ -1,0 +1,12 @@
+SetExtensionChoiceOrdered DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    ...,
+    choices CHOICE {
+        low [3] INTEGER,
+        high [6] BOOLEAN
+    },
+    last [7] NULL
+}
+
+END
