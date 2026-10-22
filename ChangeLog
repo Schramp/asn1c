@@ -1,4 +1,16 @@
 Changes since v1.5.3:
+	* Fixed issue #586: retain unknown APER open-type payloads from extensible
+	  information-object sets in a generated, owned ANY alternative, allowing
+	  decode/modify/re-encode. Keep known alternatives' presence indices and
+	  validate identifier/value agreement on encode. Reject unknown identifiers
+	  in sealed sets. Correct optional open-type field declarations to match
+	  pointer metadata. Regenerate C with the matching runtime; see
+	  docs/issue-586-aper-unknown-open-type.md for framing and compatibility limits.
+	  Correct ANY copy/compare/print to use its own structure layout, and CHOICE copy
+	  to release a previous alternative safely when overwriting a populated value.
+	  Free discarded NULL-placeholder extension allocations during APER decoding.
+	  Added generated-code regressions and malformed/fragmented payload coverage.
+	  Design and integration review by Sol; runtime and tests by Luna.
 	* Fixed issue #585: BER binary REAL format 11 now consumes exactly the
 	  explicit exponent octet count, accepting X=1 and avoiding mantissa
 	  consumption for X=2/3. Reject missing exponents/mantissas and null result

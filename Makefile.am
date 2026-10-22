@@ -22,7 +22,7 @@ nobase_dist_docs_DATA = docs/binary-codec-support.md docs/cer-encoder-plan.md \
     docs/issues-578-581-security-review.md docs/jer-streaming-design.md \
     docs/issues-582-584-review.md docs/issues-582-per-alphabet.md \
     docs/issues-583-extension-groups.md docs/set-extension-groups.md \
-    docs/issues-584-implied-enum.md \
+    docs/issues-584-implied-enum.md docs/issue-586-aper-unknown-open-type.md \
     docs/rust/README.md docs/rust/architecture.md docs/rust/stage-one-plan.md \
     docs/rust/runtime.md docs/rust/code-generation.md docs/rust/testing.md \
     docs/rust/implementation.md

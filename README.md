@@ -200,6 +200,14 @@ transfer syntax. Applications that require the historical strict rejection
 behavior may compile generated skeletons with `ASN_REJECT_UNKNOWN_EXTENSIONS`;
 this forfeits forward compatibility.
 
+APER open types governed by extensible information-object sets retain unknown
+values in an opaque `ANY_t` alternative (`choice.asn1cUnknown`, with a numeric
+suffix if that name is already used). Applications can copy, modify other fields,
+and re-encode these values with APER. Regenerate C sources with the updated
+compiler and runtime to obtain the new alternative. See the
+[issue #586 notes](docs/issue-586-aper-unknown-open-type.md) for ownership,
+identifier validation, and round-trip limits.
+
 Please also read the [FAQ](FAQ) file.
 
 An excellent book on ASN.1 is written by Olivier Dubuisson:

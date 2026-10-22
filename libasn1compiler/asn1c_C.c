@@ -1439,6 +1439,17 @@ asn1c_lang_C_type_SEx_OF_def(arg_t *arg, int seq_of) {
 	return 0;
 } /* _SEx_OF_def() */
 
+/*
+ * Purpose: Emit a CHOICE declaration and its runtime descriptor.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the validated CHOICE generation context.
+ * Returns: 0 on success or -1 on descriptor generation failure.
+ * Errors: Compiler diagnostics use existing generation error paths; no exceptions.
+ * Responsible party: asn1c maintainers.
+ * History: Split for bounded unit size and complexity during issue #586.
+ * Example: Generate the alternatives in an IOC open-type wrapper.
+ */
 int
 asn1c_lang_C_type_CHOICE(arg_t *arg) {
 	asn1p_expr_t *expr = arg->expr;
@@ -1492,6 +1503,9 @@ asn1c_lang_C_type_CHOICE(arg_t *arg) {
 		}
 		OUT("{\n");
 		TQ_FOR(v, &(expr->members), next) {
+			if(v->marker.flags & EM_OPEN_TYPE_UNKNOWN) {
+				OUT("\t/* Unknown APER open-type contents, excluding the length determinant. */\n");
+			}
 			EMBED(v);
 		}
 		if(UNNAMED_UNIONS)	OUT("};\n");
@@ -1559,6 +1573,61 @@ emit_xer_open_type_finder(arg_t *arg,
     return 0;
 }
 
+/*
+ * Purpose: Append owned opaque storage without changing known IOC indices.
+ * Original source: asn1c compiler, issue #586 implementation.
+ * Version: 2026-10-22.
+ * Parameters: arg supplies generation flags; choice receives the alternative;
+ *             ioc describes whether the governing object set is extensible.
+ * Returns: 0 on success or when storage is unnecessary, -1 on allocation failure.
+ * Errors: Reports allocation failure; does not throw.
+ * Responsible party: asn1c maintainers.
+ * History: Added an APER-only, explicitly flagged ANY alternative for unknown IDs.
+ * Example: An extensible IE value gains choice.asn1cUnknown containing APER octets.
+ */
+static int
+append_opaque_open_type(arg_t *arg, asn1p_expr_t *choice,
+                        const asn1c_ioc_table_and_objset_t *ioc) {
+    asn1p_expr_t *member;
+    char name[64];
+    unsigned suffix = 0; /* state variable: next candidate for a collision-free name. */
+
+    if(!(arg->flags & A1C_GEN_APER) || !ioc->ioct->extensible) return 0;
+
+    /* Avoid collisions with real alternatives while preserving their indices. */
+    strcpy(name, "asn1cUnknown");
+    while(asn1p_lookup_child_count_by_name(choice, name)) {
+        if(suffix == UINT_MAX) return -1;
+        snprintf(name, sizeof(name), "asn1cUnknown%u", ++suffix);
+    }
+
+    /* ANY supplies the ordinary CHOICE copy, compare, and free ownership rules. */
+    member = asn1p_expr_new(choice->_lineno, choice->module);
+    if(!member) return -1;
+    member->Identifier = strdup(name);
+    if(!member->Identifier) {
+        asn1p_expr_free(member);
+        return -1;
+    }
+    member->meta_type = AMT_TYPE;
+    member->expr_type = ASN_TYPE_ANY;
+    member->marker.flags = EM_OPEN_TYPE_UNKNOWN;
+    asn1p_expr_add(choice, member);
+    return 0;
+}
+
+/*
+ * Purpose: Generate a typed CHOICE wrapper for an information-object open type.
+ * Original source: asn1c C backend.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; opt_ioc is the object-set table;
+ *             column_name selects the class type field.
+ * Returns: 0 on success, -1 on an invalid column or failed generation.
+ * Errors: Emits a diagnostic for invalid table fields; does not throw.
+ * Responsible party: asn1c maintainers.
+ * History: Issue #586 appends opaque APER storage for extensible object sets.
+ * Example: Generate Field.value from IE.&Value({Known}{@id}).
+ */
 static int
 asn1c_lang_C_OpenType(arg_t *arg, asn1c_ioc_table_and_objset_t *opt_ioc,
                       const char *column_name) {
@@ -1572,8 +1641,13 @@ asn1c_lang_C_OpenType(arg_t *arg, asn1c_ioc_table_and_objset_t *opt_ioc,
 
     asn1p_expr_t *open_type_choice =
         asn1p_expr_new(arg->expr->_lineno, arg->expr->module);
+    if(!open_type_choice) return -1;
 
     open_type_choice->Identifier = strdup(arg->expr->Identifier);
+    if(!open_type_choice->Identifier) {
+        asn1p_expr_free(open_type_choice);
+        return -1;
+    }
     open_type_choice->meta_type = AMT_TYPE;
     open_type_choice->expr_type = ASN_CONSTR_OPEN_TYPE;
     open_type_choice->_type_unique_index = arg->expr->_type_unique_index;
@@ -1587,6 +1661,10 @@ asn1c_lang_C_OpenType(arg_t *arg, asn1c_ioc_table_and_objset_t *opt_ioc,
         if(!cell->value) continue;
 
         asn1p_expr_t *m = asn1p_expr_clone(cell->value, 0);
+        if(!m) {
+            asn1p_expr_free(open_type_choice);
+            return -1;
+        }
 
         int n = asn1p_lookup_child_count_by_name(open_type_choice, cell->value->Identifier);
         if (n) {
@@ -1641,11 +1719,20 @@ asn1c_lang_C_OpenType(arg_t *arg, asn1c_ioc_table_and_objset_t *opt_ioc,
         asn1p_expr_add(open_type_choice, m);
     }
 
+    if(append_opaque_open_type(arg, open_type_choice, opt_ioc)) {
+        asn1p_expr_free(open_type_choice);
+        return -1;
+    }
     tmp_arg.expr = open_type_choice;
     GEN_INCLUDE_STD("OPEN_TYPE");
-    asn1c_lang_C_type_CHOICE(&tmp_arg);
+    int result = asn1c_lang_C_type_CHOICE(&tmp_arg);
+    /* The synthetic typedef stays a structure; optional parent fields are pointers. */
+    if(result == 0 && arg->embed && arg->target->target != OT_STAT_DEFS
+       && (arg->expr->marker.flags & EM_INDIRECT)) {
+        OUT(" *");
+    }
     asn1p_expr_free(tmp_arg.expr);
-    return 0;
+    return result;
 }
 
 static int
@@ -4525,38 +4612,20 @@ emit_member_type_selector(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_ob
     return 0;
 }
 
-static int
-emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *opt_ioc) {
-	int save_target;
-	arg_t tmp_arg;
-	struct asn1p_type_tag_s outmost_tag_s;
-	struct asn1p_type_tag_s *outmost_tag;
-	int fits_unsigned_integer;
-	int complex_contents;
-	const char *p;
-
-    if(WITH_MODULE_NAMESPACE(
-           expr->module, expr_ns,
-           asn1f_fetch_outmost_tag(arg->asn, expr_ns, expr->module, expr,
-                                   &outmost_tag_s, AFT_IMAGINARY_ANY))) {
-        outmost_tag = 0;
-	} else {
-		outmost_tag = &outmost_tag_s;
-	}
-
-	OUT("{ ");
-
-    if(is_open_type(arg, expr, opt_ioc)) {
-        OUT("ATF_OPEN_TYPE | ");
-    } else if(outmost_tag && outmost_tag->tag_value == -1) {
-        OUT("ATF_ANY_TYPE | ");
-    }
-    if((expr->marker.flags & EM_EXTENSION_GROUP)
-	&& expr->parent_expr
-	&& (expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE
-		|| expr->parent_expr->expr_type == ASN_CONSTR_SET)) {
-        OUT("ATF_EXTENSION_GROUP | ");
-    }
+/*
+ * Purpose: Emit member pointer mode, optionality count, and storage offset.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member.
+ * Returns: Nothing.
+ * Errors: Asserts the internal anonymous-collection-member invariant.
+ * Responsible party: asn1c maintainers.
+ * History: Extracted unchanged storage logic during issue #586.
+ * Example: Emit offsetof(Field__value, choice.asn1cUnknown).
+ */
+static void
+emit_member_storage(arg_t *arg, asn1p_expr_t *expr) {
+    /* Emit the storage ABI before the descriptor's tag and type fields. */
     OUT("%s, ",
 		(expr->marker.flags & EM_INDIRECT)?"ATF_POINTER":"ATF_NOFLAGS");
 	if((expr->marker.flags & EM_OMITABLE) == EM_OMITABLE) {
@@ -4585,6 +4654,52 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
         OUT("%s),\n", MKID_safe(expr));
     }
 
+}
+
+/*
+ * Purpose: Emit member flags, optionality, offset, and wire tags.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member; opt_ioc is its IOC table.
+ * Returns: Nothing.
+ * Errors: Compiler diagnostics use existing generation error paths; no exceptions.
+ * Responsible party: asn1c maintainers.
+ * History: Split for bounded unit size and complexity during issue #586.
+ * Example: Emit ATF_OPEN_TYPE_UNKNOWN on the opaque APER alternative.
+ */
+static void
+emit_member_layout(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *opt_ioc) {
+	struct asn1p_type_tag_s outmost_tag_s;
+	struct asn1p_type_tag_s *outmost_tag;
+
+    if(WITH_MODULE_NAMESPACE(
+           expr->module, expr_ns,
+           asn1f_fetch_outmost_tag(arg->asn, expr_ns, expr->module, expr,
+                                   &outmost_tag_s, AFT_IMAGINARY_ANY))) {
+        outmost_tag = 0;
+	} else {
+		outmost_tag = &outmost_tag_s;
+	}
+
+	OUT("{ ");
+
+    if(is_open_type(arg, expr, opt_ioc)) {
+        OUT("ATF_OPEN_TYPE | ");
+    } else if(outmost_tag && outmost_tag->tag_value == -1) {
+        OUT("ATF_ANY_TYPE | ");
+    }
+    if((expr->marker.flags & EM_EXTENSION_GROUP)
+	&& expr->parent_expr
+	&& (expr->parent_expr->expr_type == ASN_CONSTR_SEQUENCE
+		|| expr->parent_expr->expr_type == ASN_CONSTR_SET)) {
+        OUT("ATF_EXTENSION_GROUP | ");
+    }
+    if(expr->marker.flags & EM_OPEN_TYPE_UNKNOWN) {
+        OUT("ATF_OPEN_TYPE_UNKNOWN |\n");
+        OUT("\t");
+    }
+    emit_member_storage(arg, expr);
+
     INDENT(+1);
 	if(C99_MODE) OUT(".tag = ");
 	if(outmost_tag) {
@@ -4609,6 +4724,81 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 		OUT("0,\n");
 	}
 
+}
+
+/*
+ * Purpose: Identify members that need a concrete descriptor.
+ * Original source: asn1c C backend member descriptor selection.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member; opt_ioc is its IOC table;
+ *             fits_unsigned_integer indicates inline native INTEGER specifics.
+ * Returns: Nonzero when the descriptor property applies, zero otherwise.
+ * Errors: None; arguments follow the internal compiler contract.
+ * Responsible party: asn1c maintainers.
+ * History: Extracted unchanged selection logic during issue #586.
+ * Example: An embedded OPEN TYPE uses a concrete suffixed descriptor.
+ */
+static int
+member_uses_concrete_descriptor(arg_t *arg, asn1p_expr_t *expr,
+    asn1c_ioc_table_and_objset_t *opt_ioc, int fits_unsigned_integer) {
+    /* Match the descriptor naming policy used when its definition is emitted. */
+	return
+		is_open_type(arg, expr, opt_ioc)
+		|| type_needs_custom_xer_encoder(arg, expr)
+		|| type_needs_custom_jer_encoder(arg, expr)
+		|| (expr->expr_type & ASN_CONSTR_MASK)
+		|| expr->expr_type == ASN_BASIC_ENUMERATED
+		|| fits_unsigned_integer
+		|| (expr->expr_type == ASN_BASIC_BIT_STRING
+			&& expr_elements_count(arg, expr));
+
+}
+
+/*
+ * Purpose: Identify member descriptors that need a unique suffix.
+ * Original source: asn1c C backend member descriptor selection.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member; opt_ioc is its IOC table;
+ *             fits_unsigned_integer indicates inline native INTEGER specifics.
+ * Returns: Nonzero when the descriptor property applies, zero otherwise.
+ * Errors: None; arguments follow the internal compiler contract.
+ * Responsible party: asn1c maintainers.
+ * History: Extracted unchanged selection logic during issue #586.
+ * Example: An embedded OPEN TYPE uses a concrete suffixed descriptor.
+ */
+static int
+member_uses_descriptor_suffix(arg_t *arg, asn1p_expr_t *expr,
+    asn1c_ioc_table_and_objset_t *opt_ioc, int fits_unsigned_integer) {
+    /* Match the descriptor naming policy used when its definition is emitted. */
+	return (is_open_type(arg, expr, opt_ioc)
+		   || (arg->flags & A1C_ALL_DEFS_GLOBAL)
+		   || type_needs_custom_xer_encoder(arg, expr)
+		   || type_needs_custom_jer_encoder(arg, expr)
+		   || (expr->parent_expr
+		       && ((expr->expr_type & ASN_CONSTR_MASK)
+		           || expr->expr_type == ASN_BASIC_ENUMERATED
+		           || (expr->expr_type == ASN_BASIC_BIT_STRING
+		               && expr_elements_count(arg, expr))))
+		   || (expr->_anonymous_type && fits_unsigned_integer));
+
+}
+
+/*
+ * Purpose: Emit the concrete descriptor reference for one member.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member; opt_ioc is its IOC table.
+ * Returns: Nothing.
+ * Errors: Compiler diagnostics use existing generation error paths; no exceptions.
+ * Responsible party: asn1c maintainers.
+ * History: Split for bounded unit size and complexity during issue #586.
+ * Example: Emit &asn_DEF_ANY for an opaque alternative.
+ */
+static void
+emit_member_descriptor(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *opt_ioc) {
+	int fits_unsigned_integer;
+	int complex_contents;
+
 	{
 		int _w = 0, _u = 0;
 		/* Inline INTEGER members carry their own specifics; references
@@ -4618,18 +4808,7 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 			&& asn1c_int_native_specifics(arg, expr, &_w, &_u);
 	}
 
-	complex_contents =
-		is_open_type(arg, expr, opt_ioc)
-		|| type_needs_custom_xer_encoder(arg, expr)
-		|| type_needs_custom_jer_encoder(arg, expr)
-		|| (expr->expr_type & ASN_CONSTR_MASK)
-		|| expr->expr_type == ASN_BASIC_ENUMERATED
-		|| (0 /* -- prohibited by X.693:8.3.4 */
-			&& expr->expr_type == ASN_BASIC_INTEGER
-			&& expr_elements_count(arg, expr))
-		|| fits_unsigned_integer
-		|| (expr->expr_type == ASN_BASIC_BIT_STRING
-			&& expr_elements_count(arg, expr));
+	complex_contents = member_uses_concrete_descriptor(arg, expr, opt_ioc, fits_unsigned_integer);
 
 	if(C99_MODE) OUT(".type = ");
 	/*
@@ -4652,16 +4831,7 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 		 * generation, so arg->embed is back to 0 even though the type descriptor
 		 * was generated with static storage.
 		 */
-		if(is_open_type(arg, expr, opt_ioc)
-		   || (arg->flags & A1C_ALL_DEFS_GLOBAL)
-		   || type_needs_custom_xer_encoder(arg, expr)
-		   || type_needs_custom_jer_encoder(arg, expr)
-		   || (expr->parent_expr
-		       && ((expr->expr_type & ASN_CONSTR_MASK)
-		           || expr->expr_type == ASN_BASIC_ENUMERATED
-		           || (expr->expr_type == ASN_BASIC_BIT_STRING
-		               && expr_elements_count(arg, expr))))
-		   || (expr->_anonymous_type && fits_unsigned_integer)) {
+		if(member_uses_descriptor_suffix(arg, expr, opt_ioc, fits_unsigned_integer)) {
 			OUT("_%d", expr->_type_unique_index);
 		}
 		OUT(",\n");
@@ -4669,16 +4839,21 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 		OUT("&asn_DEF_%s,\n", asn1c_type_name(arg, expr, TNF_SAFE));
 	}
 
+}
 
-	if(C99_MODE) OUT(".type_selector = ");
-	if(opt_ioc) {
-		if(emit_member_type_selector(arg, expr, opt_ioc) < 0)
-			return -1;
-	} else {
-		OUT("0");
-	}
-	OUT(",\n");
-
+/*
+ * Purpose: Emit encoding constraint references without changing output targets.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member.
+ * Returns: Nothing.
+ * Errors: Compiler diagnostics use existing generation error paths; no exceptions.
+ * Responsible party: asn1c maintainers.
+ * History: Split for bounded unit size and complexity during issue #586.
+ * Example: Emit the optional PER constraints pointer.
+ */
+static void
+emit_member_encoding_constraints(arg_t *arg, asn1p_expr_t *expr) {
     OUT("{\n");
     INDENT(+1);
     OUT_NOINDENT("#if !defined(ASN_DISABLE_OER_SUPPORT)\n");
@@ -4756,19 +4931,24 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
     INDENT(-1);
     OUT("},\n");
 
-	if(try_inline_default(arg, expr, 0)) {
-	} else {
-		OUT("0, 0, /* No default value */\n");
-	}
-	if(C99_MODE) OUT(".name = ");
-	if(expr->_anonymous_type >= 2) {
-		/* No user-provided name: synthesized identifier, emit empty string. */
-		OUT("\"\"\n");
-	} else {
-		OUT("\"%s\"\n", expr->Identifier);
-	}
-	OUT("},\n");
-	INDENT(-1);
+}
+
+/*
+ * Purpose: Emit the general checker and per-codec constraints for a member.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member.
+ * Returns: 0 on success or -1 if a constraint emitter fails.
+ * Errors: Compiler diagnostics use existing generation error paths; no exceptions.
+ * Responsible party: asn1c maintainers.
+ * History: Split for bounded unit size and complexity during issue #586.
+ * Example: Generate a constrained integer member checker.
+ */
+static int
+emit_member_constraint_code(arg_t *arg, asn1p_expr_t *expr) {
+	int save_target;
+	arg_t tmp_arg;
+	const char *p;
 
 	if(!expr->constraints || (arg->flags & A1C_NO_CONSTRAINTS)) {
 		if(emit_member_JER_constraints(arg, expr, "memb"))
@@ -4810,6 +4990,50 @@ emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *
 	REDIR(save_target);
 
 	return 0;
+}
+
+/*
+ * Purpose: Emit one complete member descriptor and its constraint helpers.
+ * Original source: asn1c C backend member-table emitter.
+ * Version: 2026-10-22.
+ * Parameters: arg is the generation context; expr is the member; opt_ioc is its IOC table.
+ * Returns: 0 on success, -1 on selector or constraint generation failure.
+ * Errors: Compiler diagnostics use existing generation error paths; no exceptions.
+ * Responsible party: asn1c maintainers.
+ * History: Split for bounded unit size and complexity during issue #586.
+ * Example: Emit a Field.value descriptor for its IOC wrapper.
+ */
+static int
+emit_member_table(arg_t *arg, asn1p_expr_t *expr, asn1c_ioc_table_and_objset_t *opt_ioc) {
+	/* Keep layout, descriptor, selector, and constraints in ABI field order. */
+	emit_member_layout(arg, expr, opt_ioc);
+	emit_member_descriptor(arg, expr, opt_ioc);
+
+	if(C99_MODE) OUT(".type_selector = ");
+	if(opt_ioc) {
+		if(emit_member_type_selector(arg, expr, opt_ioc) < 0)
+			return -1;
+	} else {
+		OUT("0");
+	}
+	OUT(",\n");
+
+	emit_member_encoding_constraints(arg, expr);
+	if(try_inline_default(arg, expr, 0)) {
+	} else {
+		OUT("0, 0, /* No default value */\n");
+	}
+	if(C99_MODE) OUT(".name = ");
+	if(expr->_anonymous_type >= 2) {
+		/* No user-provided name: synthesized identifier, emit empty string. */
+		OUT("\"\"\n");
+	} else {
+		OUT("\"%s\"\n", expr->Identifier);
+	}
+	OUT("},\n");
+	INDENT(-1);
+
+	return emit_member_constraint_code(arg, expr);
 }
 
 /**

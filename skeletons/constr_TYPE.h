@@ -283,7 +283,8 @@ typedef struct asn_TYPE_descriptor_s {
     ATF_POINTER = 0x01,   /* Represented by the pointer */
     ATF_OPEN_TYPE = 0x02, /* Open Type */
     ATF_ANY_TYPE = 0x04,  /* ANY type (deprecated!) */
-    ATF_EXTENSION_GROUP = 0x08 /* Synthetic flat-wire extension group */
+    ATF_EXTENSION_GROUP = 0x08, /* Synthetic flat-wire extension group */
+    ATF_OPEN_TYPE_UNKNOWN = 0x10 /* Opaque APER alternative for an extensible IOC */
   };
 typedef struct asn_TYPE_member_s {
     enum asn_TYPE_flags_e flags; /* Element's presentation flags */

@@ -300,12 +300,14 @@ typedef enum TotalRegionExtension__value_PR {
 typedef enum RegionalExtension3__value_PR {
 	RegionalExtension3__value_PR_NOTHING,	/* No components present */
 	RegionalExtension3__value_PR_OCTET_STRING,
-	RegionalExtension3__value_PR_OCTET_STRING_1
+	RegionalExtension3__value_PR_OCTET_STRING_1,
+	RegionalExtension3__value_PR_asn1cUnknown
 } RegionalExtension3__value_PR;
 typedef enum RegionalExtension4__value_PR {
 	RegionalExtension4__value_PR_NOTHING,	/* No components present */
 	RegionalExtension4__value_PR_INTEGER,
-	RegionalExtension4__value_PR_OCTET_STRING_5_
+	RegionalExtension4__value_PR_OCTET_STRING_5_,
+	RegionalExtension4__value_PR_asn1cUnknown
 } RegionalExtension4__value_PR;
 
 /*** <<< FWD-DEFS [SpecializedContent] >>> ***/
@@ -329,6 +331,8 @@ typedef struct RegionalExtension3__value {
 	union RegionalExtension3__value_u {
 		OCTET_STRING_t	 OCTET_STRING;
 		OCTET_STRING_t	 OCTET_STRING_1;
+		/* Unknown APER open-type contents, excluding the length determinant. */
+		ANY_t	 asn1cUnknown;
 	} choice;
 	
 	/* Context for parsing across buffer boundaries */
@@ -339,6 +343,8 @@ typedef struct RegionalExtension4__value {
 	union RegionalExtension4__value_u {
 		long	 INTEGER;
 		OCTET_STRING_t	 OCTET_STRING_5_;
+		/* Unknown APER open-type contents, excluding the length determinant. */
+		ANY_t	 asn1cUnknown;
 	} choice;
 	
 	/* Context for parsing across buffer boundaries */
@@ -1020,7 +1026,30 @@ static asn_TYPE_member_t asn_MBR_RegionalExtension3__value_6[] = {
 		0, 0, /* No default value */
 		.name = "OCTET STRING"
 		},
+	{ ATF_ANY_TYPE | ATF_OPEN_TYPE_UNKNOWN |
+		ATF_NOFLAGS, 0, offsetof(struct RegionalExtension3__value, choice.asn1cUnknown),
+		.tag = -1 /* Ambiguous tag (ANY?) */,
+		.tag_mode = 0,
+		.type = &asn_DEF_ANY,
+		.type_selector = 0,
+		{
+#if !defined(ASN_DISABLE_OER_SUPPORT)
+			.oer_constraints = 0,
+#endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
+#if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
+			.per_constraints = 0,
+#endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
+#if !defined(ASN_DISABLE_JER_SUPPORT)
+			.jer_constraints = 0,
+#endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
+			.general_constraints = 0
+		},
+		0, 0, /* No default value */
+		.name = "asn1cUnknown"
+		},
 };
+static const unsigned asn_MAP_value_from_canonical_6[] = { 2, 0, 1 };
+static const unsigned asn_MAP_value_to_canonical_6[] = { 1, 2, 0 };
 static const asn_TYPE_tag2member_t asn_MAP_value_tag2el_6[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (4 << 2)), 0, 0, 1 }, /* OCTET STRING */
     { (ASN_TAG_CLASS_UNIVERSAL | (4 << 2)), 1, -1, 0 } /* OCTET STRING */
@@ -1032,7 +1061,8 @@ static asn_CHOICE_specifics_t asn_SPC_value_specs_6 = {
 	sizeof(((struct RegionalExtension3__value *)0)->present),
 	.tag2el = asn_MAP_value_tag2el_6,
 	.tag2el_count = 2,	/* Count of tags in the map */
-	0, 0,
+	.to_canonical_order = asn_MAP_value_to_canonical_6,
+	.from_canonical_order = asn_MAP_value_from_canonical_6,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
@@ -1057,7 +1087,7 @@ asn_TYPE_descriptor_t asn_DEF_value_6 = {
 		OPEN_TYPE_constraint
 	},
 	asn_MBR_RegionalExtension3__value_6,
-	2,	/* Elements count */
+	3,	/* Elements count */
 	&asn_SPC_value_specs_6	/* Additional specs */
 };
 
@@ -1186,7 +1216,30 @@ static asn_TYPE_member_t asn_MBR_RegionalExtension4__value_9[] = {
 		0, 0, /* No default value */
 		.name = "OCTET STRING (5)"
 		},
+	{ ATF_ANY_TYPE | ATF_OPEN_TYPE_UNKNOWN |
+		ATF_NOFLAGS, 0, offsetof(struct RegionalExtension4__value, choice.asn1cUnknown),
+		.tag = -1 /* Ambiguous tag (ANY?) */,
+		.tag_mode = 0,
+		.type = &asn_DEF_ANY,
+		.type_selector = 0,
+		{
+#if !defined(ASN_DISABLE_OER_SUPPORT)
+			.oer_constraints = 0,
+#endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
+#if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
+			.per_constraints = 0,
+#endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
+#if !defined(ASN_DISABLE_JER_SUPPORT)
+			.jer_constraints = 0,
+#endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
+			.general_constraints = 0
+		},
+		0, 0, /* No default value */
+		.name = "asn1cUnknown"
+		},
 };
+static const unsigned asn_MAP_value_from_canonical_9[] = { 2, 0, 1 };
+static const unsigned asn_MAP_value_to_canonical_9[] = { 1, 2, 0 };
 static const asn_TYPE_tag2member_t asn_MAP_value_tag2el_9[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 0, 0, 0 }, /* INTEGER */
     { (ASN_TAG_CLASS_UNIVERSAL | (4 << 2)), 1, 0, 0 } /* OCTET STRING (5) */
@@ -1198,7 +1251,8 @@ static asn_CHOICE_specifics_t asn_SPC_value_specs_9 = {
 	sizeof(((struct RegionalExtension4__value *)0)->present),
 	.tag2el = asn_MAP_value_tag2el_9,
 	.tag2el_count = 2,	/* Count of tags in the map */
-	0, 0,
+	.to_canonical_order = asn_MAP_value_to_canonical_9,
+	.from_canonical_order = asn_MAP_value_from_canonical_9,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
@@ -1223,7 +1277,7 @@ asn_TYPE_descriptor_t asn_DEF_value_9 = {
 		OPEN_TYPE_constraint
 	},
 	asn_MBR_RegionalExtension4__value_9,
-	2,	/* Elements count */
+	3,	/* Elements count */
 	&asn_SPC_value_specs_9	/* Additional specs */
 };
 

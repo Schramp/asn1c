@@ -160,6 +160,18 @@ ANY_decode_aper(const asn_codec_ctx_t *opt_codec_ctx,
     RETURN(RC_OK);
 }
 
+/*
+ * Purpose: Encode ANY payload octets using APER length determinants.
+ * Original source: Existing asn1c ANY APER encoder, hardened for empty values.
+ * Version: 2026-10-22.
+ * Parameters: td identifies ANY; constraints are unused; sptr is ANY_t; po is
+ *             the destination APER bit stream.
+ * Returns: Encoding result, with encoded set to -1 for invalid values or I/O.
+ * Errors: Negative size, missing payload storage, or output errors fail.
+ * Responsible party: asn1c runtime maintainers.
+ * History: Empty ANY is emitted as a zero-length envelope for issue #586.
+ * Example: Used to emit opaque payload octets as exactly one open-type envelope.
+ */
 asn_enc_rval_t
 ANY_encode_aper(const asn_TYPE_descriptor_t *td,
                 const asn_per_constraints_t *constraints, const void *sptr,
@@ -172,14 +184,19 @@ ANY_encode_aper(const asn_TYPE_descriptor_t *td,
 
     (void)constraints;
 
-    if(!st || (!st->buf && st->size)) ASN__ENCODE_FAILED;
+    if(!td || !po || !st || st->size < 0 || (!st->buf && st->size))
+        ASN__ENCODE_FAILED;
 
     buf = st->buf;
     size = st->size;
+    if(size == 0) {
+        if(aper_put_length(po, -1, -1, 0, NULL) < 0) ASN__ENCODE_FAILED;
+        ASN__ENCODED_OK(er);
+    }
     do {
         int need_eom = 0;
         ssize_t may_save = aper_put_length(po, -1, -1, size, &need_eom);
-        if(may_save < 0) ASN__ENCODE_FAILED;
+        if(may_save <= 0) ASN__ENCODE_FAILED;
 
         ret = per_put_many_bits(po, buf, may_save * 8);
         if(ret) ASN__ENCODE_FAILED;

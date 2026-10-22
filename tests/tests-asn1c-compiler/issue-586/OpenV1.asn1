@@ -1,0 +1,64 @@
+OpenV1 DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+-- Protocol IE metadata: the id selects the type used for an open value.
+IE ::= CLASS {
+    &id INTEGER (0..65535) UNIQUE, -- Numeric identifier, shared on the wire.
+    &Value -- ASN.1 type selected by the identifier.
+} WITH SYNTAX { ID &id TYPE &Value }
+
+-- Extensible table: identifier 1 is known and all other ids stay opaque.
+Known IE ::= {
+    { ID 1 TYPE INTEGER (0..255) },
+    ...
+}
+
+-- One protocol IE field with its table-correlated open type.
+Field ::= SEQUENCE {
+    id IE.&id({Known}), -- Selects the known or unknown alternative.
+    value IE.&Value({Known}{@id}) -- Decoded type or opaque contents octets.
+}
+
+-- Optional open type exercises generated pointer-member table metadata.
+OptionalField ::= SEQUENCE {
+    id IE.&id({Known}), -- Selects the known or unknown alternative.
+    value IE.&Value({Known}{@id}) OPTIONAL -- May be absent or opaque.
+}
+
+-- A sibling list ensures edits to known values preserve unknown values.
+Message ::= SEQUENCE {
+    fields SEQUENCE OF Field -- Ordered protocol IE values.
+}
+
+-- A sealed table has no extension marker and must reject unknown ids.
+KnownSealed IE ::= {
+    { ID 1 TYPE INTEGER (0..255) }
+}
+
+SealedField ::= SEQUENCE {
+    id IE.&id({KnownSealed}), -- Selects the sole known row.
+    value IE.&Value({KnownSealed}{@id}) -- Must reject an unknown id.
+}
+
+-- Empty extensible set: only the generated opaque alternative can be used.
+KnownEmpty IE ::= { ... }
+
+EmptyField ::= SEQUENCE {
+    id IE.&id({KnownEmpty}), -- No known identifier rows exist.
+    value IE.&Value({KnownEmpty}{@id}) -- Retains the opaque open type.
+}
+
+-- Receiver schema: retain a NULL placeholder for a newer extension type.
+Placeholder ::= SEQUENCE {
+    root INTEGER (0..255), -- A root member proves decoding continues.
+    ..., -- The optional extension is beyond the receiver's root version.
+    hole NULL OPTIONAL -- Placeholder accepts and skips the extension payload.
+}
+
+-- Sender schema: encode bytes in the extension slot unknown to Placeholder.
+PlaceholderSender ::= SEQUENCE {
+    root INTEGER (0..255), -- Matches the receiver's root member.
+    ..., -- Marks the following optional member as an extension.
+    hole OCTET STRING (SIZE(2)) OPTIONAL -- Two opaque extension octets.
+}
+
+END
