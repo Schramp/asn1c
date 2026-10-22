@@ -1,0 +1,10 @@
+SetTrailingRootExplicit DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    ...,
+    addition [3] INTEGER,
+    ...,
+    trailingRoot [2] BOOLEAN
+}
+
+END

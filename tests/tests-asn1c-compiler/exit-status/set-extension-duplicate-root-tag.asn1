@@ -1,0 +1,9 @@
+SetDuplicateRootTag DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    root [2] INTEGER,
+    ...,
+    [[ added [2] BOOLEAN ]]
+}
+
+END

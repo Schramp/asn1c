@@ -12,6 +12,8 @@
 #include <asn1fix_export.h>	/* other exportables from libasn1fix */
 
 static int asn1c_emit_constraint_tables(arg_t *arg, int got_size);
+static int is_string_alphabet_type(asn1p_expr_type_e etype);
+static int needs_PER_alphabet_maps(arg_t *arg, asn1p_expr_type_e etype);
 static int emit_alphabet_check_loop(arg_t *arg, asn1cnst_range_t *range);
 static int emit_value_determination_code(arg_t *arg, asn1p_expr_type_e etype, asn1cnst_range_t *r_value);
 static int emit_size_determination_code(arg_t *arg, asn1p_expr_type_e etype);
@@ -39,6 +41,42 @@ range_exceeds_int32(const asn1cnst_range_t *r) {
        && (r->right.value < rmin || r->right.value > rmax))
         return 1;
     return 0;
+}
+
+/**
+ * Purpose: Determine whether an ASN.1 type can carry a permitted alphabet.
+ * Original source: The asn1c constraint compiler.
+ * Version: Added 2026-10-21 for issue #582 constraint emission.
+ * Parameters:
+ *   etype - Terminal ASN.1 type flags to inspect.
+ * Returns: Non-zero for string types; zero for all other types.
+ * Exceptions: Does not allocate memory or raise errors.
+ * Author: asn1c maintainers.
+ * History: Added to keep alphabet applicability separate from emission logic.
+ * Example: is_string_alphabet_type(ASN_STRING_UTF8) returns non-zero.
+ */
+static int
+is_string_alphabet_type(asn1p_expr_type_e etype) {
+	return (etype & ASN_STRING_MASK) != 0;
+}
+
+/**
+ * Purpose: Check whether this type needs generated PER alphabet maps.
+ * Original source: The asn1c constraint compiler.
+ * Version: Added 2026-10-21 for issue #582 constraint emission.
+ * Parameters:
+ *   arg - Compiler state containing requested encoding flags.
+ *   etype - Terminal ASN.1 type flags to inspect.
+ * Returns: Non-zero when PER output and a character-mapped string type apply.
+ * Exceptions: Does not allocate memory or raise errors.
+ * Author: asn1c maintainers.
+ * History: Added to keep alphabet applicability checks bounded.
+ * Example: needs_PER_alphabet_maps(arg, ASN_STRING_UTF8) checks PER map needs.
+ */
+static int
+needs_PER_alphabet_maps(arg_t *arg, asn1p_expr_type_e etype) {
+	return (arg->flags & (A1C_GEN_UPER | A1C_GEN_APER))
+	    && (etype & ASN_STRING_KM_MASK);
 }
 
 /*
@@ -260,6 +298,7 @@ asn1c_emit_constraint_checking_code(arg_t *arg) {
 	asn1p_expr_type_e etype;
 	asn1p_constraint_t *ct;
 	int alphabet_table_compiled;
+	int alphabet_table_status;
 	int produce_st = 0;
 	int ulong_optimize = 0;
 	int value_unsigned = 0;
@@ -403,10 +442,15 @@ asn1c_emit_constraint_checking_code(arg_t *arg) {
 	INDENT(-1);
 	REDIR(OT_CTABLES);
 	/* Emit FROM() tables */
-	alphabet_table_compiled =
-		(asn1c_emit_constraint_tables(arg, r_size?1:0) == 1);
+	alphabet_table_status =
+		asn1c_emit_constraint_tables(arg, r_size ? 1 : 0);
 	REDIR(OT_CODE);
 	INDENT(+1);
+	if(alphabet_table_status < 0) {
+		ret = -1;
+		goto end;
+	}
+	alphabet_table_compiled = alphabet_table_status == 1;
 
 	/*
 	 * Optimization for unsigned longs.
@@ -507,14 +551,265 @@ end:
 }
 
 /**
+ * Purpose: Check that a PER alphabet range can be safely indexed by a map.
+ * Original source: The asn1c constraint compiler.
+ * Version: 2026-10-21, issue #582 map bounds validation.
+ * Parameters: range is the candidate alphabet; max_table_size bounds codes.
+ * Returns: One when range bounds are safe; zero otherwise.
+ * Exceptions: None; unsuitable ranges use direct PER coding.
+ * Author: asn1c maintainers.
+ * History: Added on 2026-10-21 for issue #582.
+ * Example: A bounded NumericString alphabet can be mapped with max size 256.
+ */
+static int
+asn1c_PER_alphabet_range_is_mappable(const asn1cnst_range_t *range,
+                                     int max_table_size) {
+	return range && !range->incompatible && !range->not_PER_visible
+		&& range->el_count > 0 && range->left.type == ARE_VALUE
+		&& range->right.type == ARE_VALUE && range->left.value >= 0
+		&& range->right.value < max_table_size;
+}
+
+/**
+ * Purpose: Check one PER alphabet interval before indexing a fixed-size table.
+ * Original source: The asn1c constraint compiler.
+ * Version: 2026-10-21, issue #582 map bounds validation.
+ * Parameters: part is one interval; max_table_size is the table bound.
+ * Returns: One when both interval endpoints are safe; zero otherwise.
+ * Exceptions: None; unsuitable intervals use direct PER coding.
+ * Author: asn1c maintainers.
+ * History: Added on 2026-10-21 for issue #582.
+ * Example: The interval 32..57 is valid for a 256-entry table.
+ */
+static int
+asn1c_PER_alphabet_part_is_mappable(const asn1cnst_range_t *part,
+                                    int max_table_size) {
+	return part && part->left.type == ARE_VALUE
+		&& part->right.type == ARE_VALUE && part->left.value >= 0
+		&& part->right.value < max_table_size
+		&& part->left.value <= part->right.value;
+}
+
+/**
+ * Purpose: Decide whether canonical ranking is needed for a PER alphabet.
+ * Original source: ITU-T X.691 (02/2021), 30.5.2 and 30.5.4.
+ * Version: 2026-10-21, issue #582 sparse alphabet maps.
+ * Parameters: range is the effective alphabet; max_table_size bounds codes.
+ * Returns: One when values exceed the direct code width; zero otherwise.
+ * Exceptions: None; unsuitable ranges fall back to direct code-unit encoding.
+ * Author: asn1c maintainers.
+ * History: Added on 2026-10-21 to preserve PrintableString's direct mapping.
+ * Example: NumericString needs ranking; the full PrintableString alphabet does not.
+ */
+static int
+asn1c_PER_alphabet_needs_map(const asn1cnst_range_t *range,
+                             int max_table_size) {
+	unsigned int cardinality = 0;
+	unsigned int code_space = 1;
+	unsigned int i;
+
+	if(!asn1c_PER_alphabet_range_is_mappable(range, max_table_size)) return 0;
+	for(i = 0; i < range->el_count; i++) {
+		const asn1cnst_range_t *part = range->elements[i];
+		unsigned int part_size;
+		if(!asn1c_PER_alphabet_part_is_mappable(part, max_table_size)) return 0;
+		part_size = (unsigned int)(part->right.value - part->left.value + 1);
+		if(part_size > (unsigned int)max_table_size - cardinality) return 0;
+		cardinality += part_size;
+	}
+	if(!cardinality) return 0;
+	while(code_space < cardinality) code_space <<= 1;
+	return range->right.value >= 0
+		&& (unsigned long long)range->right.value >= code_space;
+}
+
+/**
+ * Purpose: Emit the PER value maps for a non-contiguous effective alphabet.
+ * Original source: The asn1c constraint compiler.
+ * Version: 2026-10-21, separate PER maps from abstract validation ranges.
+ * Parameters:
+ *   arg - Compiler state describing the ASN.1 expression and output stream.
+ *   range - PER-effective alphabet range used by UPER and APER.
+ *   max_table_size - Number of possible source code units in the map.
+ * Returns: One when maps were emitted; zero when direct value coding applies.
+ * Exceptions: None; allocation and compiler failures use the existing output path.
+ * Author: asn1c maintainers.
+ * History: Added on 2026-10-21 for issue #582.
+ * Example: Emits a compact map for NumericString's space-and-digit alphabet.
+ */
+static int
+asn1c_emit_PER_alphabet_maps(arg_t *arg, asn1cnst_range_t *range,
+                             int max_table_size) {
+	int table[256] = {0};
+	int cardinal = 0;
+	int i;
+
+	if(!asn1c_PER_alphabet_needs_map(range, max_table_size)) return 0;
+	for(i = 0; i < range->el_count; i++) {
+		asn1c_integer_t value;
+		asn1cnst_range_t *part = range->elements[i];
+		for(value = part->left.value; value <= part->right.value; value++) {
+			table[value] = ++cardinal;
+		}
+	}
+	if(cardinal == 0) return 0;
+
+	OUT("static const int permitted_alphabet_table_%d[%d] = {\n",
+		arg->expr->_type_unique_index, max_table_size);
+	for(i = 0; i < max_table_size; i++) {
+		OUT("%d,", table[i]);
+		if(!((i + 1) % 16)) OUT("\n");
+	}
+	OUT("};\n");
+	OUT("static const int permitted_alphabet_code2value_%d[%d] = {\n",
+		arg->expr->_type_unique_index, cardinal);
+	for(i = 0; i < max_table_size; i++) {
+		if(table[i]) {
+			OUT("%d,", i);
+			if(!(table[i] % 16)) OUT("\n");
+		}
+	}
+	OUT("};\n");
+	OUT("\n");
+	DEBUG("code2value map gen for %s", arg->expr->Identifier);
+	arg->expr->_mark |= TM_PERFROMCT;
+	return 1;
+}
+
+/**
+ * Purpose: Emit the generated checker for an empty permitted alphabet.
+ * Original source: The asn1c constraint compiler.
+ * Version: 2026-10-21, issue #582 empty-set validation.
+ * Parameters: arg identifies the type whose checker is being generated.
+ * Returns: No value.
+ * Exceptions: None; the emitted function rejects every non-empty string.
+ * Author: asn1c maintainers.
+ * History: Added on 2026-10-21 for issue #582.
+ * Example: FROM("a".."z" EXCEPT "a".."z") accepts only an empty string.
+ */
+static void
+asn1c_emit_empty_alphabet_checker(arg_t *arg) {
+	OUT("/**\n");
+	OUT(" * Purpose: Accept an empty string for an empty permitted alphabet.\n");
+	OUT(" * Original source: Generated by the asn1c constraint compiler.\n");
+	OUT(" * Version: 2026-10-21, issue #582 empty-set validation.\n");
+	OUT(" * Parameters: sptr - Pointer to the generated string value.\n");
+	OUT(" * Returns: Zero for an empty string; negative one otherwise.\n");
+	OUT(" * Exceptions: None; malformed or non-empty data is rejected.\n");
+	OUT(" * Author: asn1c maintainers.\n");
+	OUT(" * History: Added on 2026-10-21 for issue #582.\n");
+	OUT(" * Example: Empty permitted alphabet accepts only the empty string.\n");
+	OUT(" */\n");
+	OUT("static int check_permitted_alphabet_%d(const void *sptr) {\n",
+		arg->expr->_type_unique_index);
+	OUT("\tconst OCTET_STRING_t *st = (const OCTET_STRING_t *)sptr;\n");
+	OUT("\treturn st && st->size == 0 ? 0 : -1;\n");
+	OUT("}\n");
+	OUT("\n");
+}
+
+/**
+ * Purpose: Emit the printable ASCII annotation for one validation-table row.
+ * Original source: The asn1c constraint compiler.
+ * Version: 2026-10-21.
+ * Parameters: arg identifies the output stream; table contains mapped values;
+ *             start is the first table code and row_end is the row's last index.
+ * Returns: No value.
+ * Exceptions: None; the comment is emitted only for printable ASCII rows.
+ * Author: asn1c maintainers.
+ * History: Extracted on 2026-10-21 to bound table-emitter complexity.
+ * Example: Marks a row as "0123456789" in a generated alphabet map.
+ */
+static void
+asn1c_emit_validation_table_comment(arg_t *arg, const int *table,
+                                    int start, int row_end) {
+	int character;
+
+	OUT("\t/* ");
+	for(character = row_end - 15; character <= row_end; character++) {
+		int code;
+		if(!table[character]) {
+			OUT(" ");
+			continue;
+		}
+		code = character + start;
+		OUT("%c", (code > 0x20 && code < 0x80) ? code : '.');
+	}
+	OUT(" */");
+	OUT("\n");
+}
+
+/**
+ * Purpose: Emit a bounded lookup table for abstract string alphabet checks.
+ * Original source: The asn1c constraint compiler.
+ * Version: 2026-10-21, issue #582 validation-table bounds checks.
+ * Parameters: arg identifies the output type; range is its alphabet; start,
+ *             stop, and table_size bound the table indices.
+ * Returns: Zero after emission, or -1 if any interval is outside the table.
+ * Exceptions: None; unsafe compiler ranges fail closed.
+ * Author: asn1c maintainers.
+ * History: Extracted on 2026-10-21 to keep the alphabet emitter bounded.
+ * Example: Emits a 256-entry table for a byte-oriented VisibleString range.
+ */
+static int
+asn1c_emit_validation_alphabet_table(arg_t *arg,
+                                     const asn1cnst_range_t *range,
+                                     int start, int stop, int table_size) {
+	int table[256] = { 0 };
+	int next_code = 0;
+	int interval_index;
+	int visible_count;
+	int i;
+
+	if(!range || table_size < 1 || table_size > 256
+	|| stop < start || stop - start >= table_size) return -1;
+	for(interval_index = -1; interval_index < range->el_count;
+	    interval_index++) {
+		const asn1cnst_range_t *part;
+		asn1c_integer_t value;
+
+		if(interval_index == -1) {
+			if(range->el_count) continue;
+			part = range;
+		} else {
+			part = range->elements[interval_index];
+		}
+		if(!asn1c_PER_alphabet_part_is_mappable(part, table_size)) return -1;
+		for(value = part->left.value; value <= part->right.value; value++) {
+			int index = (int)(value - start);
+			if(index < 0 || index >= table_size) return -1;
+			table[index] = ++next_code;
+		}
+	}
+
+	visible_count = stop - start + 1;
+	visible_count += (visible_count % 16) ? 16 - (visible_count % 16) : 0;
+	OUT("static const int permitted_alphabet_validation_table_%d[%d] = {\n",
+		arg->expr->_type_unique_index, table_size);
+	for(i = 0; i < visible_count; i++) {
+		OUT("%2d,", table[i]);
+		if(!((i + 1) % 16)) {
+			if(!i || (i - 15) + start >= 0x80) {
+				OUT("\n");
+				continue;
+			}
+			asn1c_emit_validation_table_comment(arg, table, start, i);
+		}
+	}
+	OUT("};\n");
+	OUT("\n");
+	return 0;
+}
+
+/**
  * Purpose: Emit permitted-alphabet lookup data and its generated constraint helper.
  * Original source: The asn1c constraint compiler.
  * Version: 2026-07-17, empty-value hardening and generated-helper documentation.
  * Parameters:
  *   arg - Compiler state describing the ASN.1 expression and output stream.
  *   got_size - Non-zero when a separate generated size check already validates UTF-8 syntax.
- * Returns: One when an alphabet helper is emitted; zero when no helper is necessary.
- * Exceptions: None; allocation and compiler failures use the surrounding compiler error path.
+ * Returns: One when a helper is emitted, zero when unnecessary, or -1 on failure.
+ * Exceptions: Range-computation failures propagate to the compiler as errors.
  * Author: asn1c maintainers; PR #550 update by libo <shakespark@gmail.com>.
  * History: Updated on 2026-07-17 for NULL-safe generated helpers and online documentation.
  * Example: asn1c_emit_constraint_tables(arg, 0) emits a FROM constraint helper when required.
@@ -525,24 +820,47 @@ asn1c_emit_constraint_tables(arg_t *arg, int got_size) {
 	asn1c_integer_t range_stop;
 	asn1p_expr_type_e etype;
 	asn1cnst_range_t *range;
+	asn1cnst_range_t *per_range;
 	asn1p_constraint_t *ct;
 	int utf8_full_alphabet_check = 0;
 	int max_table_size = 256;
-	int table[256];
 	int use_table;
 
 	ct = arg->expr->combined_constraints;
 	if(!ct) return 0;
 
 	etype = _find_terminal_type(arg);
+	if(!is_string_alphabet_type(etype)) return 0;
 
-	range = asn1constraint_compute_constraint_range(arg->expr->Identifier, etype, ct, ACT_CT_FROM, 0,0,0);
-	if(!range) return 0;
+	/*
+	 * Keep abstract validation separate from PER-visible range generation.
+	 * The validation mode expands extensible alphabets before later constraints
+	 * and applies EXCEPT; the separate PER range ignores non-visible clauses.
+	 */
+	range = asn1constraint_compute_constraint_range(
+		arg->expr->Identifier, etype, ct, ACT_CT_FROM, 0, 0,
+		CPR_alphabet_validation);
+	if(!range) return -1;
+	per_range = asn1constraint_compute_PER_range(
+		arg->expr->Identifier, etype, ct, ACT_CT_FROM, 0, 0,
+		CPR_ignore_extension_additions);
+	if(!per_range) {
+		asn1constraint_range_free(range);
+		return -1;
+	}
+	if(needs_PER_alphabet_maps(arg, etype)) {
+		asn1c_emit_PER_alphabet_maps(arg, per_range, max_table_size);
+	}
+	asn1constraint_range_free(per_range);
 
-	if(range->incompatible
-	|| range->empty_constraint) {
+	if(range->incompatible) {
 		asn1constraint_range_free(range);
 		return 0;
+	}
+	if(range->empty_constraint) {
+		asn1c_emit_empty_alphabet_checker(arg);
+		asn1constraint_range_free(range);
+		return 1;
 	}
 
 	if(range->left.type == ARE_MIN
@@ -588,75 +906,11 @@ asn1c_emit_constraint_tables(arg_t *arg, int got_size) {
 	}
 
 	if(use_table) {
-		int cardinal = 0;
-		int i, n = 0;
-		int untl;
-		memset(table, 0, sizeof(table));
-		for(i = -1; i < range->el_count; i++) {
-			asn1cnst_range_t *r;
-			asn1c_integer_t v;
-			if(i == -1) {
-				if(range->el_count) continue;
-				r = range;
-			} else {
-				r = range->elements[i];
-			}
-			for(v = r->left.value; v <= r->right.value; v++) {
-				assert((v - range_start) >= 0);
-				assert((v - range_start) < max_table_size);
-				table[v - range_start] = ++n;
-			}
+		if(asn1c_emit_validation_alphabet_table(
+			arg, range, range_start, range_stop, max_table_size)) {
+			asn1constraint_range_free(range);
+			return -1;
 		}
-
-		untl = (range_stop - range_start) + 1;
-		untl += (untl % 16)?16 - (untl % 16):0;
-		OUT("static const int permitted_alphabet_table_%d[%d] = {\n",
-			arg->expr->_type_unique_index, max_table_size);
-		for(n = 0; n < untl; n++) {
-			cardinal += table[n] ? 1 : 0;
-			OUT("%2d,", table[n]);
-			if(!((n+1) % 16)) {
-				int c;
-				if(!n || (n-15) + range_start >= 0x80) {
-					OUT("\n");
-					continue;
-				}
-				OUT("\t/* ");
-				for(c = n - 15; c <= n; c++) {
-					if(table[c]) {
-						int a = c + range_start;
-						if(a > 0x20 && a < 0x80)
-							OUT("%c", a);
-						else
-							OUT(".");
-					} else {
-						OUT(" ");
-					}
-				}
-				OUT(" */");
-				OUT("\n");
-			}
-		}
-		OUT("};\n");
-
-		if((arg->flags & (A1C_GEN_UPER | A1C_GEN_APER))
-		&& (etype & ASN_STRING_KM_MASK)) {
-		    int c;
-		    OUT("static const int permitted_alphabet_code2value_%d[%d] = {\n",
-			arg->expr->_type_unique_index, cardinal);
-		    for(n = c = 0; c < max_table_size; c++) {
-			if(table[c]) {
-				OUT("%d,", c);
-				if(!((++n) % 16)) OUT("\n");
-			}
-		    }
-		    OUT("};\n");
-		    OUT("\n");
-		    DEBUG("code2value map gen for %s", arg->expr->Identifier);
-		    arg->expr->_mark |= TM_PERFROMCT;
-		}
-
-		OUT("\n");
 	} else if(etype == ASN_STRING_UTF8String) {
 		/*
 		 * UTF8String type is a special case in many respects.
@@ -703,7 +957,7 @@ asn1c_emit_constraint_tables(arg_t *arg, int got_size) {
 		OUT("\n");
 	} else {
 		if(use_table) {
-			OUT("const int *table = permitted_alphabet_table_%d;\n",
+			OUT("const int *table = permitted_alphabet_validation_table_%d;\n",
 				arg->expr->_type_unique_index);
 			emit_alphabet_check_loop(arg, 0);
 		} else {
@@ -770,10 +1024,10 @@ emit_alphabet_check_loop(arg_t *arg, asn1cnst_range_t *range) {
 		OUT("if(st->size %% 4) return -1; /* (size%%4)! */\n");
 		OUT("for(; ch < end; ch += 4) {\n");
 			INDENT(+1);
-			OUT("uint32_t cv = (ch[0] << 24)\n");
-			OUT("\t\t| (ch[1] << 16)\n");
-			OUT("\t\t| (ch[2] << 8)\n");
-			OUT("\t\t|  ch[3];\n");
+			OUT("uint32_t cv = ((uint32_t)ch[0] << 24)\n");
+			OUT("\t\t| ((uint32_t)ch[1] << 16)\n");
+			OUT("\t\t| ((uint32_t)ch[2] << 8)\n");
+			OUT("\t\t| (uint32_t)ch[3];\n");
 			if(!range) OUT("if(cv > 255) return -1;\n");
 		natural_stop = 0xffffffffUL;
 		break;

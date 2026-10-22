@@ -290,6 +290,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_typeII_CJT_r18_specs_4 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_typeII_CJT_r18_4 = {
@@ -434,6 +435,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_typeII_CJT_PortSelection_r18_specs_8 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_typeII_CJT_PortSelection_r18_8 = {
@@ -641,6 +643,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_CodebookConfig_r18_specs_1 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_CodebookConfig_r18 = {
 	"CodebookConfig-r18",
@@ -936,6 +939,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

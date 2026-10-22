@@ -1,0 +1,3 @@
+DuplicateEnumMarker DEFINITIONS ::= BEGIN
+Broken ::= ENUMERATED { first, ..., ..., second }
+END

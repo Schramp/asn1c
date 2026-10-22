@@ -234,6 +234,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_LogLine_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	2,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_LogLine = {
 	"LogLine",
@@ -487,6 +488,7 @@ asn_SEQUENCE_specifics_t asn_SPC_VariablePartSet_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	2,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_VariablePartSet = {
 	"VariablePartSet",
@@ -780,6 +782,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_vrange_specs_4 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	2,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_vrange_4 = {
@@ -1168,6 +1171,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_notify_specs_7 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	2,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_notify_7 = {
@@ -1253,6 +1257,7 @@ asn_SEQUENCE_specifics_t asn_SPC_ActionItem_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	2,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_ActionItem = {
 	"ActionItem",
@@ -1548,6 +1553,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

@@ -101,6 +101,18 @@ static int cer_encode_value(cer_context_t *, const asn_TYPE_descriptor_t *,
 static int cer_encode_member(cer_context_t *, const asn_TYPE_descriptor_t *,
                              const void *, const asn_TYPE_member_t *,
                              cer_buffer_t *, cer_member_view_t *);
+static int cer_encode_extension_group_body(cer_context_t *,
+                                           const asn_TYPE_descriptor_t *,
+                                           const void *, cer_buffer_t *);
+static int cer_set_item_capacity(cer_context_t *,
+                                 const asn_TYPE_descriptor_t *, const void *,
+                                 unsigned, size_t *);
+static int cer_validate_set_group(cer_context_t *,
+                                 const asn_TYPE_descriptor_t *, const void *);
+static int cer_collect_set_group(cer_context_t *,
+                                 const asn_TYPE_descriptor_t *, const void *,
+                                 const asn_TYPE_member_t *, cer_item_t *,
+                                 size_t, size_t *);
 static int cer_capture_bytes_cb(const void *, size_t, void *);
 static int cer_check_tag_depth(cer_context_t *,
                                const asn_TYPE_descriptor_t *, const void *,
@@ -2657,10 +2669,9 @@ cer_encode_primitive(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
  */
 static int
 cer_collect_set_member(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
-                       const void *value, unsigned member_index,
+                       const void *value, const asn_TYPE_member_t *member,
                        cer_item_t *item) {
     cer_member_view_t view;
-    const asn_TYPE_member_t *member = &td->elements[member_index];
 
     memset(item, 0, sizeof(*item));
     if(cer_encode_member(ctx, td, value, member, NULL, &view)) return -1;
@@ -2675,8 +2686,176 @@ cer_collect_set_member(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
         cer_buffer_release(ctx, &item->bytes);
         return -1;
     }
-    item->declaration_index = member_index;
+    item->declaration_index = 0;
     return 1;
+}
+
+/*
+ * Validate one synthetic SET group's descriptor and storage bounds.
+ * Original source: New asn1c CER SET extension-group encoder.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: ctx records errors; td/value identify the group descriptor/value.
+ * Returns: 0 for valid SET metadata, or -1 for malformed bounds.
+ * Errors: EBADF for invalid fields; EOVERFLOW for element or size limits.
+ * Responsible party: asn1c maintainers. History: Added for SET group support.
+ * Example: called before checking mandatory values or reading group leaves.
+ */
+static int
+cer_validate_set_group(cer_context_t *ctx,
+                       const asn_TYPE_descriptor_t *td, const void *value) {
+    const asn_SET_specifics_t *specs;
+    size_t structure_size;
+    size_t words;
+    size_t presence_size;
+    size_t bits = 8 * sizeof(unsigned int);
+
+    if(!td || !td->op || td->op->kind != ASN_KIND_SET || !td->specifics ||
+       !td->elements || td->elements_count == 0) {
+        return cer_fail(ctx, EBADF, td, value);
+    }
+    if(td->elements_count > ASN_CER_MAX_ELEMENTS) {
+        return cer_fail(ctx, EOVERFLOW, td, value);
+    }
+    if(cer_descriptor_size(td, &structure_size)) {
+        return cer_fail(ctx, EBADF, td, value);
+    }
+    specs = (const asn_SET_specifics_t *)td->specifics;
+    if(!specs->_mandatory_elements || specs->struct_size != structure_size ||
+       specs->ctx_offset > structure_size ||
+       sizeof(asn_struct_ctx_t) > structure_size - specs->ctx_offset) {
+        return cer_fail(ctx, EBADF, td, value);
+    }
+    words = ((size_t)td->elements_count + bits - 1) / bits;
+    if(words > ((size_t)-1) / sizeof(unsigned int)) {
+        return cer_fail(ctx, EOVERFLOW, td, value);
+    }
+    presence_size = words * sizeof(unsigned int);
+    if(specs->pres_offset > structure_size ||
+       presence_size > structure_size - specs->pres_offset) {
+        return cer_fail(ctx, EBADF, td, value);
+    }
+    return 0;
+}
+
+/*
+ * Count the bounded item workspace needed to flatten SET extension groups.
+ * Original source: New asn1c CER SET extension-group encoder.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: ctx/td/value identify the SET; count bounds parent members;
+ *   capacity receives an upper bound on the flattened item count.
+ * Returns: 0 on success or -1 for malformed metadata or configured limits.
+ * Errors: EBADF for invalid descriptors; EOVERFLOW for the element ceiling.
+ * Responsible party: asn1c maintainers. History: Added for SET group support.
+ * Example: called before allocating the canonical SET item array.
+ */
+static int
+cer_set_item_capacity(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
+                      const void *value, unsigned count, size_t *capacity) {
+    size_t total = count;
+    unsigned i;
+
+    if(!capacity || count > ASN_CER_MAX_ELEMENTS ||
+       (count && !td->elements)) {
+        return cer_fail(ctx, count > ASN_CER_MAX_ELEMENTS ? EOVERFLOW : EBADF,
+                        td, value);
+    }
+    for(i = 0; i < count; i++) {
+        const asn_TYPE_member_t *member = &td->elements[i];
+
+        if(!(member->flags & ATF_EXTENSION_GROUP)) continue;
+        if(!member->type || !member->type->op ||
+           member->type->op->kind != ASN_KIND_SET) {
+            return cer_fail(ctx, EBADF, td, value);
+        }
+        if(cer_validate_set_group(ctx, member->type, value)) return -1;
+        if(member->type->elements_count > ASN_CER_MAX_ELEMENTS ||
+           (member->type->elements_count && !member->type->elements)) {
+            return cer_fail(ctx, member->type->elements_count >
+                            ASN_CER_MAX_ELEMENTS ? EOVERFLOW : EBADF,
+                            member->type, value);
+        }
+        if((size_t)member->type->elements_count >
+           ASN_CER_MAX_ELEMENTS - total) {
+            return cer_fail(ctx, EOVERFLOW, td, value);
+        }
+        total += member->type->elements_count;
+    }
+    *capacity = total;
+    return 0;
+}
+
+/*
+ * Collect each present child of one SET extension group as a SET item.
+ * Original source: New asn1c CER SET extension-group encoder.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: ctx/td/value identify the parent; member selects the group;
+ *   items/capacity/used manage the bounded flat item array.
+ * Returns: 0 on success or -1 for invalid values, metadata, or limits.
+ * Errors: EBADF for an incomplete group; EOVERFLOW for depth/work bounds.
+ * Responsible party: asn1c maintainers. History: Added for SET group support.
+ * Example: called by cer_encode_set_members() for flagged SET members.
+ */
+static int
+cer_collect_set_group(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
+                      const void *value, const asn_TYPE_member_t *member,
+                      cer_item_t *items, size_t capacity, size_t *used) {
+    cer_member_view_t group;
+    unsigned i;
+    int populated;
+    int status = -1;
+
+    if(cer_encode_member(ctx, td, value, member, NULL, &group)) return -1;
+    if(!group.present) return 0;
+    if(!group.type->op || group.type->op->kind != ASN_KIND_SET ||
+       !items || !used) return cer_fail(ctx, EBADF, group.type, group.value);
+    populated = SET_group_is_populated(group.type, group.value);
+    if(populated != 1) return cer_fail(ctx, EBADF, group.type, group.value);
+    if(ctx->depth >= ASN_STACK_OVERFLOW_LIMIT ||
+       ASN__STACK_OVERFLOW_CHECK(ctx->codec_ctx) != 0) {
+        return cer_fail(ctx, EOVERFLOW, group.type, group.value);
+    }
+    if(cer_charge_work(ctx, group.type, group.value)) return -1;
+    ctx->depth++;
+    status = 0;
+    for(i = 0; i < group.type->elements_count; i++) {
+        const asn_TYPE_member_t *child = &group.type->elements[i];
+        cer_member_view_t view;
+        cer_item_t *item;
+
+        if(child->flags & ATF_EXTENSION_GROUP) {
+            status = cer_fail(ctx, EBADF, group.type, group.value);
+            break;
+        }
+        if(cer_charge_work(ctx, group.type, group.value) ||
+           cer_encode_member(ctx, group.type, group.value, child, NULL,
+                             &view)) {
+            status = -1;
+            break;
+        }
+        if(!view.present) continue;
+        if(*used >= capacity) {
+            status = cer_fail(ctx, EOVERFLOW, group.type, group.value);
+            break;
+        }
+        item = &items[*used];
+        memset(item, 0, sizeof(*item));
+        if(view.tag_mode) {
+            item->sort_tag = view.tag;
+        } else if(cer_minimum_tag(ctx, view.type, 0, &item->sort_tag)) {
+            status = -1;
+            break;
+        }
+        if(cer_encode_value(ctx, view.type, view.value, view.tag_mode,
+                            view.tag, &item->bytes)) {
+            cer_buffer_release(ctx, &item->bytes);
+            status = -1;
+            break;
+        }
+        item->declaration_index = *used;
+        (*used)++;
+    }
+    ctx->depth--;
+    return status;
 }
 
 /*
@@ -2699,20 +2878,76 @@ cer_encode_sequence_members(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
     for(i = 0; i < count; i++) {
         cer_member_view_t view;
         cer_buffer_t child = {0};
+        const asn_TYPE_member_t *member = &td->elements[i];
         if(cer_charge_work(ctx, td, value) ||
-           cer_encode_member(ctx, td, value, &td->elements[i], NULL, &view)) {
+           cer_encode_member(ctx, td, value, member, NULL, &view)) {
             return -1;
         }
-        if(view.present &&
-           (cer_encode_value(ctx, view.type, view.value, view.tag_mode,
-                             view.tag, &child) ||
-            cer_buffer_append(ctx, body, child.data, child.length, td, value))) {
-            cer_buffer_release(ctx, &child);
-            return -1;
+        if(view.present) {
+            int encode_status;
+
+            /* X.690 SEQUENCE extension groups contribute only their children. */
+            if(member->flags & ATF_EXTENSION_GROUP) {
+                encode_status = cer_encode_extension_group_body(
+                    ctx, view.type, view.value, &child);
+            } else {
+                encode_status = cer_encode_value(ctx, view.type, view.value,
+                                                 view.tag_mode, view.tag, &child);
+            }
+            if(encode_status ||
+               cer_buffer_append(ctx, body, child.data, child.length, td,
+                                 value)) {
+                cer_buffer_release(ctx, &child);
+                return -1;
+            }
         }
         cer_buffer_release(ctx, &child);
     }
     return 0;
+}
+
+/*
+ * Encode a synthetic extension group's members without its SEQUENCE TLV.
+ * Original source: New asn1c CER extension-group encoder, following X.690 8.9.
+ * Version/date: 1.0, 2026-10-21.
+ * Parameters: ctx tracks depth/work/scratch; td/value identify the synthetic
+ *   group; body receives the concatenated CER encodings of its components.
+ * Returns: 0 on success, or -1 after recording malformed data/resource errors.
+ * Errors: EBADF for a non-group descriptor; EOVERFLOW/ENOMEM for bounded work.
+ * Responsible party: asn1c maintainers. History: Added for issue #583 CER.
+ * Example: append the group body directly within its containing SEQUENCE TLV.
+ */
+static int
+cer_encode_extension_group_body(cer_context_t *ctx,
+                                const asn_TYPE_descriptor_t *td,
+                                const void *value, cer_buffer_t *body) {
+    const asn_SEQUENCE_specifics_t *specs;
+    size_t structure_size;
+    int status;
+
+    if(!ctx) return -1;
+    if(!td || !td->op || td->op->kind != ASN_KIND_SEQUENCE || !value ||
+       !body || cer_descriptor_size(td, &structure_size)) {
+        return cer_fail(ctx, EBADF, td, value);
+    }
+    specs = (const asn_SEQUENCE_specifics_t *)td->specifics;
+    if(!specs->extension_group) return cer_fail(ctx, EBADF, td, value);
+    if(ctx->depth >= ASN_STACK_OVERFLOW_LIMIT ||
+       ASN__STACK_OVERFLOW_CHECK(ctx->codec_ctx) != 0) {
+        return cer_fail(ctx, EOVERFLOW, td, value);
+    }
+    if(cer_charge_work(ctx, td, value)) return -1;
+    ctx->depth++;
+    if(td->elements_count > ASN_CER_MAX_ELEMENTS ||
+       (td->elements_count && !td->elements)) {
+        status = cer_fail(ctx, td->elements_count > ASN_CER_MAX_ELEMENTS
+                          ? EOVERFLOW : EBADF, td, value);
+    } else {
+        status = cer_encode_sequence_members(ctx, td, value,
+                                              td->elements_count, body);
+    }
+    ctx->depth--;
+    return status;
 }
 
 /*
@@ -2730,24 +2965,38 @@ static int
 cer_encode_set_members(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
                        const void *value, unsigned count, cer_buffer_t *body) {
     cer_item_t *items;
+    size_t capacity;
     size_t item_bytes;
-    unsigned i, used = 0;
+    size_t used = 0;
+    unsigned i;
     int status = -1;
 
-    if(count == 0) return 0;
-    if((size_t)count > ((size_t)-1) / sizeof(*items)) {
+    if(cer_set_item_capacity(ctx, td, value, count, &capacity)) return -1;
+    if(capacity == 0) return 0;
+    if(capacity > ((size_t)-1) / sizeof(*items)) {
         return cer_fail(ctx, EOVERFLOW, td, value);
     }
-    item_bytes = (size_t)count * sizeof(*items);
+    item_bytes = capacity * sizeof(*items);
     items = cer_alloc(ctx, item_bytes, td, value);
     if(!items) return -1;
     memset(items, 0, item_bytes);
     for(i = 0; i < count; i++) {
         int present;
+        const asn_TYPE_member_t *member = &td->elements[i];
+
         if(cer_charge_work(ctx, td, value)) goto done;
-        present = cer_collect_set_member(ctx, td, value, i, &items[used]);
-        if(present < 0) goto done;
-        if(present) used++;
+        if(member->flags & ATF_EXTENSION_GROUP) {
+            if(cer_collect_set_group(ctx, td, value, member, items,
+                                     capacity, &used)) goto done;
+        } else {
+            present = cer_collect_set_member(ctx, td, value, member,
+                                            &items[used]);
+            if(present < 0) goto done;
+            if(present) {
+                items[used].declaration_index = used;
+                used++;
+            }
+        }
     }
     if(used > 1) qsort(items, used, sizeof(*items), cer_set_item_compare);
     for(i = 0; i < used; i++) {
@@ -2756,7 +3005,7 @@ cer_encode_set_members(cer_context_t *ctx, const asn_TYPE_descriptor_t *td,
     }
     status = 0;
 done:
-    for(i = 0; i < count; i++) cer_buffer_release(ctx, &items[i].bytes);
+    for(i = 0; i < capacity; i++) cer_buffer_release(ctx, &items[i].bytes);
     cer_free(ctx, items, item_bytes);
     return status;
 }

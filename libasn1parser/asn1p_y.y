@@ -1433,14 +1433,14 @@ ComponentTypeLists:
 		$$ = $1;
 		$4->meta_type = AMT_TYPE;
 		$4->expr_type = ASN_CONSTR_SEQUENCE;
-		$4->marker.flags |= EM_OPTIONAL;
+		$4->marker.flags |= EM_OPTIONAL | EM_EXTENSION_GROUP;
 		asn1p_expr_add($$, $4);
 	}
 	| ComponentTypeLists TOK_VBracketLeft ComponentTypeLists TOK_VBracketRight {
 		$$ = $1;
 		$3->meta_type = AMT_TYPE;
 		$3->expr_type = ASN_CONSTR_SEQUENCE;
-		$3->marker.flags |= EM_OPTIONAL;
+		$3->marker.flags |= EM_OPTIONAL | EM_EXTENSION_GROUP;
 		asn1p_expr_add($$, $3);
 	}
 	;

@@ -11,11 +11,12 @@
 extern "C" {
 #endif
 
+/* An opaque ANY payload with its owned contents and incremental decode state. */
 typedef struct ANY {
-	uint8_t *buf;	/* BER-encoded ANY contents */
+	uint8_t *buf;	/* Encoded contents octets (BER or PER payload) */
 	int size;	/* Size of the above buffer */
 
-	asn_struct_ctx_t _asn_ctx;	/* Parsing across buffer boundaries */
+	asn_struct_ctx_t _asn_ctx;	/* state variable: parsing across buffer boundaries */
 } ANY_t;
 
 extern asn_TYPE_descriptor_t asn_DEF_ANY;
@@ -25,11 +26,13 @@ extern asn_OCTET_STRING_specifics_t asn_SPC_ANY_specs;
 #define ANY_free OCTET_STRING_free
 
 #if !defined(ASN_DISABLE_PRINT_SUPPORT)
-#define ANY_print OCTET_STRING_print
+asn_struct_print_f ANY_print;
 #endif  /* !defined(ASN_DISABLE_PRINT_SUPPORT) */
 
-#define ANY_compare OCTET_STRING_compare
-#define ANY_copy    OCTET_STRING_copy
+int ANY_compare(const asn_TYPE_descriptor_t *td, const void *aptr,
+                const void *bptr);
+int ANY_copy(const asn_TYPE_descriptor_t *td, void **aptr,
+             const void *bptr);
 
 #define ANY_constraint asn_generic_no_constraint
 

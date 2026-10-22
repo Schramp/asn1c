@@ -342,6 +342,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_type2Bit_Member_specs_4 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_type2Bit_Member_4 = {
@@ -486,6 +487,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_type4Bit_Member_specs_8 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_type4Bit_Member_8 = {
@@ -691,6 +693,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_TestMessage_specs_1 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_TestMessage = {
 	"TestMessage",
@@ -1025,6 +1028,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_items_Member_specs_5 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_items_Member_5 = {
@@ -1149,6 +1153,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_branch1_specs_3 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_branch1_3 = {
@@ -1234,6 +1239,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_items_Member_specs_10 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_items_Member_10 = {
@@ -1358,6 +1364,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_branch2_specs_8 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_branch2_8 = {
@@ -1504,6 +1511,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_DeepNesting_specs_1 = {
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_DeepNesting = {
 	"DeepNesting",
@@ -1799,6 +1807,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

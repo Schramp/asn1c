@@ -1,0 +1,12 @@
+SetTrailingRootAutomatic DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+T ::= SET {
+    root INTEGER,
+    ...,
+    addition INTEGER,
+    [[ grouped INTEGER ]],
+    ...,
+    trailingRoot BOOLEAN
+}
+
+END

@@ -1,0 +1,10 @@
+SetExtensionGroupAfterEndMarker DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+T ::= SET {
+    ...,
+    addition [3] INTEGER,
+    ...,
+    [[ trailing [4] BOOLEAN ]]
+}
+
+END

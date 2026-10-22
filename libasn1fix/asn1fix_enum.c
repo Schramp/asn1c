@@ -1,6 +1,55 @@
 #include "asn1fix_internal.h"
 
 /*
+ * Add the implied extension marker for an ENUMERATED type when its defining
+ * module requests EXTENSIBILITY IMPLIED and no explicit marker is present.
+ *
+ * Original source: X.680 module extensibility normalization.
+ * Version: 2026-10-21.
+ * Inputs: arg supplies diagnostics and the fallback module; expr is the
+ *         ENUMERATED expression to normalize.
+ * Returns: 0 on success; -1 if marker allocation fails.
+ * Exceptions: none; allocation failures are reported through FATAL.
+ * Responsible party: asn1c maintainers.
+ * History: added for issue #584; inspect expr->module so imported types use
+ *          the extensibility policy of the module that defines the type.
+ * Example: Colour ::= ENUMERATED { red, green } becomes
+ *          ENUMERATED { red, green, ... } only in an implied module.
+ */
+static int
+asn1f_enum_add_implied_extension(arg_t *arg, asn1p_expr_t *expr) {
+	asn1p_module_t *owner = expr->module ? expr->module : arg->mod;
+	asn1p_expr_t *member;
+	asn1p_expr_t *marker;
+
+	if(!owner || !(owner->module_flags & MSF_EXTENSIBILITY_IMPLIED))
+		return 0;
+
+	/* An explicit marker already controls the root and extension boundary. */
+	TQ_FOR(member, &(expr->members), next) {
+		if(member->expr_type == A1TC_EXTENSIBLE)
+			return 0;
+	}
+
+	marker = asn1p_expr_new(expr->_lineno, owner);
+	if(!marker) {
+		FATAL("Out of memory while adding implied ENUMERATED extension");
+		return -1;
+	}
+	marker->Identifier = strdup("...");
+	if(!marker->Identifier) {
+		asn1p_expr_free(marker);
+		FATAL("Out of memory while adding implied ENUMERATED extension");
+		return -1;
+	}
+	marker->expr_type = A1TC_EXTENSIBLE;
+	marker->meta_type = AMT_TYPE;
+	asn1p_expr_add(expr, marker);
+
+	return 0;
+}
+
+/*
  * A growable set of enumeration values already in use.
  */
 typedef struct used_vals_s {
@@ -75,6 +124,10 @@ asn1f_fix_enum(arg_t *arg) {
 
 	if(expr->expr_type != ASN_BASIC_ENUMERATED)
 		return 0;	/* Just ignore it */
+
+	/* Normalize implied extensibility before enum numbering and PER mapping. */
+	if(asn1f_enum_add_implied_extension(arg, expr))
+		return -1;
 
 	DEBUG("(%s)", expr->Identifier);
 

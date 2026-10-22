@@ -50,6 +50,14 @@ See [ChangeLog](ChangeLog) for the complete release history and
 The [JER converter and BER string security review](docs/issues-578-581-security-review.md)
 documents the fixes for issues #578/#581 and the corrections to PRs #579/#580,
 including reproduction cases and regression coverage.
+The [extension semantics and security review](docs/issues-582-584-review.md)
+documents fixes for extensible permitted alphabets, SEQUENCE extension addition
+groups, and implied ENUMERATED extensibility (#582–#584). Regenerate C output
+with the matching updated runtime because SEQUENCE group descriptors now carry
+additional metadata. The follow-up [SET extension-group notes](docs/set-extension-groups.md)
+describe transparent SET groups, regenerated descriptor layout, stack bounds,
+and the current PER support boundary.
+
 The [incremental JER design proposal](docs/jer-streaming-design.md) describes
 how to progress from buffering one PDU to decoding large messages in chunks,
 with explicit memory limits, framing and an optional application sink.
@@ -191,6 +199,14 @@ unknown UPER/APER ENUMERATED values are represented by the reserved
 transfer syntax. Applications that require the historical strict rejection
 behavior may compile generated skeletons with `ASN_REJECT_UNKNOWN_EXTENSIONS`;
 this forfeits forward compatibility.
+
+APER open types governed by extensible information-object sets retain unknown
+values in an opaque `ANY_t` alternative (`choice.asn1cUnknown`, with a numeric
+suffix if that name is already used). Applications can copy, modify other fields,
+and re-encode these values with APER. Regenerate C sources with the updated
+compiler and runtime to obtain the new alternative. See the
+[issue #586 notes](docs/issue-586-aper-unknown-open-type.md) for ownership,
+identifier validation, and round-trip limits.
 
 Please also read the [FAQ](FAQ) file.
 

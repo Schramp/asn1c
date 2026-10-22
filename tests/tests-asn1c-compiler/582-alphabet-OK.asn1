@@ -1,0 +1,29 @@
+-- Regression for issue #582: extensible FROM constraints do not narrow PER alphabets.
+Issue582 DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+Rec ::= SEQUENCE {
+    word VisibleString (FROM ("a".."z"), ...),
+    ia5 IA5String (FROM ("a".."z"), ...),
+    sizedFrom VisibleString (SIZE (1..8) INTERSECTION FROM ("a".."z"), ...)
+}
+
+OpenVisible ::= VisibleString (FROM ("a".."z"), ...)
+OpenVisibleAdditions ::= VisibleString (FROM ("a".."z", ..., "A".."Z"))
+ClosedVisible ::= OpenVisible (FROM ("a".."d"))
+SerialClosedVisible ::= VisibleString (FROM ("a".."z", ...)) (FROM ("a".."d"))
+SerialSizeVisible ::= VisibleString (FROM ("a".."z", ...)) (SIZE (1..8))
+AliasSizeVisible ::= OpenVisible (SIZE (1..8))
+NarrowVisible ::= VisibleString (FROM ("a".."z"))
+OpenIA5 ::= IA5String (FROM ("a".."z"), ...)
+OpenBMP ::= BMPString (FROM ("a".."z"), ...)
+OpenUniversal ::= UniversalString (FROM ("a".."z"), ...)
+ClosedUniversal ::= UniversalString (FROM ("a".."z"))
+AllExceptSpace ::= BMPString (FROM (ALL EXCEPT " "))
+IntersectionVisible ::= VisibleString (
+    FROM ("a".."z", ...) INTERSECTION FROM ("a".."d"))
+ExceptX ::= VisibleString (FROM ("a".."z" EXCEPT "x"))
+ExceptAll ::= VisibleString (FROM ("a".."z" EXCEPT "a".."z"))
+OpenNumeric ::= NumericString (FROM ("0".."9"), ...)
+OpenPrintable ::= PrintableString (FROM ("A".."Z"), ...)
+
+END

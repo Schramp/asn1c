@@ -408,193 +408,185 @@ REAL_copy(const asn_TYPE_descriptor_t *td, void **aptr,
     return 0;
 }
 
+/*
+ * Purpose: Convert ISO 6093 decimal REAL contents to a double.
+ * Source: asn1c REAL.c by Lev Walkin; extracted for issue #585.
+ * Version: 2026-10-22. Responsible party: asn1c maintainers.
+ * Inputs: st is a validated, nonempty REAL contents buffer; octv is its
+ * first octet; dbl_value receives the converted value on success.
+ * Returns: 0 on success, -1 on failure with errno set.
+ * Exceptions: none; EINVAL for malformed contents, ERANGE for overflow,
+ * or allocation errors from MALLOC.
+ * History: 2026-10-22 separated decimal conversion from dispatch.
+ * Example: REAL__decimal2double(st, 0x03, &value).
+ */
+static int
+REAL__decimal2double(const REAL_t *st, unsigned int octv, double *dbl_value) {
+    double d;
+    char *source = 0;
+    char *endptr;
+    int used_malloc = 0;  /* state variable: source buffer ownership. */
+
+    /* Only ISO 6093 NR1, NR2, and NR3 selectors are defined. */
+    if(octv == 0 || (octv & 0x3C)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    /* The runtime contract supplies a trailing NUL. Normalize ISO 6093's
+     * optional comma separator when strtod cannot consume the original. */
+    if(st->buf[st->size] != '\0' || memchr(st->buf, ',', st->size)) {
+        const uint8_t *p, *end;
+        char *b;
+
+        b = source = (char *)MALLOC(st->size + 1);
+        if(!source) return -1;
+        used_malloc = 1;
+
+        /* Copy without the selector, normalize commas, and terminate. */
+        for(p = st->buf + 1, end = st->buf + st->size; p < end; b++, p++)
+            *b = (*p == ',') ? '.' : *p;
+        *b = '\0';
+    } else {
+        source = (char *)&st->buf[1];
+    }
+
+    /* Require complete conversion and release any normalization buffer. */
+    endptr = source;
+    d = strtod(source, &endptr);
+    if(*endptr != '\0') {
+        if(used_malloc) FREEMEM(source);
+        errno = EINVAL;
+        return -1;
+    }
+    if(used_malloc) FREEMEM(source);
+
+    /* Decimal overflow remains an error, preserving prior behavior. */
+    if(asn_isfinite(d)) {
+        *dbl_value = d;
+        return 0;
+    } else {
+        errno = ERANGE;
+        return -1;
+    }
+}
+
+/*
+ * Purpose: Convert binary REAL contents without consuming mantissa as exponent.
+ * Source: asn1c REAL.c by Lev Walkin; extracted for issue #585.
+ * Version: 2026-10-22. Responsible party: asn1c maintainers.
+ * Inputs: st is a validated, nonempty REAL contents buffer; octv is its
+ * first octet; dbl_value receives the converted value on success.
+ * Returns: 0 on success, -1 on failure with errno set.
+ * Exceptions: none; EINVAL for malformed contents; ERANGE for unsupported range.
+ * History: 2026-10-22 use actual exponent byte counts and require mantissa.
+ * Example: 83 01 00 01 converts to 1.0 (issue #585).
+ */
+static int
+REAL__binary2double(const REAL_t *st, unsigned int octv, double *dbl_value) {
+    double m = 0.0;  /* state variable: accumulated unsigned mantissa. */
+    int32_t expval;  /* state variable: accumulated signed exponent. */
+    size_t elen = (octv & 0x03) + 1;  /* Actual exponent octet count. */
+    size_t offset = 1;  /* Offset of the first exponent octet. */
+    int baseF;
+    int scaleF = (octv & 0x0C) >> 2;
+    const uint8_t *ptr;
+    const uint8_t *end;
+
+    /* Convert the encoded base to a multiplier for the binary exponent. */
+    switch((octv & 0x30) >> 4) {
+    case 0x00: baseF = 1; break;  /* Base 2. */
+    case 0x01: baseF = 3; break;  /* Base 8. */
+    case 0x02: baseF = 4; break;  /* Base 16. */
+    default:
+        errno = EINVAL;  /* Reserved base. */
+        return -1;
+    }
+
+    /* Format 11 carries X itself, unlike the implicit lengths in 00..10.
+     * Check the length octet before reading it, including one-octet inputs. */
+    if(elen == 4) {
+        if(st->size < 2) {
+            errno = EINVAL;
+            return -1;
+        }
+        elen = st->buf[1];
+        offset = 2;
+    }
+
+    /* Require a nonempty exponent and at least one mantissa octet. Both
+     * offset and elen are bounded by the format, so their sum cannot wrap. */
+    if(elen == 0 || st->size <= offset + elen) {
+        errno = EINVAL;
+        return -1;
+    }
+    if(elen >= sizeof(expval)) {
+        errno = ERANGE;  /* Preserve the existing three-octet exponent limit. */
+        return -1;
+    }
+
+    /* Sign extend the first exponent octet, then accumulate exactly elen
+     * octets. At most three octets keeps this and base scaling in int32_t. */
+    ptr = st->buf + offset;
+    end = ptr + elen;
+    expval = (*ptr & 0x80) ? (int32_t)*ptr - 256 : *ptr;
+    for(ptr++; ptr < end; ptr++)
+        expval = expval * 256 + *ptr;
+
+    /* All remaining octets belong to the unsigned mantissa (X.690 8.5.7.5).
+     * Retain the existing sign, base, scaling, and finite-result behavior. */
+    end = st->buf + st->size;
+    for(; ptr < end; ptr++)
+        m = ldexp(m, 8) + *ptr;
+    m = ldexp(m, expval * baseF + scaleF);
+    if(!asn_isfinite(m)) {
+        errno = ERANGE;
+        return -1;
+    }
+    *dbl_value = (octv & 0x40) ? -m : m;
+    return 0;
+}
+
+/*
+ * Purpose: Convert BER REAL contents to a native double.
+ * Source: asn1c REAL.c by Lev Walkin, maintained by asn1c maintainers.
+ * Version: 2026-10-22. Inputs: st supplies contents with the runtime's usual
+ * trailing NUL for decimal encodings; dbl_value receives the result.
+ * Returns: 0 on success, -1 with errno on invalid input or conversion failure.
+ * Exceptions: none; EINVAL, ERANGE, or an allocation error via decimal parsing.
+ * History: 2026-10-22 split conversion helpers for issue #585 and validate output.
+ * Example: asn_REAL2double(&real, &value).
+ */
 int
 asn_REAL2double(const REAL_t *st, double *dbl_value) {
-	unsigned int octv;
+    unsigned int octv;
 
-	if(!st || !st->buf) {
-		errno = EINVAL;
-		return -1;
-	}
+    /* Validate the API arguments before dereferencing either pointer. */
+    if(!st || !st->buf || !dbl_value) {
+        errno = EINVAL;
+        return -1;
+    }
+    if(st->size == 0) {
+        *dbl_value = 0;
+        return 0;
+    }
 
-	if(st->size == 0) {
-		*dbl_value = 0;
-		return 0;
-	}
-
-	octv = st->buf[0];	/* unsigned byte */
-
-	switch(octv & 0xC0) {
-	case 0x40:	/* X.690: 8.5.6 a) => 8.5.9 */
-		/* "SpecialRealValue" */
-
-		/* Be liberal in what you accept...
-		 * http://en.wikipedia.org/wiki/Robustness_principle
-		if(st->size != 1) ...
-		*/
-
-		switch(st->buf[0]) {
-		case 0x40:	/* 01000000: PLUS-INFINITY */
-			*dbl_value = INFINITY;
-			return 0;
-		case 0x41:	/* 01000001: MINUS-INFINITY */
-			*dbl_value = - INFINITY;
-			return 0;
-		case 0x42:	/* 01000010: NOT-A-NUMBER */
-			*dbl_value = NAN;
-			return 0;
-		case 0x43:	/* 01000011: minus zero */
-			*dbl_value = -0.0;
-			return 0;
-		}
-
-		errno = EINVAL;
-		return -1;
-	case 0x00: {	/* X.690: 8.5.7 */
-		/*
-		 * Decimal. NR{1,2,3} format from ISO 6093.
-		 * NR1: [ ]*[+-]?[0-9]+
-		 * NR2: [ ]*[+-]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)
-		 * NR3: [ ]*[+-]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)[Ee][+-]?[0-9]+
-		 */
-		double d;
-		char *source = 0;
-		char *endptr;
-		int used_malloc = 0;
-
-		if(octv == 0 || (octv & 0x3C)) {
-			/* Remaining values of bits 6 to 1 are Reserved. */
-			errno = EINVAL;
-			return -1;
-		}
-
-		/* 1. By contract, an input buffer should be '\0'-terminated.
-		 * OCTET STRING decoder ensures that, as is asn_double2REAL().
-		 * 2. ISO 6093 specifies COMMA as a possible decimal separator.
-		 * However, strtod() can't always deal with COMMA.
-		 * So her we fix both by reallocating, copying and fixing.
-		 */
-		if(st->buf[st->size] != '\0' || memchr(st->buf, ',', st->size)) {
-			const uint8_t *p, *end;
-			char *b;
-
-            b = source = (char *)MALLOC(st->size + 1);
-            if(!source) return -1;
-            used_malloc = 1;
-
-			/* Copy without the first byte and with 0-termination */
-			for(p = st->buf + 1, end = st->buf + st->size;
-					p < end; b++, p++)
-				*b = (*p == ',') ? '.' : *p;
-			*b = '\0';
-		} else {
-			source = (char *)&st->buf[1];
-		}
-
-		endptr = source;
-		d = strtod(source, &endptr);
-		if(*endptr != '\0') {
-			/* Format is not consistent with ISO 6093 */
-			if(used_malloc) FREEMEM(source);
-			errno = EINVAL;
-			return -1;
-		}
-		if(used_malloc) FREEMEM(source);
-		if(asn_isfinite(d)) {
-			*dbl_value = d;
-			return 0;
-		} else {
-			errno = ERANGE;
-			return -1;
-		}
-	  }
-	}
-
-	/*
-	 * Binary representation.
-	 */
-    {
-	double m;
-	int32_t expval;		/* exponent value */
-	unsigned int elen;	/* exponent value length, in octets */
-	int scaleF;
-	int baseF;
-	uint8_t *ptr;
-	uint8_t *end;
-	int sign;
-
-	switch((octv & 0x30) >> 4) {
-	case 0x00: baseF = 1; break;	/* base 2 */
-	case 0x01: baseF = 3; break;	/* base 8 */
-	case 0x02: baseF = 4; break;	/* base 16 */
-	default:
-		/* Reserved field, can't parse now. */
-		errno = EINVAL;
-		return -1;
-	}
-
-	sign = (octv & 0x40);	/* bit 7 */
-	scaleF = (octv & 0x0C) >> 2;	/* bits 4 to 3 */
-
-	elen = (octv & 0x03);	/* bits 2 to 1; 8.5.6.4 */
-	if(elen == 0x03) {	/* bits 2 to 1 = 11; 8.5.6.4, case d) */
-		/* Second octet is the exponent length X itself */
-		if(st->size < 2 || st->buf[1] == 0
-		|| st->size <= (2 + (size_t)st->buf[1])) {
-			errno = EINVAL;
-			return -1;
-		}
-		elen = st->buf[1] - 1;	/* exponent octets, minus one */
-		/* FIXME: verify constraints of case d) */
-		ptr = &st->buf[2];
-	} else {
-		if(st->size <= 1 + elen) {
-			errno = EINVAL;
-			return -1;
-		}
-		ptr = &st->buf[1];
-	}
-
-	/* Fetch the multibyte exponent */
-	expval = (int)(*(int8_t *)ptr);
-	if(elen >= sizeof(expval)-1) {
-		errno = ERANGE;
-		return -1;
-	}
-	end = ptr + elen + 1;
-	for(ptr++; ptr < end; ptr++)
-		expval = (expval * 256) + *ptr;
-
-	m = 0.0;	/* Initial mantissa value */
-
-	/* Okay, the exponent is here. Now, what about mantissa? */
-	end = st->buf + st->size;
-	for(; ptr < end; ptr++)
-		m = ldexp(m, 8) + *ptr;
-
-	if(0)
-	ASN_DEBUG("m=%.10f, scF=%d, bF=%d, expval=%d, ldexp()=%f, ldexp()=%f\n",
-		m, scaleF, baseF, expval,
-		ldexp(m, expval * baseF + scaleF),
-		ldexp(m, scaleF) * pow(pow(2, baseF), expval)
-	);
-
-	/*
-	 * (S * N * 2^F) * B^E
-	 * Essentially:
-	m = ldexp(m, scaleF) * pow(pow(2, baseF), expval);
-	 */
-	m = ldexp(m, expval * baseF + scaleF);
-	if(asn_isfinite(m)) {
-		*dbl_value = sign ? -m : m;
-	} else {
-		errno = ERANGE;
-		return -1;
-	}
-
-    } /* if(binary_format) */
-
-	return 0;
+    /* Dispatch by encoding family, preserving permissive special-value handling. */
+    octv = st->buf[0];
+    switch(octv & 0xC0) {
+    case 0x40:
+        switch(octv) {
+        case 0x40: *dbl_value = INFINITY; return 0;
+        case 0x41: *dbl_value = -INFINITY; return 0;
+        case 0x42: *dbl_value = NAN; return 0;
+        case 0x43: *dbl_value = -0.0; return 0;
+        default: errno = EINVAL; return -1;
+        }
+    case 0x00:
+        return REAL__decimal2double(st, octv, dbl_value);
+    default:
+        return REAL__binary2double(st, octv, dbl_value);
+    }
 }
 
 /*

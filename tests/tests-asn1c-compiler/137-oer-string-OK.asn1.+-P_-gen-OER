@@ -83,10 +83,10 @@ static int check_permitted_alphabet_9(const void *sptr) {
 	
 	if(st->size % 4) return -1; /* (size%4)! */
 	for(; ch < end; ch += 4) {
-		uint32_t cv = (ch[0] << 24)
-				| (ch[1] << 16)
-				| (ch[2] << 8)
-				|  ch[3];
+		uint32_t cv = ((uint32_t)ch[0] << 24)
+				| ((uint32_t)ch[1] << 16)
+				| ((uint32_t)ch[2] << 8)
+				| (uint32_t)ch[3];
 		(void)cv; /* Unused variable */
 	}
 	return 0;
@@ -301,6 +301,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_unconstrained_specs_2 = {
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_unconstrained_2 = {
@@ -407,6 +408,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_constrained_specs_6 = {
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_constrained_6 = {
@@ -492,6 +494,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_T_specs_1 = {
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_T = {
 	"T",
@@ -797,6 +800,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	asn_MAP_EXTERNAL_oms_1,	/* Optional members */
 	3, 0,	/* Root/Additions */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

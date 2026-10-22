@@ -1,0 +1,9 @@
+SetExtensionDuplicateName DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+InvalidSet ::= SET {
+    item [20] INTEGER,
+    ...,
+    [[ item [1] BOOLEAN ]]
+}
+
+END

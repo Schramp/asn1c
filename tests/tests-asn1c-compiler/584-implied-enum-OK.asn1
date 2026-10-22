@@ -1,0 +1,35 @@
+-- Regression for issue #584: EXTENSIBILITY IMPLIED also applies to ENUMERATED.
+Issue584 DEFINITIONS AUTOMATIC TAGS EXTENSIBILITY IMPLIED ::= BEGIN
+
+Colour ::= ENUMERATED { red, green, blue }
+ColourAlias ::= Colour
+
+Rec ::= SEQUENCE {
+    colour Colour,
+    priority ENUMERATED { low, high }
+}
+
+AliasRec ::= SEQUENCE { colour ColourAlias }
+Explicit ::= ENUMERATED { old, ..., new }
+NamedInt ::= INTEGER { zero(0), one(1) }
+NamedBits ::= BIT STRING { first(0), second(1) }
+
+END
+
+OwnerPlain DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+PlainEnum ::= ENUMERATED { first, second }
+END
+
+OwnerImplied DEFINITIONS AUTOMATIC TAGS EXTENSIBILITY IMPLIED ::= BEGIN
+ImpliedEnum ::= ENUMERATED { first, second }
+END
+
+ConsumerImplied DEFINITIONS AUTOMATIC TAGS EXTENSIBILITY IMPLIED ::= BEGIN
+IMPORTS PlainEnum FROM OwnerPlain;
+ImportedPlainRec ::= SEQUENCE { value PlainEnum }
+END
+
+ConsumerPlain DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+IMPORTS ImpliedEnum FROM OwnerImplied;
+ImportedImpliedRec ::= SEQUENCE { value ImpliedEnum }
+END

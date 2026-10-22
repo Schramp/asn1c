@@ -1,4 +1,69 @@
 Changes since v1.5.3:
+	* Fixed issue #586: retain unknown APER open-type payloads from extensible
+	  information-object sets in a generated, owned ANY alternative, allowing
+	  decode/modify/re-encode. Keep known alternatives' presence indices and
+	  validate identifier/value agreement on encode. Reject unknown identifiers
+	  in sealed sets. Correct optional open-type field declarations to match
+	  pointer metadata. Regenerate C with the matching runtime; see
+	  docs/issue-586-aper-unknown-open-type.md for framing and compatibility limits.
+	  Correct ANY copy/compare/print to use its own structure layout, and CHOICE copy
+	  to release a previous alternative safely when overwriting a populated value.
+	  Free discarded NULL-placeholder extension allocations during APER decoding.
+	  Added generated-code regressions and malformed/fragmented payload coverage.
+	  Design and integration review by Sol; runtime and tests by Luna.
+	* Fixed issue #585: BER binary REAL format 11 now consumes exactly the
+	  explicit exponent octet count, accepting X=1 and avoiding mantissa
+	  consumption for X=2/3. Reject missing exponents/mantissas and null result
+	  pointers; preserve the existing ERANGE limit for X >= 4. Added raw and
+	  NativeReal BER regressions, exact-buffer boundary checks, and a sweep of
+	  all explicit length octets. See docs/issue-585-real-exponent.md for the
+	  standards interpretation, permissive decoding scope, and validation.
+	  Design and integration review by Sol; regression implementation by Luna.
+	* Added transparent BER, DER, CER, and XER handling for SET extension
+	  addition groups. Group leaves remain in a nested C allocation but encode
+	  as independent members of the enclosing SET, with global canonical SET
+	  ordering and required-member checks. CER applies the encoder's bounded
+	  work, depth, element, and scratch limits while collecting flattened
+	  members. Canonical XER sorts root members by their minimum effective tag,
+	  then writes extension additions in textual order. It materializes grouped
+	  DEFAULT members only when their group is present; ordinary SET defaults keep
+	  their normal handling. Recursive SET XER decoding honors the configured
+	  stack bound. The generated synthetic group is now a SET with
+	  its own presence bitmap and mandatory mask, so regenerate generated C and
+	  use the matching runtime.
+	  SET extension-group PER support remains unavailable. The compiler also
+	  restores trailing roots after a second ellipsis before tag assignment; the
+	  31-set-of golden output covers this case. See docs/set-extension-groups.md.
+	  Follow-up to issue #583, reported by Ruud Schramp (@Schramp). Architecture,
+	  standards, and security review by Sol; runtime, test, fuzz, and documentation
+	  implementation by Luna.
+	* Fixed issues #582, #583 and #584 after validation against ITU-T X.680,
+	  X.690, X.691 and X.693 (2021). Extensible FROM constraints now use the
+	  built-in effective PER alphabet while abstract alphabet validation
+	  separately enforces intersections, serial subtypes and EXCEPT. SEQUENCE
+	  extension addition groups use flat BER/DER/CER/XER components and flat
+	  automatic tags, retaining their C storage and PER open-type grouping.
+	  EXTENSIBILITY IMPLIED now adds the ENUMERATED extension marker in its
+	  defining module before numbering, including inline and imported types.
+	  Regenerate generated C with the matching runtime: the SEQUENCE descriptor
+	  interface has new group metadata. At that stage SET group encoding was
+	  unchanged; transparent SET groups are covered by the follow-up above.
+	  Reports by Ruud Schramp (@Schramp), cross-validated with the gambas-asn1
+	  C++ and Rust backends with Claude Code assistance. Architecture, standards
+	  and security review by asn1c maintainers with Codex/Sol; implementation,
+	  regression tests, fuzzing and documentation with Codex/Luna assistance.
+	* Security follow-up to #582-#584: fixed alphabet EXCEPT validation bypass,
+	  malformed/incomplete BER group handling, DER SEQUENCE recursion-depth
+	  cleanup and checked length accounting. Hardened OCTET STRING DER input
+	  validation, including absent nonempty storage, invalid BIT STRING unused
+	  bits and oversized lengths, and avoided null empty payload callbacks.
+	  Made generated UniversalString character assembly use unsigned shifts
+	  before validating high-bit input. Random string filling now respects PER
+	  alphabet maps and abstract constraints, checks allocation bounds, and
+	  preserves the prior value when bounded generation fails. Added malformed-
+	  input, split-input, golden-vector, allocation-failure and sanitizer/fuzzer
+	  coverage. See docs/issues-582-584-review.md for
+	  standards references, validation results and review limitations.
 	* Fixed the retagged-string randomized bundle's GCC UBSan failure when a
 	  valid empty UTF8String reached OCTET_STRING_compare with a null backing
 	  buffer. Empty comparisons/copies now avoid null C-library arguments;

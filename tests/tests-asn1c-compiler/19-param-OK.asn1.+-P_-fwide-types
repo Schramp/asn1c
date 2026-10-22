@@ -155,6 +155,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_toBeSigned_specs_2 = {
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 static /* Use -fall-defs-global to expose */
 asn_TYPE_descriptor_t asn_DEF_toBeSigned_2 = {
@@ -261,6 +262,7 @@ asn_SEQUENCE_specifics_t asn_SPC_SIGNED_15P0_specs_1 = {
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_SIGNED_15P0 = {
 	"SIGNED",
@@ -462,7 +464,7 @@ extern asn_TYPE_member_t asn_MBR_RelativeDistinguishedName_1[1];
 
 /*** <<< CTABLES [RelativeDistinguishedName] >>> ***/
 
-static const int permitted_alphabet_table_2[256] = {
+static const int permitted_alphabet_validation_table_2[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 0,	/*             ,-.  */
@@ -486,7 +488,7 @@ static const int permitted_alphabet_table_2[256] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_2(const void *sptr) {
-	const int *table = permitted_alphabet_table_2;
+	const int *table = permitted_alphabet_validation_table_2;
 	/* The underlying type is IA5String */
 	const IA5String_t *st = (const IA5String_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -895,6 +897,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",

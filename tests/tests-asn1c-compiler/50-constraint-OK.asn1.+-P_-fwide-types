@@ -710,7 +710,7 @@ cbor_type_encoder_f Str3_encode_cbor;
 
 /*** <<< CTABLES [Str3] >>> ***/
 
-static const int permitted_alphabet_table_1[256] = {
+static const int permitted_alphabet_validation_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
@@ -733,7 +733,7 @@ static const int permitted_alphabet_table_1[256] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is IA5String */
 	const IA5String_t *st = (const IA5String_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -1310,7 +1310,7 @@ static int check_permitted_alphabet_1(const void *sptr) {
 	
 	for(; ch < end; ch++) {
 		uint8_t cv = *ch;
-		if(!(cv >= 65UL && cv <= 66UL)) return -1;
+		if(!(cv >= 65UL && cv <= 70UL)) return -1;
 	}
 	return 0;
 }
@@ -1423,7 +1423,7 @@ static int check_permitted_alphabet_1(const void *sptr) {
 	
 	for(; ch < end; ch++) {
 		uint8_t cv = *ch;
-		if(!(cv >= 65UL && cv <= 66UL)) return -1;
+		if(!(cv >= 65UL && cv <= 70UL)) return -1;
 	}
 	return 0;
 }
@@ -1536,7 +1536,7 @@ static int check_permitted_alphabet_1(const void *sptr) {
 	
 	for(; ch < end; ch++) {
 		uint8_t cv = *ch;
-		if(!(cv >= 65UL && cv <= 68UL)) return -1;
+		if(!(cv >= 65UL && cv <= 70UL)) return -1;
 	}
 	return 0;
 }
@@ -1966,7 +1966,7 @@ cbor_type_encoder_f Utf8_3_encode_cbor;
 
 /*** <<< CTABLES [Utf8-3] >>> ***/
 
-static const int permitted_alphabet_table_1[128] = {
+static const int permitted_alphabet_validation_table_1[128] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
@@ -1990,7 +1990,7 @@ static const int permitted_alphabet_table_1[128] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is UTF8String */
 	const UTF8String_t *st = (const UTF8String_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -2253,7 +2253,7 @@ cbor_type_encoder_f VisibleIdentifier_encode_cbor;
 
 /*** <<< CTABLES [VisibleIdentifier] >>> ***/
 
-static const int permitted_alphabet_table_1[256] = {
+static const int permitted_alphabet_validation_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*     $            */
@@ -2277,7 +2277,7 @@ static const int permitted_alphabet_table_1[256] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is VisibleString */
 	const VisibleString_t *st = (const VisibleString_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -2778,6 +2778,7 @@ asn_SEQUENCE_specifics_t asn_SPC_Sequence_specs_1 = {
 	.tag2el_count = 7,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	5,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_Sequence = {
 	"Sequence",
@@ -3166,7 +3167,7 @@ cbor_type_encoder_f Identifier_encode_cbor;
 
 /*** <<< CTABLES [Identifier] >>> ***/
 
-static const int permitted_alphabet_table_1[256] = {
+static const int permitted_alphabet_validation_table_1[256] = {
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*                  */
  0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/*     $            */
@@ -3190,7 +3191,7 @@ static const int permitted_alphabet_table_1[256] = {
  * Example: Called by the generated type constraint function.
  */
 static int check_permitted_alphabet_1(const void *sptr) {
-	const int *table = permitted_alphabet_table_1;
+	const int *table = permitted_alphabet_validation_table_1;
 	/* The underlying type is VisibleString */
 	const VisibleString_t *st = (const VisibleString_t *)sptr;
 	const uint8_t *ch = st->buf;
@@ -3537,6 +3538,7 @@ static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
+	0	/* Extension addition group body */
 };
 asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
