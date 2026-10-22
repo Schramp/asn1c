@@ -27,3 +27,9 @@ Sol retains the unavailable model's responsibilities and continues authorized
 work without silently substituting another model or claiming the preferred
 hierarchy was used. Resume the preferred division when the models and
 concurrency capacity permit it.
+
+## Commit completed work
+
+When repository work is successfully done, commit everything in the working
+tree, including code, tests, documentation, and instruction updates, before
+reporting completion.

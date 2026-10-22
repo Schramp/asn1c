@@ -1,7 +1,9 @@
 #include <assert.h>
+#include <errno.h>
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /* C11 specifies DBL_TRUE_MIN, might not be immediately available. */
 #ifndef DBL_TRUE_MIN
@@ -9,6 +11,328 @@
 #endif
 
 #include <REAL.h>
+#include <NativeReal.h>
+#include <ber_decoder.h>
+
+/*
+ * Check one raw REAL contents vector through asn_REAL2double.
+ * Original source: New issue #585 regression coverage.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: name identifies the vector; contents/size hold exact contents;
+ *             expected is the required native value.
+ * Returns: Nothing; asserts on conversion errors or a mismatched value.
+ * Exceptions: None are thrown; allocation failure or a failed check aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Added for explicit binary exponent length handling.
+ * Example: checks {0x83, 0x01, 0x00, 0x01} converts to 1.0.
+ */
+static void
+check_issue_585_raw_value(const char *name, const uint8_t *contents,
+                          size_t size, double expected) {
+    REAL_t real;
+    uint8_t *exact_contents;
+    double value = 0.0;
+    int ret;
+
+    /* Isolate precisely the supplied contents so bounds tools can catch reads. */
+    assert(name && contents && size > 0);
+    exact_contents = malloc(size);
+    assert(exact_contents);
+    memcpy(exact_contents, contents, size);
+    real.buf = exact_contents;
+    real.size = size;
+
+    /* Convert and compare each regression vector to its exact expected value. */
+    errno = 0;
+    ret = asn_REAL2double(&real, &value);
+    if(ret != 0) printf("Issue #585 %s conversion failed: errno=%d\n", name,
+                        errno);
+    assert(ret == 0);
+    assert(value == expected);
+    free(exact_contents);
+}
+
+/*
+ * Check malformed or out-of-range raw REAL contents with an exact-size buffer.
+ * Original source: New issue #585 regression coverage.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: name identifies the malformed vector; contents/size hold it;
+ *             expected_errno is the required errno result.
+ * Returns: Nothing; asserts on acceptance or an unexpected error category.
+ * Exceptions: None are thrown; allocation failure or a failed check aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Added for exponent bounds and truncation checks.
+ * Example: checks an explicit zero exponent length is rejected with EINVAL.
+ */
+static void
+check_issue_585_raw_failure(const char *name, const uint8_t *contents,
+                            size_t size, int expected_errno) {
+    REAL_t real;
+    uint8_t *exact_contents;
+    double value = 0.0;
+    int ret;
+
+    /* Allocate exactly the input size to expose any read past its boundary. */
+    assert(name && contents && size > 0);
+    exact_contents = malloc(size);
+    assert(exact_contents);
+    memcpy(exact_contents, contents, size);
+    real.buf = exact_contents;
+    real.size = size;
+
+    /* Require the malformed input to fail for the documented reason. */
+    errno = 0;
+    ret = asn_REAL2double(&real, &value);
+    if(ret == 0) printf("Issue #585 malformed vector %s was accepted\n", name);
+    assert(ret != 0);
+    assert(errno == expected_errno);
+    free(exact_contents);
+}
+
+/*
+ * Check a complete BER REAL TLV through the NativeReal descriptor.
+ * Original source: New issue #585 regression coverage.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: name identifies the contents; contents/size are REAL octets;
+ *             expected is the decoded native value.
+ * Returns: Nothing; asserts on BER decoding or value mismatch.
+ * Exceptions: None are thrown; allocation failure or a failed check aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Added to cover the application-facing BER decoder route.
+ * Example: wraps {0x83, 0x01, 0x00, 0x01} in a REAL TLV and decodes 1.0.
+ */
+static void
+check_issue_585_ber_value(const char *name, const uint8_t *contents,
+                          size_t size, double expected) {
+    uint8_t *tlv;
+    double *decoded = 0;
+    asn_dec_rval_t result;
+    size_t tlv_size;
+
+    /* Use a short-form BER length and an exact-size TLV allocation. */
+    assert(name && contents && size > 0 && size <= 127);
+    tlv_size = size + 2;
+    tlv = malloc(tlv_size);
+    assert(tlv);
+    tlv[0] = 0x09; /* Universal primitive REAL tag. */
+    tlv[1] = (uint8_t)size;
+    memcpy(tlv + 2, contents, size);
+
+    /* Exercise the public BER decoder and verify complete input consumption. */
+    result = ber_decode(0, &asn_DEF_NativeReal, (void **)&decoded, tlv,
+                        tlv_size);
+    if(result.code != RC_OK)
+        printf("Issue #585 BER vector %s failed: code=%d consumed=%zu\n", name,
+               result.code, result.consumed);
+    assert(result.code == RC_OK);
+    assert(result.consumed == tlv_size);
+    assert(decoded);
+    assert(*decoded == expected);
+    ASN_STRUCT_FREE(asn_DEF_NativeReal, decoded);
+    free(tlv);
+}
+
+/*
+ * Verify invalid output-pointer handling for a valid binary REAL.
+ * Original source: New issue #585 regression coverage.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: contents/size provide a valid REAL value for the API call.
+ * Returns: Nothing; asserts that a null output pointer returns EINVAL.
+ * Exceptions: None are thrown; allocation failure or a failed check aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Added after issue #585 review identified this public API boundary.
+ * Example: supplies a valid one-octet-exponent value with a null output.
+ */
+static void
+check_issue_585_null_output(const uint8_t *contents, size_t size) {
+    REAL_t real;
+    uint8_t *exact_contents;
+    int ret;
+
+    /* Preserve the same exact input boundary used by the conversion checks. */
+    assert(contents && size > 0);
+    exact_contents = malloc(size);
+    assert(exact_contents);
+    memcpy(exact_contents, contents, size);
+    real.buf = exact_contents;
+    real.size = size;
+
+    /* The conversion API must reject a missing destination without crashing. */
+    errno = 0;
+    ret = asn_REAL2double(&real, 0);
+    assert(ret != 0);
+    assert(errno == EINVAL);
+    free(exact_contents);
+}
+
+/*
+ * Exercise all explicit exponent length octets from 0 through 255.
+ * Original source: New issue #585 regression coverage.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: None.
+ * Returns: Nothing; asserts on invalid lengths, conversion values, or errno.
+ * Exceptions: None are thrown; allocation failure or a failed check aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Added a bounded deterministic sweep for explicit length handling.
+ * Example: X=0 is rejected, X=1..3 decode, and X=4..255 return ERANGE.
+ */
+static void
+check_issue_585_length_sweep(void) {
+    uint8_t contents[258];
+    char name[32];
+    unsigned int x;
+    size_t prefix;
+
+    /* Make a zero exponent and a one-octet mantissa for every encoded length. */
+    for(x = 0; x <= 255; x++) {
+        size_t size = (size_t)x + 3;
+
+        contents[0] = 0x83;
+        contents[1] = (uint8_t)x;
+        memset(contents + 2, 0, x);
+        contents[x + 2] = 1;
+
+        /* Every shorter prefix is truncated before exponent and mantissa end. */
+        for(prefix = 1; prefix < size; prefix++) {
+            snprintf(name, sizeof(name), "X=%u prefix=%zu", x, prefix);
+            check_issue_585_raw_failure(name, contents, prefix, EINVAL);
+        }
+
+        snprintf(name, sizeof(name), "explicit exponent X=%u", x);
+
+        /* Explicit zero is malformed; lengths 1..3 fit the signed accumulator. */
+        if(x == 0) {
+            check_issue_585_raw_failure(name, contents, size, EINVAL);
+        } else if(x <= 3) {
+            check_issue_585_raw_value(name, contents, size, 1.0);
+        } else {
+            check_issue_585_raw_failure(name, contents, size, ERANGE);
+        }
+    }
+}
+
+/*
+ * Run regression vectors for BER binary REAL exponent formats and boundaries.
+ * Original source: New issue #585 regression coverage.
+ * Version/date: 1.0, 2026-10-22.
+ * Parameters: None.
+ * Returns: Nothing; asserts when a vector does not meet its expected result.
+ * Exceptions: None are thrown; allocation failure or a failed check aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Covers explicit exponent octet counts, malformed forms, and BER TLVs.
+ * Example: called by main before the general REAL encoding checks.
+ */
+static void
+check_issue_585_binary_real(void) {
+    static const uint8_t x1_one[] = {0x83, 0x01, 0x00, 0x01};
+    static const uint8_t x2_zero[] = {0x83, 0x02, 0x00, 0x00, 0x01};
+    static const uint8_t x3_one[] = {0x83, 0x03, 0x00, 0x00, 0x01, 0x01};
+    static const uint8_t explicit_negative[] = {0xc3, 0x01, 0xff, 0x01};
+    static const uint8_t explicit_base8_scale[] = {0x97, 0x01, 0x01, 0x01};
+    static const uint8_t explicit_base16[] = {0xa3, 0x01, 0x01, 0x01};
+    static const uint8_t multi_octet_mantissa[] = {0x83, 0x01, 0x00, 0x01,
+                                                   0x00};
+    static const uint8_t positive_128[] = {0x83, 0x02, 0x00, 0x80, 0x01};
+    static const uint8_t negative_129[] = {0x83, 0x02, 0xff, 0x7f, 0x01};
+    static const uint8_t negative_fraction[] = {0xc0, 0xfe, 0x01};
+    static const uint8_t base8_scale[] = {0x94, 0x01, 0x01};
+    static const uint8_t base16[] = {0xa0, 0x01, 0x01};
+    static const uint8_t exp0_truncated[] = {0x80};
+    static const uint8_t exp0_no_mantissa[] = {0x80, 0x00};
+    static const uint8_t exp1_truncated0[] = {0x81};
+    static const uint8_t exp1_truncated1[] = {0x81, 0x00};
+    static const uint8_t exp1_no_mantissa[] = {0x81, 0x00, 0x00};
+    static const uint8_t exp2_truncated0[] = {0x82};
+    static const uint8_t exp2_truncated1[] = {0x82, 0x00};
+    static const uint8_t exp2_truncated2[] = {0x82, 0x00, 0x00};
+    static const uint8_t exp2_no_mantissa[] = {0x82, 0x00, 0x00, 0x00};
+    static const uint8_t exp3_no_length[] = {0x83};
+    static const uint8_t exp3_zero_length[] = {0x83, 0x00, 0x01};
+    static const uint8_t exp3_truncated[] = {0x83, 0x02, 0x00, 0x01};
+    static const uint8_t exp3_no_mantissa[] = {0x83, 0x01, 0x00};
+    static const uint8_t exp3_four[] = {0x83, 0x04, 0x00, 0x00, 0x00, 0x00,
+                                        0x01};
+    uint8_t exp3_255[258] = {0x83, 0xff};
+
+    /* These padded exponents test permissive decoding, not minimal sign form. */
+    check_issue_585_raw_value("X=1 value 1", x1_one, sizeof(x1_one), 1.0);
+    check_issue_585_raw_value("X=2 padded zero exponent", x2_zero,
+                              sizeof(x2_zero), 1.0);
+    check_issue_585_raw_value("X=3 padded exponent", x3_one, sizeof(x3_one),
+                              2.0);
+    check_issue_585_raw_value("X=2 exponent 128", positive_128,
+                              sizeof(positive_128), ldexp(1.0, 128));
+    check_issue_585_raw_value("X=2 exponent -129", negative_129,
+                              sizeof(negative_129), ldexp(1.0, -129));
+    check_issue_585_raw_value("negative sign and exponent", negative_fraction,
+                              sizeof(negative_fraction), -0.25);
+    check_issue_585_raw_value("base 8 with scale", base8_scale,
+                              sizeof(base8_scale), 16.0);
+    check_issue_585_raw_value("base 16", base16, sizeof(base16), 16.0);
+    check_issue_585_raw_value("explicit negative exponent and sign",
+                              explicit_negative, sizeof(explicit_negative),
+                              -0.5);
+    check_issue_585_raw_value("explicit base 8 with scale",
+                              explicit_base8_scale,
+                              sizeof(explicit_base8_scale), 16.0);
+    check_issue_585_raw_value("explicit base 16", explicit_base16,
+                              sizeof(explicit_base16), 16.0);
+    check_issue_585_raw_value("explicit two-octet mantissa",
+                              multi_octet_mantissa,
+                              sizeof(multi_octet_mantissa), 256.0);
+
+    /* The application-facing BER route must preserve the same values. */
+    check_issue_585_ber_value("X=1", x1_one, sizeof(x1_one), 1.0);
+    check_issue_585_ber_value("X=2", x2_zero, sizeof(x2_zero), 1.0);
+    check_issue_585_ber_value("X=3", x3_one, sizeof(x3_one), 2.0);
+
+    /* Every exponent format must reject incomplete exponent or mantissa data. */
+    check_issue_585_raw_failure("format 0 truncated exponent", exp0_truncated,
+                                sizeof(exp0_truncated), EINVAL);
+    check_issue_585_raw_failure("format 0 missing mantissa", exp0_no_mantissa,
+                                sizeof(exp0_no_mantissa), EINVAL);
+    check_issue_585_raw_failure("format 1 truncated exponent 0",
+                                exp1_truncated0, sizeof(exp1_truncated0),
+                                EINVAL);
+    check_issue_585_raw_failure("format 1 truncated exponent 1",
+                                exp1_truncated1, sizeof(exp1_truncated1),
+                                EINVAL);
+    check_issue_585_raw_failure("format 1 missing mantissa", exp1_no_mantissa,
+                                sizeof(exp1_no_mantissa), EINVAL);
+    check_issue_585_raw_failure("format 2 truncated exponent 0",
+                                exp2_truncated0, sizeof(exp2_truncated0),
+                                EINVAL);
+    check_issue_585_raw_failure("format 2 truncated exponent 1",
+                                exp2_truncated1, sizeof(exp2_truncated1),
+                                EINVAL);
+    check_issue_585_raw_failure("format 2 truncated exponent 2",
+                                exp2_truncated2, sizeof(exp2_truncated2),
+                                EINVAL);
+    check_issue_585_raw_failure("format 2 missing mantissa", exp2_no_mantissa,
+                                sizeof(exp2_no_mantissa), EINVAL);
+    check_issue_585_raw_failure("format 3 missing length", exp3_no_length,
+                                sizeof(exp3_no_length), EINVAL);
+    check_issue_585_raw_failure("format 3 zero exponent length",
+                                exp3_zero_length, sizeof(exp3_zero_length),
+                                EINVAL);
+    check_issue_585_raw_failure("format 3 truncated exponent", exp3_truncated,
+                                sizeof(exp3_truncated), EINVAL);
+    check_issue_585_raw_failure("format 3 missing mantissa",
+                                exp3_no_mantissa, sizeof(exp3_no_mantissa),
+                                EINVAL);
+
+    /* The existing signed 32-bit exponent bound must continue to report ERANGE. */
+    check_issue_585_raw_failure("format 3 X=4", exp3_four, sizeof(exp3_four),
+                                ERANGE);
+    memset(exp3_255 + 2, 0, 255);
+    exp3_255[257] = 1;
+    check_issue_585_raw_failure("format 3 X=255", exp3_255, sizeof(exp3_255),
+                                ERANGE);
+
+    /* Reject a null output pointer while still keeping the input boundary exact. */
+    check_issue_585_null_output(x1_one, sizeof(x1_one));
+    check_issue_585_length_sweep();
+}
 
 static char reconstructed[2][512];
 static int reconstr_lens[2];
@@ -235,6 +559,19 @@ check_jer(int fuzzy, double orig_value) {
     ASN_STRUCT_FREE(asn_DEF_REAL, newst1);
 }
 
+/*
+ * Decode one expected BER contents vector, then verify its canonical encoding.
+ * Original source: Existing check-REAL.c BER round-trip test helper.
+ * Version/date: 1.1, 2026-10-22.
+ * Parameters: d is the expected value; sample/canonical_sample describe it;
+ *             inbuf/insize are input contents; outbuf/outsize are expected
+ *             canonical contents; lineno identifies the calling test case.
+ * Returns: Nothing; asserts on conversion, encoding, or string mismatches.
+ * Exceptions: None are thrown; allocation failure or a failed assertion aborts.
+ * Responsible party: asn1c maintainers.
+ * History: Added an explicit success assertion before comparing decoded data.
+ * Example: converts a valid binary REAL contents vector and checks its DER form.
+ */
 static void
 check_ber_buffer_twoway(double d, const char *sample,
                         const char *canonical_sample, const uint8_t *inbuf,
@@ -247,11 +584,14 @@ check_ber_buffer_twoway(double d, const char *sample,
     /*
      * Decode our expected buffer and check that it matches the given (d).
      */
+    assert(inbuf && outbuf);
     rn.buf = calloc(1, insize + 1); /* By convention, buffers have extra \0 */
     assert(rn.buf);
     memcpy(rn.buf, inbuf, insize);
     rn.size = insize;
-    asn_REAL2double(&rn, &val);
+    errno = 0;
+    ret = asn_REAL2double(&rn, &val);
+    assert(ret == 0);
     if(isnan(val)) assert(isnan(d));
     if(isnan(d)) assert(isnan(val));
     if(!isnan(val) && !isnan(d)) {
@@ -324,7 +664,16 @@ check_ber_buffer_oneway(double d, const char *sample,
 }
 
 /*
- * 8.5.7 Verify binary encoding, two-way.
+ * Verify a generated binary REAL and check exponent/mantissa decoding.
+ * Original source: Existing check-REAL.c binary encoding test helper.
+ * Version/date: 1.1, 2026-10-22.
+ * Parameters: base selects 2/8/16; sign selects sign; scaling_factor and
+ *             exponent encode the binary exponent; mantissa supplies value.
+ * Returns: Nothing; asserts that conversion and round trips match expectations.
+ * Exceptions: None are thrown; any failed assertion aborts the test process.
+ * Responsible party: asn1c maintainers.
+ * History: Added explicit rejection coverage for zero-length mantissas.
+ * Example: checks base 2, exponent 0, and mantissa 1 as the value 1.0.
  */
 static void
 check_ber_857_encoding(int base, int sign, int scaling_factor, int exponent,
@@ -422,7 +771,21 @@ check_ber_857_encoding(int base, int sign, int scaling_factor, int exponent,
 
     rn.buf = buf;
     rn.size = b - buf;
+    errno = 0;
     ret = asn_REAL2double(&rn, &d);
+    if(mantlen == 0) {
+        /* The generated contents omit the mandatory mantissa octet. */
+        assert(ret == -1);
+        assert(errno == EINVAL);
+        return;
+    }
+    if(isinf(verify)) {
+        /* A finite-input exponent can exceed the native double range. */
+        assert(ret == -1);
+        assert(errno == ERANGE);
+        return;
+    }
+    assert(ret == 0);
     if(!isinf(verify) && (ret != 0 || d != verify)) {
         printf("Converting B=%d, S=%d, F=%d, E=%d/%d, M=%d/%d\n", (1 << baseF),
                sign, scaling_factor, exponent, explen, mantissa, mantlen);
@@ -470,7 +833,8 @@ check_ber_encoding() {
         uint8_t b_m0_856a_1[] = {0xC0, 0x00, 0x00};
         uint8_t b_m0_856a_2[] = {0xC0, 0x00, 0x00, 0x00};
         uint8_t b_m0_856a_3[] = {0xC0, 0x00, 0x00, 0x00, 0x00};
-        CHECK_BER_STRICT(-0.0, "-0", "-0", b_m0_856a, b_m0);
+        check_issue_585_raw_failure("negative zero without mantissa",
+                                    b_m0_856a, sizeof(b_m0_856a), EINVAL);
         CHECK_BER_STRICT(-0.0, "-0", "-0", b_m0_856a_1, b_m0);
         CHECK_BER_STRICT(-0.0, "-0", "-0", b_m0_856a_2, b_m0);
         CHECK_BER_STRICT(-0.0, "-0", "-0", b_m0_856a_3, b_m0);
@@ -842,6 +1206,7 @@ main() {
     REAL_t rn;
     memset(&rn, 0, sizeof(rn));
 
+    check_issue_585_binary_real();
     check_ber_encoding();
 
     check(&rn, 0.0, "0", "0");

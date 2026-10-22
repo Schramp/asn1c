@@ -1,4 +1,12 @@
 Changes since v1.5.3:
+	* Fixed issue #585: BER binary REAL format 11 now consumes exactly the
+	  explicit exponent octet count, accepting X=1 and avoiding mantissa
+	  consumption for X=2/3. Reject missing exponents/mantissas and null result
+	  pointers; preserve the existing ERANGE limit for X >= 4. Added raw and
+	  NativeReal BER regressions, exact-buffer boundary checks, and a sweep of
+	  all explicit length octets. See docs/issue-585-real-exponent.md for the
+	  standards interpretation, permissive decoding scope, and validation.
+	  Design and integration review by Sol; regression implementation by Luna.
 	* Added transparent BER, DER, CER, and XER handling for SET extension
 	  addition groups. Group leaves remain in a nested C allocation but encode
 	  as independent members of the enclosing SET, with global canonical SET
