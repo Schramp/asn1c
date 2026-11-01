@@ -1,6 +1,6 @@
 # Rust code generation architecture
 
-**Status:** Implementation in progress; initial UPER and CER slices present
+**Status:** Implementation in progress; primitive UPER, APER, OER, CER, and BER/DER slices present
 **Date:** 2026-10-11
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`
 **Scope:** An opt-in Rust target that reuses the C parser and fixer, emits a
@@ -71,11 +71,11 @@ with `cer_encode()`, and rejects input that is not byte-identical (`EBADF`).
 `ASN_DISABLE_CER_SUPPORT` disables the CER encoder and strict decoder; the
 decoder stub then fails with `ENOENT`. `ATS_BER` and `ATS_DER` stay permissive.
 
-The Rust backend currently adds `encode_cer` and strict `decode_cer` methods
-for BOOLEAN, NULL, and finite nonextensible INTEGER ranges fitting `i64`. Its
-`--rust` defaults to UPER and CER for these supported types. Other Rust schema
-forms and the remaining codec families are still outside the implemented
-slice.
+The Rust backend adds `encode_cer` and strict `decode_cer` methods for BOOLEAN,
+NULL, and finite nonextensible INTEGER ranges fitting `i64`. For those same
+types, `-gen-BER` adds `decode_ber` and `encode_der`. Its `--rust` defaults to
+UPER and CER. Other Rust schema forms and codec families remain outside the
+implemented slice.
 
 The example converter's baseline inputs are BER, OER, PER/UPER, APER, XER,
 JER, and CBOR; outputs are DER, OER, PER/UPER, APER, XER, JER, CBOR, text,
@@ -151,14 +151,18 @@ control only in Rust codecs that implement its behavior.
    `libasn1compiler/asn1c_rust.c` and `asn1c_rust.h`, registered in
    `libasn1compiler/Makefile.am`. It validates the fixed tree before staging
    output. The current gate accepts top-level BOOLEAN, NULL, and bounded,
-   nonextensible INTEGER whose complete range fits `i64`.
+   nonextensible INTEGER whose complete range fits `i64`, plus SEQUENCE with
+   required and OPTIONAL direct or inline nested fields and literal BOOLEAN or
+   bounded INTEGER DEFAULT fields under UPER-only selection.
 6. Runtime sources now live under `rust/asn1c-runtime/` and are included in
    Automake distribution and package-data installation. The CLI resolves the
    runtime separately from `-S`, which still selects C skeletons and standard
    ASN.1 modules.
 7. Rust has a bounded identifier sanitizer and collision checker. Diagnostics
-   retain source module/type names and line numbers. The initial slice has no
-   member paths because it rejects constructed types.
+   retain source module/type names and line numbers. The SEQUENCE gate checks
+   direct field shapes, recursive depth and aggregate field-work limits,
+   generated nested-type name collisions, presence markers, and DEFAULT literal
+   types and ranges.
 8. The generated-crate harness lives under
    `tests/tests-rust-compiler/`. It invokes the built compiler and checks the
    staged Cargo project. The first runtime has no third-party dependencies;
@@ -231,7 +235,7 @@ integer-width heuristics.
 | OBJECT IDENTIFIER | runtime `ObjectIdentifier` | Use checked arcs; do not assume every arc fits a machine integer. |
 | RELATIVE-OID | runtime `RelativeOid` | Same checked-arithmetic requirement as OID arcs. |
 | UTCTime, GeneralizedTime | runtime time wrapper or validated text newtype | Canonical rules need explicit APIs. |
-| SEQUENCE, SET | generated `struct` | Required fields are values; optional/defaulted fields track presence. |
+| SEQUENCE, SET | generated `struct` | UPER SEQUENCE fields use values and `Option<T>`; inline nested records share a cursor and put their presence bitmap before each record payload. Direct component tags are ignored by PER, BOOLEAN and bounded INTEGER DEFAULT are supported, SET is unsupported. |
 | CHOICE | generated `enum` | Include an unknown extension variant when the type is extensible. |
 | SEQUENCE OF, SET OF | `Vec<T>` newtype | Retain SET OF ordering rules in codec logic. |
 | Type reference | module-qualified reference | Use public newtypes for aliases that add constraints or API identity. |
@@ -243,9 +247,16 @@ nonextensible INTEGER as a public newtype over `i64`. These types have UPER
 encode/decode methods and CER encode and strict decode methods. INTEGER must have one
 effective finite PER range that fits `i64`; `new(value)` returns `Result` and
 checks that range. The BOOLEAN constructor is infallible. Reject aliases,
-imports, tags, constructed types, unsupported constraints, and all other types
-before creating output. ENUMERATED, OCTET STRING, and BIT STRING remain future
-increments.
+imports, tags, constructed types outside the flat UPER-only SEQUENCE slice,
+and unsupported constraints before creating output. An explicit UPER-only
+selection adds direct nonextensible ENUMERATED and fixed-size OCTET STRING
+and BIT STRING, including string fields inside supported required or OPTIONAL
+SEQUENCE records.
+Direct fixed-size OCTET STRING assignments also accept the JER codec alone or
+with UPER. Their generated methods call the runtime's fixed-size hexadecimal
+JER helpers. BIT STRING and OCTET STRING SEQUENCE fields remain UPER-only.
+Variable-size strings, named-bit lists, and extensible ENUMERATED remain
+future increments.
 
 Use a safe, `std`-only runtime crate at `rust/asn1c-runtime/`, package name
 `asn1c-runtime`, import name `asn1c_runtime`, and Cargo edition 2021. Make no
@@ -356,13 +367,16 @@ option parser; the option is recognized only before `--`. It cannot be used as
 the operand of `-D` or `-S`. Existing `-gen-*` spellings remain unchanged.
 
 Rust defaults independently to its qualified codecs. In the current slice,
-`--rust` alone selects UPER and CER. `-no-gen-UPER` selects CER-only output,
-while `-no-gen-CER` omits `encode_cer` and `decode_cer` and leaves UPER
-selected. Explicit requests for BER,
-DER, APER, OER, XER, JER, or CBOR fail before output is created. Disabling both
-UPER and CER or selecting an unsupported ASN.1 form also fails before output
-is published. As codecs are qualified, add them to the Rust default until it
-covers the current C codec set. The CLI keeps the C defaults unchanged.
+`--rust` alone selects UPER and CER. `-gen-BER` opts into BER decoding and DER
+encoding; there is no separate `-gen-DER` flag. `-gen-APER` and `-gen-OER`
+select the corresponding primitive encode/decode pairs. `-gen-JER` selects
+compact JSON encoding and complete-input decoding for the same top-level
+primitive subset. `-no-gen-UPER` selects CER-only
+output unless BER was explicitly selected, while `-no-gen-CER` omits CER
+methods. Explicit requests for XER or CBOR fail before output
+is created. Disabling every supported codec or selecting an unsupported ASN.1
+form also fails before output is published. The CLI keeps the C defaults
+unchanged.
 
 Validate all flags and the complete schema before creating output files. An
 unsupported CLI combination is an `EX_USAGE` diagnostic; an unsupported
@@ -376,7 +390,7 @@ The current Rust option handling is:
 | Option family | Rust handling |
 | --- | --- |
 | `-D` | Selects the output directory; Rust defaults to `asn1c-rust`. |
-| `-gen-*`, `-no-gen-*` | UPER and CER are qualified for the primitive slice; other explicit requests fail. |
+| `-gen-*`, `-no-gen-*` | UPER and CER are default; APER/OER/BER/JER are opt-in for initial primitives; flat SEQUENCE, fixed strings, and ENUMERATED need UPER alone. |
 | C storage/layout/output flags | Fail as incompatible with `--rust`. |
 | `-S` | Selects standard modules and resolves the matching runtime assets. |
 | `-P`, `-R`, C helper/example flags | Fail as incompatible with `--rust`. |
@@ -469,7 +483,7 @@ The initial UPER and CER slices do not complete the broader parity milestones.
    extensions, and recursion. Complete imports, aliases, parameterized
    specializations, constraints, PDU dependencies, IOC tables, and open types
    in bounded feature assignments.
-5. **M4, BER/DER and OER:** Add Rust BER decoding, DER encoding, BER TLV and
+5. **M4, BER/DER and OER:** Expand Rust BER decoding, DER encoding, BER TLV and
    length handling, constructed strings, canonical ordering, and OER
    encode/decode. Expand Rust CER encoding and strict decoding beyond the
    current slice as each supported type matrix is qualified. Keep the

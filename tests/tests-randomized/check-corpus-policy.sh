@@ -22,7 +22,7 @@ for arg in "$@"; do [ "$arg" != -P ] || exit 0; done
 EOF
 cat >"$policy_tmp/test-param-helper" <<'EOF'
 #!/bin/sh
-echo 128
+case "$3" in *RMAX=16385*) echo 16385 ;; *) echo 128 ;; esac
 EOF
 cat >"$policy_tmp/make" <<'EOF'
 #!/bin/sh
@@ -34,6 +34,11 @@ chmod +x random-test-driver
 EOF
 cat >"$policy_tmp/driver" <<'EOF'
 #!/bin/sh
+printf '%s\n' "$*" >>"$POLICY_LOG.args"
+if [ "${POLICY_SLOW_DRIVER:-0}" = 1 ]; then
+    echo "$$" >"$POLICY_LOG.pid"
+    exec sleep 10
+fi
 case "$*" in
     *'-g random-data'*)
         echo generate >>"$POLICY_LOG"
@@ -63,7 +68,7 @@ run_policy() {
     if (cd "$policy_tmp/work" && GENERATE_CORPUS="$policy" LIBFUZZER_CFLAGS="$flags" \
         MAKE="$policy_tmp/make" srcdir="$policy_tmp" abs_builddir="$policy_tmp" \
         abs_top_builddir="$policy_tmp" abs_top_srcdir="$policy_tmp" CFLAGS_M32="${POLICY_M32:-}" \
-        sh "$policy_tmp/harness.sh" "$@" -t BOOLEAN) >"$policy_tmp/output" 2>&1; then
+        sh "$policy_tmp/harness.sh" "$@" -t "${POLICY_TYPE:-BOOLEAN}") >"$policy_tmp/output" 2>&1; then
         [ "$expected" = pass ]
     else
         [ "$expected" = fail ]
@@ -85,6 +90,24 @@ if grep -q -- '-j' "$POLICY_LOG.make"; then
     exit 1
 fi
 grep -q 'all-tests-succeeded-corpus-0-fuzz-0:' "$policy_tmp/work/.tmp.random/Makefile"
+
+# Large cases retain their size while reducing the repetitions for each codec.
+export POLICY_TYPE='BOOLEAN --RMAX=16385'
+: >"$policy_tmp/phases.args"
+run_policy auto '' 0 0 pass
+[ "$(grep -c -- '-s 16385 -n 8' "$POLICY_LOG.args")" -eq 4 ]
+unset POLICY_TYPE
+
+# A sleeping driver must fail promptly and leave no child behind.
+export POLICY_SLOW_DRIVER=1 RANDOM_TEST_TIMEOUT=1
+run_policy auto '' 0 0 fail
+grep -q 'Timed out after 1s' "$policy_tmp/output"
+if kill -0 "$(cat "$POLICY_LOG.pid")" 2>/dev/null; then
+    echo "Timed-out randomized driver is still running" >&2
+    exit 1
+fi
+unset POLICY_SLOW_DRIVER RANDOM_TEST_TIMEOUT
+
 run_policy no '' 0 0 pass
 run_policy yes '' 2 0 pass -j 3
 grep -q -- '-j 3' "$POLICY_LOG.make"
@@ -103,6 +126,9 @@ run_policy invalid '' 0 0 fail
 run_policy auto '' 0 0 fail -j 0
 run_policy auto '' 0 0 fail -j 00
 run_policy auto '' 0 0 fail -j invalid
+export RANDOM_TEST_TIMEOUT=00000
+run_policy auto '' 0 0 fail
+unset RANDOM_TEST_TIMEOUT
 
 # A failing generator must fail coverage instead of being reported as skipped.
 export POLICY_FAIL_GENERATE=1

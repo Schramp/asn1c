@@ -1,6 +1,7 @@
 dist_check_SCRIPTS = run.sh
 
 TESTS_ENVIRONMENT = \
+	CC="$(CC)" \
 	abs_top_srcdir=${abs_top_srcdir} \
 	abs_top_builddir=${abs_top_builddir} \
 	srcdir=${srcdir}

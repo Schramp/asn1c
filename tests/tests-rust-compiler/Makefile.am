@@ -11,7 +11,40 @@ $(ASN1C):
 # here would override Automake's generated driver recipe for this single test.
 $(TEST_LOGS): $(ASN1C)
 
-EXTRA_DIST = $(srcdir)/FirstSlice.asn1 \
+EXTRA_DIST = $(srcdir)/CborSlice.asn1 \
+    $(srcdir)/CborSequence.asn1 \
+    $(srcdir)/CborStrings.asn1 \
+    $(srcdir)/CborSequenceStrings.asn1 \
+    $(srcdir)/CborChoice.asn1 \
+    $(srcdir)/CborContaining.asn1 \
+    $(srcdir)/OpenSelected.asn1 \
+    $(srcdir)/FirstSlice.asn1 \
+    $(srcdir)/SequenceSlice.asn1 \
+    $(srcdir)/StringSlice.asn1 \
+    $(srcdir)/OctetJER.asn1 \
+    $(srcdir)/BitJERUnsupported.asn1 \
+    $(srcdir)/BoundaryStrings.asn1 \
+    $(srcdir)/OversizeOctets.asn1 \
+    $(srcdir)/OversizeBits.asn1 \
+    $(srcdir)/EnumSlice.asn1 \
+    $(srcdir)/ExtensibleEnum.asn1 \
+    $(srcdir)/VariableString.asn1 \
+    $(srcdir)/VariableSequence.asn1 \
+    $(srcdir)/VariableUnion.asn1 \
+    $(srcdir)/ExtensibleString.asn1 \
+    $(srcdir)/ExtensibleOctets.asn1 \
+    $(srcdir)/VariableOversize.asn1 \
+    $(srcdir)/VariableBitString.asn1 \
+    $(srcdir)/VariableBitsExtensible.asn1 \
+    $(srcdir)/VariableBitsUnion.asn1 \
+    $(srcdir)/VariableBitsOversize.asn1 \
+    $(srcdir)/NamedBitString.asn1 \
+    $(srcdir)/SequenceOptional.asn1 \
+    $(srcdir)/SequenceEnum.asn1 \
+    $(srcdir)/SequenceDefaults.asn1 \
+    $(srcdir)/SequenceNested.asn1 \
+    $(srcdir)/NestedNameCollision.asn1 \
+    $(srcdir)/SequenceExtension.asn1 \
     $(srcdir)/CParity.asn1 \
     $(srcdir)/Unsupported.asn1 \
     $(srcdir)/InvalidBounds.asn1 \
@@ -25,7 +58,56 @@ EXTRA_DIST = $(srcdir)/FirstSlice.asn1 \
     $(srcdir)/NamedNumber.asn1 \
     $(srcdir)/EncodingControl.asn1 \
     $(srcdir)/ReservedModule.asn1 \
+    $(srcdir)/any_additional.rs \
+    $(srcdir)/c_any_additional.c \
+    $(srcdir)/containing_conformance.rs \
+    $(srcdir)/c_containing.c \
+    $(srcdir)/open_selected_wide.rs \
+    $(srcdir)/c_open_selected_wide.c \
+    $(srcdir)/open_selected_extra.rs \
+    $(srcdir)/c_open_selected_extra.c \
+    $(srcdir)/open_selected.rs \
+    $(srcdir)/c_open_selected.c \
+    $(srcdir)/any_conformance.rs \
+    $(srcdir)/c_any.c \
+    $(srcdir)/cbor_conformance.rs \
+    $(srcdir)/c_cbor.c \
+    $(srcdir)/cbor_sequence.rs \
+    $(srcdir)/c_cbor_sequence.c \
+    $(srcdir)/cbor_strings.rs \
+    $(srcdir)/c_cbor_strings.c \
+    $(srcdir)/cbor_sequence_strings.rs \
+    $(srcdir)/c_cbor_sequence_strings.c \
+    $(srcdir)/cbor_choice.rs \
+    $(srcdir)/cbor_containing.rs \
+    $(srcdir)/cbor_open_selected.rs \
+    $(srcdir)/c_cbor_choice.c \
+    $(srcdir)/c_cbor_containing.c \
+    $(srcdir)/c_cbor_open_selected.c \
     $(srcdir)/conformance.rs \
+    $(srcdir)/additional_codecs.rs \
+    $(srcdir)/jer_conformance.rs \
+    $(srcdir)/xer_conformance.rs \
+    $(srcdir)/c_xer_record.c \
+    $(srcdir)/sequence_conformance.rs \
+    $(srcdir)/sequence_enum_conformance.rs \
+    $(srcdir)/c_sequence_enum.c \
+    $(srcdir)/string_conformance.rs \
+    $(srcdir)/variable_string_conformance.rs \
+    $(srcdir)/variable_bit_string_conformance.rs \
+    $(srcdir)/boundary_conformance.rs \
+    $(srcdir)/enum_conformance.rs \
+    $(srcdir)/enum_jer_conformance.rs \
+    $(srcdir)/octet_jer_conformance.rs \
+    $(srcdir)/bit_jer_conformance.rs \
     $(srcdir)/c_reference.c \
+    $(srcdir)/c_additional.c \
+    $(srcdir)/c_jer.c \
+    $(srcdir)/c_sequence.c \
+    $(srcdir)/nested_conformance.rs \
+    $(srcdir)/c_string.c \
+    $(srcdir)/c_variable_string.c \
+    $(srcdir)/c_variable_bit_string.c \
+    $(srcdir)/c_enum.c \
     $(srcdir)/coverage.json \
     $(srcdir)/README.md

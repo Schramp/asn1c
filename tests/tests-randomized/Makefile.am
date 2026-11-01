@@ -11,6 +11,7 @@ CFLAGS = $(filter-out $(CODE_COVERAGE_CFLAGS), @CFLAGS@)
 # Override single test fuzzing time using "make check FUZZ_TIME=1"
 FUZZ_TIME=10
 GENERATE_CORPUS=auto
+RANDOM_TEST_TIMEOUT=300
 
 TESTS_ENVIRONMENT=                          \
     CC="${CC}"                              \
@@ -21,6 +22,7 @@ TESTS_ENVIRONMENT=                          \
     LIBFUZZER_CFLAGS="${LIBFUZZER_CFLAGS}"  \
     FUZZ_TIME="${FUZZ_TIME}"                \
     GENERATE_CORPUS="${GENERATE_CORPUS}"    \
+    RANDOM_TEST_TIMEOUT="${RANDOM_TEST_TIMEOUT}" \
     FUZZ_TARGETS="${FUZZ_TARGETS}"          \
     FUZZ_MAX_CORPUS_BYTES="${FUZZ_MAX_CORPUS_BYTES}" \
     FUZZ_ASAN_OPTIONS="${FUZZ_ASAN_OPTIONS}" \

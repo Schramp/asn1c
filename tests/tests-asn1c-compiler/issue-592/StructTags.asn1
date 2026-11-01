@@ -1,0 +1,14 @@
+StructTags DEFINITIONS ::= BEGIN
+
+Collection {T} ::= SET OF T
+
+Bunch ::= SEQUENCE {
+    field-REAL Collection {REAL},
+    field-IA5String Collection {IA5String}
+}
+
+Base ::= SEQUENCE { n INTEGER }
+Alias ::= Base
+Holder ::= SEQUENCE { a Alias, b Alias OPTIONAL }
+
+END

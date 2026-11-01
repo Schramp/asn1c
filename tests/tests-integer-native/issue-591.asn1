@@ -1,0 +1,11 @@
+Issue591 DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+MySequence ::= SEQUENCE {
+    unbounded INTEGER DEFAULT 1,
+    unboundedZero INTEGER DEFAULT 0,
+    bounded INTEGER (0..255) DEFAULT 7,
+    signedRange INTEGER (-10..10) DEFAULT -3,
+    other OCTET STRING OPTIONAL
+}
+
+END

@@ -10,6 +10,17 @@
 static const char jer_base64_encode_table[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
+/*
+ * Encode an OCTET STRING as the established uppercase hexadecimal JER string.
+ *
+ * Original source: asn1c OCTET STRING JER encoder.
+ * Version/date: 2026-10-30. Parameters: td/constraints describe the ASN.1
+ * type; sptr supplies the octets; ilevel/flags select formatting; cb/app_key
+ * receive output. Returns: encoded byte count or -1 on failure. Throws:
+ * nothing. Responsible party: asn1c maintainers. History: empty values use
+ * valid backing storage before forming the end pointer. Example: empty input
+ * emits `""`.
+ */
 asn_enc_rval_t
 OCTET_STRING_encode_jer(const asn_TYPE_descriptor_t *td,
                         const asn_jer_constraints_t *constraints,
@@ -21,8 +32,9 @@ OCTET_STRING_encode_jer(const asn_TYPE_descriptor_t *td,
     asn_enc_rval_t er = { 0, 0, 0 };
     char scratch[16 * 3 + 4];
     char *p = scratch;
-    uint8_t *buf;
-    uint8_t *end;
+    static const uint8_t empty[1] = {0};
+    const uint8_t *buf;
+    const uint8_t *end;
     size_t i;
 
     (void)ilevel;
@@ -36,7 +48,8 @@ OCTET_STRING_encode_jer(const asn_TYPE_descriptor_t *td,
     /*
      * Dump the contents of the buffer in hexadecimal.
      */
-    buf = st->buf;
+    /* Use valid storage for empty strings before forming the end pointer. */
+    buf = st->buf ? st->buf : empty;
     end = buf + st->size;
     ASN__CALLBACK("\"", 1);
     for(i = 0; buf < end; buf++, i++) {
@@ -57,6 +70,17 @@ cb_failed:
     ASN__ENCODE_FAILED;
 }
 
+/*
+ * Encode an OCTET STRING as the established padded base64 JER string.
+ *
+ * Original source: asn1c OCTET STRING base64 JER encoder.
+ * Version/date: 2026-10-30. Parameters: td/constraints describe the ASN.1
+ * type; sptr supplies the octets; ilevel/flags select formatting; cb/app_key
+ * receive output. Returns: encoded byte count or -1 on failure. Throws:
+ * nothing. Responsible party: asn1c maintainers. History: empty values use
+ * valid backing storage before forming the end pointer. Example: empty input
+ * emits `""`.
+ */
 asn_enc_rval_t
 OCTET_STRING_encode_jer_base64(const asn_TYPE_descriptor_t *td,
                                const asn_jer_constraints_t *constraints,
@@ -67,8 +91,9 @@ OCTET_STRING_encode_jer_base64(const asn_TYPE_descriptor_t *td,
     asn_enc_rval_t er = { 0, 0, 0 };
     char scratch[128];
     char *p = scratch;
+    static const uint8_t empty[1] = {0};
     const uint8_t *buf;
-    const uint8_t *end;
+    size_t remaining;
 
     (void)td;
     (void)constraints;
@@ -81,12 +106,12 @@ OCTET_STRING_encode_jer_base64(const asn_TYPE_descriptor_t *td,
     er.encoded = 0;
     ASN__CALLBACK("\"", 1);
 
-    buf = st->buf;
-    end = buf + st->size;
-    while(buf < end) {
+    /* Use valid storage for empty strings before iterating over octets. */
+    buf = st->buf ? st->buf : empty;
+    remaining = st->size;
+    while(remaining) {
         uint32_t value = 0;
-        int bytes_left = (int)(end - buf);
-        int bytes_to_encode = bytes_left >= 3 ? 3 : bytes_left;
+        int bytes_to_encode = remaining >= 3 ? 3 : (int)remaining;
         int i;
 
         for(i = 0; i < bytes_to_encode; i++)
@@ -94,6 +119,7 @@ OCTET_STRING_encode_jer_base64(const asn_TYPE_descriptor_t *td,
         if(bytes_to_encode < 3)
             value <<= 8 * (3 - bytes_to_encode);
         buf += bytes_to_encode;
+        remaining -= (size_t)bytes_to_encode;
 
         for(i = 0; i < 4; i++) {
             if(p >= scratch + sizeof(scratch) - 4) {
@@ -415,16 +441,24 @@ OS__strtoent(const char *buf, const char *end, int32_t *ret_value) {
 }
 
 /*
- * Convert from the plain UTF-8 format
+ * Decode a JSON string and validate its escapes and Unicode surrogate pairs.
+ * Original source: asn1c JER character-string decoder. Version: 2026-10-30.
+ * Inputs: sptr receives octets; chunk_buf/chunk_size contain the JSON token;
+ * have_more indicates whether the current token is complete. Returns bytes
+ * consumed, or -1 for invalid content or allocation failure. No exceptions.
+ * Owner: asn1c maintainers. History: reject invalid JSON escapes. Example:
+ * the pair \ud83d\ude00 becomes the UTF-8 bytes for U+1F600.
  */
 static ssize_t
 OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
                               size_t chunk_size, int have_more) {
     OCTET_STRING_t *st = (OCTET_STRING_t *)sptr;
     const char *p = (const char *)chunk_buf;
-    const char *pend = p + chunk_size;
+    const char *pend;
     uint8_t *buf;
 
+    if(!sptr || !chunk_buf || chunk_size < 2) return -1;
+    pend = p + chunk_size;
     /* Strip quotes */
     for(; p < pend; ++p) {
         if (*p == CQUOTE) {
@@ -440,7 +474,8 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
     if(pend - p < 0)
         return -1;
 
-    /* Reallocate buffer */
+    /* Reallocate without wrapping the size or the terminator. */
+    if(st->size == SIZE_MAX || (size_t)(pend - p) > SIZE_MAX - st->size - 1) return -1;
     size_t new_size = st->size + (pend - p);
     void *nptr = REALLOC(st->buf, new_size + 1);
     if(!nptr) return -1;
@@ -452,9 +487,10 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
      */
     for(; p < pend; p++) {
         int ch = *(const unsigned char *)p;
-        int len;  /* Length of the rest of the chunk */
+        size_t len;  /* Length of the rest of the chunk */
 
         if(ch != 0x5c /* '\' */) {
+            if(ch < 0x20) return -1;
             *buf++ = ch;
             continue;  /* That was easy... */
         }
@@ -462,7 +498,7 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
         /*
          * Process entity reference.
          */
-        len = chunk_size - (p - (const char *)chunk_buf);
+        len = (size_t)(pend - p);
         if(len == 1 /* "\" */) goto want_more;
         switch(p[1]) {
         case 0x75: /* 'u' */
@@ -470,16 +506,21 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
             const char *pval;  /* Pointer to start of digits */
             int32_t val = 0;  /* Entity reference value */
 
-            if(len - 6 < 0) goto want_more;
+            if(len < 6) goto want_more;
             pval = p + 2;
             len = OS__strtoent(pval, pval + 4, &val);
-            if(len == -1) {
-                /* Invalid charset. Just copy verbatim. */
-                *buf++ = ch;
-                continue;
+            if(len != 4) return -1;
+            p += 5;  /* Advance past the four hexadecimal digits. */
+            if(val >= 0xd800 && val <= 0xdbff) {
+                int32_t low;
+                if(pend - p < 7 || p[1] != '\\' || p[2] != 'u'
+                   || OS__strtoent(p + 3, p + 7, &low) != 4
+                   || low < 0xdc00 || low > 0xdfff) return -1;
+                val = 0x10000 + ((val - 0xd800) << 10) + (low - 0xdc00);
+                p += 6;
+            } else if(val >= 0xdc00 && val <= 0xdfff) {
+                return -1;
             }
-            if(!len) goto want_more;
-            p += (pval - p) + len - 1;  /* Advance past entref */
 
             if(val < 0x80) {
                 *buf++ = (char)val;
@@ -514,6 +555,10 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
             *buf++ = 0x22;
             ++p;
             break;
+        case 0x2f: /* / */
+            *buf++ = 0x2f;
+            ++p;
+            break;
         case 0x5c: /* \ */
             *buf++ = 0x5c;
             ++p;
@@ -539,21 +584,12 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
             ++p;
             break;
         default:
-            /* Unsupported entity reference */
-            *buf++ = ch;
-            ++p;
-            continue;
+            /* JSON permits only the escape sequences listed above. */
+            return -1;
         }
         continue;
     want_more:
-        if(have_more) {
-            /*
-             * We know that no more data (of the same type)
-             * is coming. Copy the rest verbatim.
-             */
-            *buf++ = ch;
-            continue;
-        }
+        if(have_more) return -1;
         chunk_size = (p - (const char *)chunk_buf);
         /* Processing stalled: need more data */
         break;

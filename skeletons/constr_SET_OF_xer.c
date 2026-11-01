@@ -31,6 +31,16 @@
  * Returns 1 if it equals `name`, 0 otherwise.
  * Comparison is case-sensitive and stops at first whitespace, '/', or '>'.
  */
+/*
+ * Match an opening XER tag against an exact, case-sensitive name.
+ * Original source: asn1c SET OF XER runtime skeleton.
+ * Version/date: 1.0, 2017-06-16.
+ * Inputs: buf/len identify a token and name is the expected tag name.
+ * Returns: One for an exact tag match, otherwise zero.
+ * Errors: Invalid or incomplete tokens return zero; no exceptions are raised.
+ * Responsible party: asn1c maintainers. History: Existing token helper.
+ * Example: xer_token_name_equals("<Item>", 6, "Item") returns one.
+ */
 static int
 xer_token_name_equals(const void *buf, ssize_t len, const char *name) {
     const char *p = (const char *)buf;
@@ -71,6 +81,16 @@ xer_token_name_equals(const void *buf, ssize_t len, const char *name) {
 /*
  * Compare XML tag name, allowing "SEQUENCE OF X" to match "<SEQUENCE-OF-X>" or "</SEQUENCE-OF-X>".
  * XER encoding rules replace spaces in type names with hyphens.
+ */
+/*
+ * Match an XER tag while translating spaces in an ASN.1 name to hyphens.
+ * Original source: asn1c SET OF XER runtime skeleton.
+ * Version/date: 1.0, 2017-06-16.
+ * Inputs: buf/len identify an opening or closing token; name is the type name.
+ * Returns: One for a normalized match, otherwise zero.
+ * Errors: Invalid or incomplete tokens return zero; no exceptions are raised.
+ * Responsible party: asn1c maintainers. History: Existing token helper.
+ * Example: xer_token_name_equals_normalized("<SET-OF-X>", 10, "SET OF X").
  */
 static int
 xer_token_name_equals_normalized(const void *buf, ssize_t len, const char *name) {
@@ -119,6 +139,16 @@ xer_token_name_equals_normalized(const void *buf, ssize_t len, const char *name)
 
 /*
  * Decode the XER (XML) data.
+ */
+/*
+ * Decode XER elements into a generated-style SET OF value.
+ * Original source: asn1c SET OF XER runtime skeleton.
+ * Version/date: 1.0, 2017-06-16.
+ * Inputs: codec context, descriptor, destination, optional tag, and input chunk.
+ * Returns: Decoder status and consumed input count.
+ * Errors: Malformed tokens and allocation failures return RC_FAIL.
+ * Responsible party: asn1c maintainers. History: Existing runtime decoder.
+ * Example: SET_OF_decode_xer(ctx, td, &value, NULL, xml, length).
  */
 asn_dec_rval_t
 SET_OF_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
@@ -370,12 +400,23 @@ SET_OF_decode_xer(const asn_codec_ctx_t *opt_codec_ctx,
     RETURN(RC_FAIL);
 }
 
+/* Buffer state used to sort one element's canonical XER encoding. */
 typedef struct xer_tmp_enc_s {
-    void *buffer;
-    size_t offset;
-    size_t size;
+    void *buffer; /* state variable: allocated byte storage. */
+    size_t offset; /* state variable: number of encoded bytes in buffer. */
+    size_t size; /* Allocated buffer capacity. */
 } xer_tmp_enc_t;
 
+/*
+ * Append one element encoding to its temporary canonical-XER buffer.
+ * Original source: asn1c SET OF XER runtime skeleton.
+ * Version/date: 1.0, 2017-06-16.
+ * Inputs: buffer/size are the output chunk; key points to a temporary buffer.
+ * Returns: Zero after appending, or -1 when buffer growth fails.
+ * Errors: Allocation failure leaves the original allocation owned by key.
+ * Responsible party: asn1c maintainers. History: Existing canonical helper.
+ * Example: SET_OF_encode_xer_callback(bytes, count, &temporary).
+ */
 static int
 SET_OF_encode_xer_callback(const void *buffer, size_t size, void *key) {
     xer_tmp_enc_t *t = (xer_tmp_enc_t *)key;
@@ -391,6 +432,16 @@ SET_OF_encode_xer_callback(const void *buffer, size_t size, void *key) {
     return 0;
 }
 
+/*
+ * Sort canonical-XER encodings by their bytewise UTF-8 representation.
+ * Original source: asn1c SET OF XER runtime skeleton.
+ * Version/date: 1.0, 2017-06-16.
+ * Inputs: aptr/bptr point to temporary encodings supplied by qsort.
+ * Returns: Negative, zero, or positive according to lexicographic order.
+ * Errors: No exceptions; operands must be initialized temporary encodings.
+ * Responsible party: asn1c maintainers. History: Existing canonical helper.
+ * Example: qsort(encs, count, sizeof(encs[0]), SET_OF_xer_order).
+ */
 static int
 SET_OF_xer_order(const void *aptr, const void *bptr) {
     const xer_tmp_enc_t *a = (const xer_tmp_enc_t *)aptr;
@@ -408,6 +459,17 @@ SET_OF_xer_order(const void *aptr, const void *bptr) {
     return 1;
 }
 
+/*
+ * Encode SET OF values as basic or canonical XER.
+ * Original source: asn1c SET OF XER runtime skeleton.
+ * Version/date: 1.1, 2026-10-24.
+ * Inputs: td describes the element; sptr is the SET OF; ilevel/flags select
+ *         formatting; cb/key receive each encoded output chunk.
+ * Returns: Encoded byte count, or an error descriptor for an encoding failure.
+ * Errors: Child, allocation, and callback failures return encoding failure.
+ * Responsible party: asn1c maintainers. History: canonical cleanup fix, 2026-10-24.
+ * Example: SET_OF_encode_xer(td, value, 0, XER_F_CANONICAL, cb, key).
+ */
 asn_enc_rval_t
 SET_OF_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
                   enum xer_encoder_flags_e flags, asn_app_consume_bytes_f *cb,
@@ -570,8 +632,10 @@ SET_OF_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
 
     goto cleanup;
 cb_failed:
-    XER_ENCODER_RECURSION_DEPTH_DEC();
-    ASN__ENCODE_FAILED;
+    er.encoded = -1;
+    er.failed_type = td;
+    er.structure_ptr = sptr;
+    goto cleanup;
 cleanup:
     if(encs) {
         size_t n;
@@ -581,5 +645,6 @@ cleanup:
         FREEMEM(encs);
     }
     XER_ENCODER_RECURSION_DEPTH_DEC();
+    if(er.encoded == -1) return er;
     ASN__ENCODED_OK(er);
 }

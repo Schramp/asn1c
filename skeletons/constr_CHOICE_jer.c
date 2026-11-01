@@ -35,6 +35,16 @@
 /*
  * Decode the JER (JSON) data.
  */
+/*
+ * Decode a JER object into the selected alternative of a CHOICE value.
+ * Original source: asn1c CHOICE JER runtime skeleton.
+ * Version/date: 1.0, 2017-06-16.
+ * Inputs: codec context, descriptor, constraints, destination, and input chunk.
+ * Returns: Decoder status and consumed input count.
+ * Errors: Invalid tokens and child decoder errors propagate as decoder status.
+ * Responsible party: asn1c maintainers. History: Existing runtime decoder.
+ * Example: CHOICE_decode_jer(ctx, td, constraints, &value, json, length).
+ */
 asn_dec_rval_t
 CHOICE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
                   const asn_TYPE_descriptor_t *td,
@@ -275,6 +285,17 @@ CHOICE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
     RETURN(RC_FAIL);
 }
 
+/*
+ * Encode the selected CHOICE alternative as a JER object.
+ * Original source: asn1c CHOICE JER runtime skeleton.
+ * Version/date: 1.1, 2026-10-24.
+ * Inputs: td/constraints describe the choice; sptr is its active value;
+ *         ilevel/flags select formatting; cb/key receive output chunks.
+ * Returns: Encoded byte count, or the original child error descriptor.
+ * Errors: Invalid selection, child encoding, and callback failures return error.
+ * Responsible party: asn1c maintainers. History: child-depth fix, 2026-10-24.
+ * Example: CHOICE_encode_jer(td, NULL, value, 0, JER_F, cb, key).
+ */
 asn_enc_rval_t
 CHOICE_encode_jer(const asn_TYPE_descriptor_t *td, const asn_jer_constraints_t *constraints,
                   const void *sptr, int ilevel, enum jer_encoder_flags_e flags,
@@ -331,7 +352,10 @@ CHOICE_encode_jer(const asn_TYPE_descriptor_t *td, const asn_jer_constraints_t *
                                            elm->encoding_constraints.jer_constraints,
                                            memb_ptr,
                                            ilevel + 1, flags, cb, app_key);
-        if(tmper.encoded == -1) return tmper;
+        if(tmper.encoded == -1) {
+            JER_ENCODER_RECURSION_DEPTH_DEC();
+            return tmper;
+        }
         er.encoded += tmper.encoded;
 
         if(!jmin) ASN__TEXT_INDENT(1, ilevel);

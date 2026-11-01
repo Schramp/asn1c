@@ -4,14 +4,15 @@
  * Purpose: verify that an ENUMERATED typedef keeps a non-NULL PER constraint
  * slot in its generated descriptor and decodes through both PER variants.
  * Original source: issue #552's minimal alias_enum.asn1 reproduction.
- * Version: 2026-07-18.
+ * Version: 2026-10-23.
  * Inputs: generated MyEnumAlias and Container descriptors plus one-byte PER
  *         encodings for Container { value e2 }.
  * Returns: process status zero on success; assert failure otherwise.
  * Exceptions: none are thrown; malformed input must return a non-success
  *             decoder result and must not crash or leak a decoded object.
  * Responsible party: asn1c maintainers; discovery credited to @zhouvlia.
- * History: added with the issue #552 fix.
+ * History: added with issue #552; made the constraint check independent of
+ *          generated symbol suffixes on 2026-10-23.
  * Example: this file is run by check-assembly.sh with -gen-UPER -gen-APER.
  */
 #undef NDEBUG
@@ -39,22 +40,29 @@ typedef asn_dec_rval_t (*decode_complete_f)(
     size_t size);
 
 /*
- * Purpose: verify that the alias descriptor points to its generated PER table.
+ * Purpose: verify that the alias descriptor retains the expected PER range.
  * Original source: issue #552's generated MyEnumAlias.c inspection.
- * Version: 2026-07-18.
+ * Version: 2026-10-23.
  * Inputs: no function parameters.
  * Returns: no value.
- * Exceptions: assert aborts if the generator leaves the slot NULL or points
- *             it at a different constraint table.
+ * Exceptions: assert aborts if the generator leaves the slot NULL or changes
+ *             the inherited range. Generated table suffixes are not stable.
  * Responsible party: asn1c maintainers; discovery credited to @zhouvlia.
- * History: added with the issue #552 regression test.
+ * History: added with issue #552; checked range without a generated symbol
+ *          suffix on 2026-10-23.
  * Example: check_alias_descriptor();
  */
 static void
 check_alias_descriptor(void) {
-    assert(asn_DEF_MyEnumAlias.encoding_constraints.per_constraints != NULL);
-    assert(asn_DEF_MyEnumAlias.encoding_constraints.per_constraints
-           == &asn_PER_type_MyEnumAlias_constr_1);
+    const asn_per_constraints_t *constraints =
+        asn_DEF_MyEnumAlias.encoding_constraints.per_constraints;
+
+    /* Check the range through the public descriptor, independent of symbol indexes. */
+    assert(constraints != NULL);
+    assert(constraints->value.flags == APC_CONSTRAINED);
+    assert(constraints->value.range_bits == 2);
+    assert(constraints->value.lower_bound == 0);
+    assert(constraints->value.upper_bound == 3);
 }
 
 /*

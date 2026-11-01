@@ -10,6 +10,8 @@
 #include <NativeInteger.h>
 #include <NativeReal.h>
 #include <OCTET_STRING.h>
+#include <ANY.h>
+#include <BIT_STRING.h>
 #include <asn_codecs_prim.h>
 #include <constr_CHOICE.h>
 #include <constr_SEQUENCE.h>
@@ -42,14 +44,14 @@ asn_TYPE_operation_t asn_OP_SET = {
 #endif  /* !defined(ASN_DISABLE_XER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
     SET_decode_jer,
-    SEQUENCE_encode_jer,
+    SET_encode_jer,
 #else
 	0,
     0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-    0,  /* SET_decode_oer */
-    0,  /* SET_encode_oer */
+    SET_decode_oer,
+    SET_encode_oer,
 #else
     0,
     0,
@@ -67,8 +69,8 @@ asn_TYPE_operation_t asn_OP_SET = {
     0,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) */
 #if !defined(ASN_DISABLE_APER_SUPPORT)
-    0,  /* SET_decode_aper */
-    0,  /* SET_encode_aper */
+    SET_decode_aper,
+    SET_encode_aper,
 #else
     0,
     0,
@@ -136,7 +138,10 @@ _SET_layout_valid(const asn_TYPE_descriptor_t *td,
 	if(specs->pres_offset > specs->struct_size
 	|| _SET_presence_size(td->elements_count, &presence_bytes) != 0)
 		return 0;
-	return presence_bytes <= specs->struct_size - specs->pres_offset;
+    if(presence_bytes > specs->struct_size - specs->pres_offset) return 0;
+    if(presence_bytes && specs->pres_offset < specs->ctx_offset + sizeof(asn_struct_ctx_t)
+    && specs->ctx_offset < specs->pres_offset + presence_bytes) return 0;
+    return 1;
 }
 
 /*
@@ -256,6 +261,40 @@ _SET_native_real_size(const asn_TYPE_descriptor_t *td, size_t *size) {
 }
 
 /*
+ * Purpose: Verify a decoder context lies wholly within its declared storage.
+ * Source: Constructed and string specifics metadata. Version: 2026-10-30.
+ * Inputs: size is the enclosing size and offset locates the parser context.
+ * Returns: nonzero for a bounded context; zero for malformed metadata.
+ * Errors: Overflowing offsets are rejected before subtraction. Author: maintainers.
+ * History: Protects selected inline values and their cleanup paths.
+ * Example: A context starting at the end of a structure is invalid.
+ */
+static int
+_SET_context_valid(size_t size, size_t offset) {
+    return offset <= size && sizeof(asn_struct_ctx_t) <= size - offset;
+}
+
+/*
+ * Purpose: Validate CHOICE presence and parsing context within its storage.
+ * Source: CHOICE specifics contract. Version: 2026-10-30.
+ * Inputs: specs describes the generated CHOICE layout.
+ * Returns: nonzero when both fields fit, otherwise zero. Errors: none.
+ * Author: maintainers. History: Rejects forged inline wrapper descriptors.
+ * Example: Presence stored outside struct_size is rejected.
+ */
+static int
+_SET_choice_layout_valid(const asn_CHOICE_specifics_t *specs) {
+    return specs && specs->struct_size
+        && _SET_context_valid(specs->struct_size, specs->ctx_offset)
+        && (specs->pres_size == sizeof(char) || specs->pres_size == sizeof(short)
+            || specs->pres_size == sizeof(int))
+        && specs->pres_offset <= specs->struct_size
+        && specs->pres_size <= specs->struct_size - specs->pres_offset
+        && (specs->pres_offset >= specs->ctx_offset + sizeof(asn_struct_ctx_t)
+            || specs->ctx_offset >= specs->pres_offset + specs->pres_size);
+}
+
+/*
  * Purpose: resolve known primitive inline C storage widths without codec calls.
  * Source: Built-in runtime free callbacks and their documented C layouts.
  * Version: 2026-10-22.
@@ -268,6 +307,14 @@ _SET_native_real_size(const asn_TYPE_descriptor_t *td, size_t *size) {
  */
 static int
 _SET_primitive_inline_size(const asn_TYPE_descriptor_t *td, size_t *size) {
+    /* OPEN TYPE wrappers use CHOICE storage despite their primitive operation kind. */
+    if(td->op->free_struct == CHOICE_free) {
+        const asn_CHOICE_specifics_t *specs = td->specifics;
+        if(!td->elements || !td->elements_count || !_SET_choice_layout_valid(specs))
+            return -1;
+        *size = specs->struct_size;
+        return *size ? 0 : -1;
+    }
 	if(td->op->free_struct == NativeInteger_free)
 		return _SET_native_integer_size(td, size);
 	if(td->op->free_struct == NativeReal_free)
@@ -287,10 +334,20 @@ _SET_primitive_inline_size(const asn_TYPE_descriptor_t *td, size_t *size) {
 	if(td->op->free_struct == OCTET_STRING_free) {
 		const asn_OCTET_STRING_specifics_t *specifics =
 			(const asn_OCTET_STRING_specifics_t *)td->specifics;
+        size_t minimum = sizeof(OCTET_STRING_t);
+        size_t context_offset = offsetof(OCTET_STRING_t, _asn_ctx);
+        if(specifics && specifics->subvariant == ASN_OSUBV_ANY) {
+            minimum = sizeof(ANY_t);
+            context_offset = offsetof(ANY_t, _asn_ctx);
+        } else if(specifics && specifics->subvariant == ASN_OSUBV_BIT) {
+            minimum = sizeof(BIT_STRING_t);
+            context_offset = offsetof(BIT_STRING_t, _asn_ctx);
+        }
+        if(specifics && specifics->ctx_offset != context_offset) return -1;
 		*size = specifics ? specifics->struct_size : sizeof(OCTET_STRING_t);
-		return *size >= sizeof(OCTET_STRING_t) ? 0 : -1;
+        return *size >= minimum && _SET_context_valid(*size, context_offset) ? 0 : -1;
 	}
-	return -1;
+	return -2;
 }
 
 /*
@@ -306,41 +363,204 @@ _SET_primitive_inline_size(const asn_TYPE_descriptor_t *td, size_t *size) {
  */
 static int
 _SET_constructed_inline_size(const asn_TYPE_descriptor_t *td, size_t *size) {
-	if(td->op->kind == ASN_KIND_SEQUENCE && td->op->free_struct == SEQUENCE_free)
-		*size = ((const asn_SEQUENCE_specifics_t *)td->specifics)->struct_size;
-	else if(td->op->kind == ASN_KIND_SET && td->op->free_struct == SET_free)
-		*size = ((const asn_SET_specifics_t *)td->specifics)->struct_size;
-	else if(td->op->kind == ASN_KIND_CHOICE && td->op->free_struct == CHOICE_free)
-		*size = ((const asn_CHOICE_specifics_t *)td->specifics)->struct_size;
-	else if(td->op->kind == ASN_KIND_SEQUENCE_OF
-		&& td->op->free_struct == SET_OF_free)
-		*size = ((const asn_SET_OF_specifics_t *)td->specifics)->struct_size;
-	else if(td->op->kind == ASN_KIND_SET_OF && td->op->free_struct == SET_OF_free)
-		*size = ((const asn_SET_OF_specifics_t *)td->specifics)->struct_size;
-	else
-		return -1;
-	return *size ? 0 : -1;
+    size_t context_offset;
+    if(td->op->kind == ASN_KIND_SEQUENCE && td->op->free_struct == SEQUENCE_free) {
+        const asn_SEQUENCE_specifics_t *specs = td->specifics;
+        *size = specs->struct_size;
+        context_offset = specs->ctx_offset;
+    } else if(td->op->kind == ASN_KIND_SET && td->op->free_struct == SET_free) {
+        const asn_SET_specifics_t *specs = td->specifics;
+        if(!_SET_layout_valid(td, specs)) return -1;
+        *size = specs->struct_size;
+        context_offset = specs->ctx_offset;
+    } else if(td->op->kind == ASN_KIND_CHOICE && td->op->free_struct == CHOICE_free) {
+        const asn_CHOICE_specifics_t *specs = td->specifics;
+        if(!_SET_choice_layout_valid(specs)) return -1;
+        *size = specs->struct_size;
+        context_offset = specs->ctx_offset;
+    } else if((td->op->kind == ASN_KIND_SEQUENCE_OF || td->op->kind == ASN_KIND_SET_OF)
+              && td->op->free_struct == SET_OF_free) {
+        const asn_SET_OF_specifics_t *specs = td->specifics;
+        if(specs->struct_size < sizeof(asn_anonymous_set_)
+        || specs->ctx_offset < sizeof(asn_anonymous_set_)
+        || td->elements_count != 1 || !td->elements || !td->elements[0].type
+        || !td->elements[0].type->op || !td->elements[0].type->op->free_struct) return -1;
+        *size = specs->struct_size;
+        context_offset = specs->ctx_offset;
+    } else return -1;
+    return *size && _SET_context_valid(*size, context_offset) ? 0 : -1;
+}
+
+/* Maximum graph nesting and distinct layouts validated during one call. */
+#define SET_INLINE_VALIDATION_DEPTH 64
+#define SET_INLINE_VALIDATION_TYPES 1024
+#define SET_INLINE_VALIDATION_STEPS 16384
+
+/* Descriptor graph state for bounded validation; arrays own no descriptors. */
+typedef struct SET_validation_state_s {
+    const asn_TYPE_descriptor_t *path[SET_INLINE_VALIDATION_DEPTH]; /* Active path. */
+    uint8_t pointer_edge[SET_INLINE_VALIDATION_DEPTH]; /* Incoming edge kinds. */
+    const asn_TYPE_descriptor_t *done[SET_INLINE_VALIDATION_TYPES]; /* Validated types. */
+    size_t widths[SET_INLINE_VALIDATION_TYPES]; /* Width for each validated type. */
+    size_t count; /* Number of cached type layouts; state variable. */
+    size_t steps; /* Number of examined descriptors; state variable. */
+    size_t cycles; /* Number of legal pointer cycles seen; state variable. */
+} SET_validation_state_t;
+
+/*
+ * Purpose: Validate a descriptor's own fixed storage and determine its width.
+ * Source: Built-in descriptor layouts. Version: 2026-10-30.
+ * Inputs: td is the descriptor and size receives its storage width.
+ * Returns: 0 for valid, -1 for malformed, -2 for unknown primitive.
+ * Errors: Invalid arguments fail. Author: maintainers.
+ * History: Shared by cycle and nested-member validation. Example: INTEGER uses long storage.
+ */
+static int
+_SET_shallow_inline_size(const asn_TYPE_descriptor_t *td, size_t *size) {
+    if(!td || !td->op || !td->op->free_struct || !size) return -1;
+    if(td->op->kind == ASN_KIND_PRIMITIVE) return _SET_primitive_inline_size(td, size);
+    if(!td->specifics) return -1;
+    return _SET_constructed_inline_size(td, size);
+}
+
+static int _SET_inline_value_size_checked(const asn_TYPE_descriptor_t *, size_t *,
+                                          SET_validation_state_t *, size_t, int);
+
+/*
+ * Purpose: Validate a heap-backed child while allowing pointer recursion.
+ * Source: Generated pointer-member and collection layouts. Version: 2026-10-30.
+ * Inputs: child is the descriptor; state/depth track validation ancestry.
+ * Returns: 0 for valid or unknown custom primitive, otherwise -1.
+ * Errors: Malformed known layouts and excessive graphs fail. Author: maintainers.
+ * History: Added for cycle-safe pointer graph traversal. Example: A linked list is valid.
+ */
+static int
+_SET_pointer_child_valid(const asn_TYPE_descriptor_t *child,
+                         SET_validation_state_t *state, size_t depth) {
+    size_t unused;
+    int result = _SET_inline_value_size_checked(child, &unused, state, depth, 1);
+    return result == 0 || result == -2 ? 0 : -1;
 }
 
 /*
- * Purpose: resolve the known byte width required for an inline member value.
- * Source: Runtime callback identities and generated constructed specifics.
- * Version: 2026-10-22.
- * Parameters: td is the member descriptor; size receives its storage width.
- * Returns: zero for known layouts, otherwise -1 for unsupported layouts.
- * Errors: custom primitive and malformed descriptors are rejected.
- * Author: asn1c maintainers.
- * History: Added to validate complete inline slots before pointer arithmetic.
- * Example: SET_member_view rejects a primitive whose storage exceeds its owner.
+ * Purpose: Validate all member descriptors and storage slots of one value.
+ * Source: SEQUENCE, SET and CHOICE layout contracts. Version: 2026-10-30.
+ * Inputs: td and size describe the owner; state/depth track graph traversal.
+ * Returns: zero for valid members or -1 for invalid or out-of-bounds storage.
+ * Errors: Unknown inline layouts and malformed child descriptors fail.
+ * Author: maintainers. History: Extracted to bound decoder-check complexity.
+ * Example: A pointer field extending beyond its owner is rejected.
  */
 static int
-_SET_inline_value_size(const asn_TYPE_descriptor_t *td, size_t *size) {
-	if(!td || !td->op || !td->op->free_struct || !size)
-		return -1;
-	if(td->op->kind == ASN_KIND_PRIMITIVE)
-		return _SET_primitive_inline_size(td, size);
-	if(!td->specifics) return -1;
-	return _SET_constructed_inline_size(td, size);
+_SET_inline_members_valid(const asn_TYPE_descriptor_t *td, size_t size,
+                          SET_validation_state_t *state, size_t depth) {
+    size_t i;
+    if(td->elements_count && !td->elements) return -1;
+    for(i = 0; i < td->elements_count; i++) {
+        const asn_TYPE_member_t *member = &td->elements[i];
+        size_t width;
+        if(!member->type || !member->type->op || !member->type->op->free_struct)
+            return -1;
+        if(member->flags & ATF_POINTER) {
+            width = sizeof(void *);
+            if(_SET_pointer_child_valid(member->type, state, depth + 1)) return -1;
+        } else if(_SET_inline_value_size_checked(member->type, &width, state, depth + 1, 0))
+            return -1;
+        if(member->memb_offset > size || width > size - member->memb_offset) return -1;
+    }
+    return 0;
+}
+
+/*
+ * Purpose: Decide whether a detected descriptor cycle contains a pointer edge.
+ * Source: Inline storage recursion contract. Version: 2026-10-30.
+ * Inputs: state describes the active path; start/depth bound the cycle;
+ * incoming_pointer describes its closing edge. Returns: nonzero when legal.
+ * Errors: Callers validate indexes. Author: maintainers.
+ * History: Preserves mixed pointer/inline recursion. Example: A pointer to B is legal.
+ */
+static int
+_SET_pointer_cycle(const SET_validation_state_t *state, size_t start,
+                   size_t depth, int incoming_pointer) {
+    size_t i;
+    if(incoming_pointer) return 1;
+    for(i = start + 1; i < depth; i++) if(state->pointer_edge[i]) return 1;
+    return 0;
+}
+
+/*
+ * Purpose: Identify descriptors whose members occupy slots in the owner.
+ * Source: Runtime operation-kind metadata. Version: 2026-10-30.
+ * Inputs: td is a descriptor whose operation table has been checked.
+ * Returns: nonzero for SEQUENCE, SET, CHOICE or OPEN TYPE wrappers.
+ * Errors: none. Author: maintainers. History: Extracted for bounded complexity.
+ * Example: A SEQUENCE OF element is separately heap allocated.
+ */
+static int
+_SET_has_inline_members(const asn_TYPE_descriptor_t *td) {
+    return td->op->kind == ASN_KIND_SEQUENCE || td->op->kind == ASN_KIND_SET
+        || td->op->kind == ASN_KIND_CHOICE || td->op->free_struct == CHOICE_free;
+}
+
+/*
+ * Purpose: Validate complete storage and every reachable constructed member.
+ * Source: Constructed descriptor and SET member storage contracts.
+ * Version: 2026-10-30. Inputs: td/size identify the descriptor and width;
+ * state/depth/incoming_pointer track and bound the active descriptor graph.
+ * Returns: 0 for valid storage, -1 for malformed, -2 for unknown primitive.
+ * Errors: Inline-only cycles, malformed slots, and excessive graphs fail.
+ * Author: asn1c maintainers. History: Added recursive child layout validation.
+ * Example: A pointer crossing its enclosing SEQUENCE boundary is rejected.
+ */
+static int
+_SET_inline_value_size_checked(const asn_TYPE_descriptor_t *td, size_t *size,
+                               SET_validation_state_t *state, size_t depth,
+                               int incoming_pointer) {
+    size_t i, cycles_before = state->cycles;
+    int status, members_inline;
+    if(!td || !size || depth >= SET_INLINE_VALIDATION_DEPTH
+    || state->steps++ >= SET_INLINE_VALIDATION_STEPS) return -1;
+    for(i = 0; i < depth; i++) {
+        if(state->path[i] == td) {
+            if(!_SET_pointer_cycle(state, i, depth, incoming_pointer)) return -1;
+            state->cycles++;
+            return _SET_shallow_inline_size(td, size);
+        }
+    }
+    for(i = 0; i < state->count; i++) {
+        if(state->done[i] == td) { *size = state->widths[i]; return 0; }
+    }
+    state->path[depth] = td;
+    state->pointer_edge[depth] = incoming_pointer != 0;
+    status = _SET_shallow_inline_size(td, size);
+    if(status) return status;
+    members_inline = _SET_has_inline_members(td);
+    if(members_inline) {
+        if(_SET_inline_members_valid(td, *size, state, depth)) return -1;
+    } else if((td->op->kind == ASN_KIND_SEQUENCE_OF || td->op->kind == ASN_KIND_SET_OF)
+              && _SET_pointer_child_valid(td->elements[0].type, state, depth + 1)) return -1;
+    /* A cycle's validity depends on its path, so do not cache that result. */
+    if(state->cycles != cycles_before) return 0;
+    if(state->count == SET_INLINE_VALIDATION_TYPES) return -1;
+    state->done[state->count] = td;
+    state->widths[state->count++] = *size;
+    return 0;
+}
+
+/*
+ * Purpose: Resolve a supported descriptor's complete validated storage width.
+ * Source: Built-in ASN.1 descriptors. Version: 2026-10-30.
+ * Inputs: td identifies the type; size receives its storage width.
+ * Returns: 0 for valid, -1 for malformed, or -2 for unknown primitive layout.
+ * Errors: Inline-only cycles, graphs over 1024 types, 16384 visits, or 64 levels fail.
+ * Author: asn1c maintainers. History: Added bounded recursive layout checks.
+ * Example: A valid generated CHOICE reports its full wrapper size.
+ */
+int
+SET_inline_value_size(const asn_TYPE_descriptor_t *td, size_t *size) {
+    SET_validation_state_t state;
+    memset(&state, 0, sizeof(state));
+    return _SET_inline_value_size_checked(td, size, &state, 0, 0);
 }
 
 /*
@@ -364,11 +584,40 @@ _SET_member_offset_valid(const asn_SET_specifics_t *specs,
 		return 0;
 	if(member->flags & ATF_POINTER) {
 		slot_size = sizeof(void *);
-	} else if(_SET_inline_value_size(member->type, &slot_size) != 0) {
+	} else if(SET_inline_value_size(member->type, &slot_size) != 0) {
 		return 0;
 	}
 	return member->memb_offset <= specs->struct_size
 		&& slot_size <= specs->struct_size - member->memb_offset;
+}
+
+/*
+ * Purpose: validate a SET descriptor's complete direct and group storage.
+ * Source: SET layout, group metadata, and member-offset validation helpers.
+ * Version/date: 1.0, 2026-10-30. Input: td describes the SET.
+ * Returns: zero or -1 for malformed metadata. Exceptions: none.
+ * Author: asn1c maintainers. History: added for decoder preallocation checks.
+ * Example: an invalid group child offset is rejected before allocation.
+ */
+int
+SET_descriptor_valid(const asn_TYPE_descriptor_t *td) {
+    const asn_SET_specifics_t *specs;
+    size_t i, j;
+    if(!td || !td->op || td->op->kind != ASN_KIND_SET || !td->specifics) return -1;
+    specs = td->specifics;
+    if(!_SET_layout_valid(td, specs)) return -1;
+    for(i = 0; i < td->elements_count; i++) {
+        const asn_TYPE_member_t *member = &td->elements[i];
+        const asn_SET_specifics_t *child;
+        if(!_SET_member_offset_valid(specs, member)) return -1;
+        if(!(member->flags & ATF_EXTENSION_GROUP)) continue;
+        child = _SET_group_specifics(member);
+        if(!child || !member->type->elements_count) return -1;
+        for(j = 0; j < member->type->elements_count; j++) {
+            if(!_SET_member_offset_valid(child, &member->type->elements[j])) return -1;
+        }
+    }
+    return 0;
 }
 
 /*
@@ -507,6 +756,243 @@ SET_group_is_populated(const asn_TYPE_descriptor_t *td, const void *st) {
 }
 
 /*
+ * Purpose: validate the versioned SET partition metadata prefix safely.
+ * Source: SET v2/v3 layout and legacy ABI boundary.
+ * Version/date: 1.0, 2026-10-30. Input: specs identifies SET metadata.
+ * Returns: 1 for a valid v2 or v3 prefix, 0 for unsupported metadata.
+ * Errors: unsupported sentinels and short metadata fail without reading v3.
+ * Author: asn1c maintainers. History: added for versioned group adapters.
+ * Example: a v2 object need only cover the fields preceding v3 extensions.
+ */
+int
+SET_version_valid(const asn_SET_specifics_t *specs) {
+    if(!specs) return 0;
+    if(specs->extensible == 2)
+        return specs->specifics_size >= offsetof(asn_SET_specifics_t, extension_groups)
+            && specs->specifics_version == ASN_SET_SPECIFICS_VERSION;
+    if(specs->extensible == 3)
+        return specs->specifics_size >= sizeof(*specs)
+            && specs->specifics_version == ASN_SET_SPECIFICS_VERSION_3;
+    return 0;
+}
+
+/*
+ * Purpose: locate the unique SEQUENCE layout assigned to a SET group.
+ * Source: Generated SET v3 extension-group table.
+ * Version/date: 1.0, 2026-10-30. Inputs: parent and member index.
+ * Returns: matching layout, or NULL when absent or duplicated.
+ * Errors: missing and duplicate entries fail closed.
+ * Author: asn1c maintainers. History: split from adapter validation.
+ * Example: a duplicated member index never selects an arbitrary layout.
+ */
+static const asn_SEQUENCE_specifics_t *
+_SET_group_find_sequence(const asn_SET_specifics_t *parent, unsigned index) {
+    const asn_SEQUENCE_specifics_t *sequence = 0;
+    unsigned i, count = 0;
+    for(i = 0; i < parent->extension_group_count; i++) {
+        if(parent->extension_groups[i].member_index == index) {
+            sequence = parent->extension_groups[i].sequence_specifics;
+            count++;
+        }
+    }
+    return count == 1 ? sequence : 0;
+}
+
+/*
+ * Purpose: validate the group SEQUENCE layout and declaration-order map.
+ * Source: Generated group child and SEQUENCE optional-member metadata.
+ * Version/date: 1.0, 2026-10-30. Inputs: member/child/sequence describe a group.
+ * Returns: zero for a compatible layout or -1 for invalid metadata.
+ * Errors: unsupported children, offsets, and optional indexes are rejected.
+ * Author: asn1c maintainers. History: split from adapter validation.
+ * Example: the optional map must enumerate optional children in order.
+ */
+static int
+_SET_group_sequence_valid(const asn_TYPE_member_t *member, const asn_SET_specifics_t *child,
+                          const asn_SEQUENCE_specifics_t *sequence) {
+    unsigned i, optional = 0;
+    if(!sequence || sequence->struct_size != child->struct_size
+    || sequence->ctx_offset != child->ctx_offset || sequence->first_extension != -1
+    || sequence->aoms_count || sequence->roms_count > member->type->elements_count
+    || (sequence->roms_count && !sequence->oms)) return -1;
+    for(i = 0; i < member->type->elements_count; i++) {
+        if(!_SET_member_offset_valid(child, &member->type->elements[i])
+        || (member->type->elements[i].flags & ATF_OPEN_TYPE)) return -1;
+        if(member->type->elements[i].optional) {
+            if(optional >= sequence->roms_count || sequence->oms[optional] != (int)i) return -1;
+            optional++;
+        }
+    }
+    return optional == sequence->roms_count ? 0 : -1;
+}
+
+/*
+ * Purpose: locate and validate a generated SEQUENCE view of one SET group.
+ * Source: SET v3 group metadata and the SEQUENCE descriptor contract.
+ * Version/date: 1.0, 2026-10-30. Inputs: td/index identify an addition;
+ * adapter receives the temporary descriptor. Returns: 0 or -1.
+ * Errors: inconsistent group layout or optional maps are rejected.
+ * Author: asn1c maintainers. History: added for SET extension-group codecs.
+ * Example: a group adapter shares the child elements and storage offsets.
+ */
+int
+SET_group_adapter(const asn_TYPE_descriptor_t *td, unsigned index,
+                  asn_TYPE_descriptor_t *adapter) {
+    const asn_SET_specifics_t *parent, *child;
+    const asn_SEQUENCE_specifics_t *sequence;
+    const asn_TYPE_member_t *member;
+
+    if(!td || !td->specifics || !td->elements || !adapter || index >= td->elements_count) return -1;
+    parent = (const asn_SET_specifics_t *)td->specifics;
+    if(parent->extensible != 3 || !SET_version_valid(parent)
+    || !parent->extension_groups || !parent->extension_group_count
+    || parent->extension_group_count > parent->extension_count) return -1;
+    member = &td->elements[index];
+    if(!_SET_layout_valid(td, parent) || !_SET_member_offset_valid(parent, member)) return -1;
+    child = _SET_group_specifics(member);
+    if(!child || !member->type->op->free_struct) return -1;
+    sequence = _SET_group_find_sequence(parent, index);
+    if(_SET_group_sequence_valid(member, child, sequence)) return -1;
+    *adapter = *member->type;
+    adapter->op = &asn_OP_SEQUENCE;
+    adapter->specifics = sequence;
+    return 0;
+}
+
+/*
+ * Purpose: validate the bounds and pointers of a v3 SET group partition.
+ * Source: Compiler-emitted SET v3 metadata fields.
+ * Version/date: 1.0, 2026-10-30. Inputs: td and specs identify the descriptor.
+ * Returns: zero for usable partition bounds, otherwise -1.
+ * Errors: incomplete or inconsistent metadata is rejected.
+ * Author: asn1c maintainers. History: split from group table validation.
+ * Example: a nonzero root count requires a root map.
+ */
+static int
+_SET_group_partition_bounds(const asn_TYPE_descriptor_t *td, const asn_SET_specifics_t *specs) {
+    if(!SET_version_valid(specs) || !specs->extension_groups || !specs->extension_group_count
+    || specs->root_count > td->elements_count
+    || specs->extension_count != td->elements_count - specs->root_count
+    || (specs->root_count && !specs->root_map)
+    || (specs->extension_count && !specs->extension_map)) return -1;
+    return 0;
+}
+
+/*
+ * Purpose: verify the v3 adapter table exactly covers extension groups.
+ * Source: SET v3 metadata and the generated extension partition.
+ * Version/date: 1.0, 2026-10-30. Input: td identifies a SET descriptor.
+ * Returns: 0 for valid metadata, -1 for missing or misplaced groups.
+ * Errors: malformed metadata fails before codec dispatch.
+ * Author: asn1c maintainers. History: added for SET extension-group codecs.
+ * Example: a group in the root partition is rejected.
+ */
+int
+SET_group_metadata_valid(const asn_TYPE_descriptor_t *td) {
+    const asn_SET_specifics_t *specs;
+    unsigned i, groups = 0;
+    asn_TYPE_descriptor_t adapter;
+
+    if(!td || !td->specifics || (td->elements_count && !td->elements)) return -1;
+    specs = (const asn_SET_specifics_t *)td->specifics;
+    if(specs->extensible != 3) return 0;
+    if(_SET_group_partition_bounds(td, specs)) return -1;
+    for(i = 0; i < specs->root_count; i++) {
+        if(specs->root_map[i] >= td->elements_count
+        || (td->elements[specs->root_map[i]].flags & ATF_EXTENSION_GROUP)) return -1;
+    }
+    for(i = 0; i < specs->extension_count; i++) {
+        unsigned index = specs->extension_map[i];
+        if(index >= td->elements_count) return -1;
+        if(td->elements[index].flags & ATF_EXTENSION_GROUP) {
+            if(SET_group_adapter(td, index, &adapter)) return -1;
+            groups++;
+        }
+    }
+    return groups == specs->extension_group_count ? 0 : -1;
+}
+
+/*
+ * Purpose: determine whether an extension group contributes a wire addition.
+ * Source: X.691 19.9, X.696 16.5.3 and SET group storage conventions.
+ * Version/date: 1.0, 2026-10-30. Inputs: td/st/index identify a group.
+ * Returns: 1 if encoded, 0 if absent, or -1 for invalid or incomplete data.
+ * Errors: invalid storage or missing mandatory pointer leaves fail.
+ * Author: asn1c maintainers. History: added for grouped SET codec support.
+ * Example: an allocated all-optional group with no values is omitted.
+ */
+int
+SET_group_wire_present(const asn_TYPE_descriptor_t *td, const void *st, unsigned index) {
+    const asn_TYPE_member_t *group;
+    const void *value;
+    asn_TYPE_descriptor_t adapter;
+    unsigned i;
+    int any = 0;
+
+    if(!td || !td->elements || index >= td->elements_count || !st
+    || SET_group_adapter(td, index, &adapter)) return -1;
+    group = &td->elements[index];
+    value = *(const void *const *)((const char *)st + group->memb_offset);
+    if(!value) return 0;
+    if(SET_group_is_populated(group->type, value) != 1) return -1;
+    for(i = 0; i < group->type->elements_count; i++) {
+        asn_SET_member_view_t view;
+        if(SET_member_view(td, st, index, i, &view)) return -1;
+        if(view.present && (!view.member->default_value_cmp
+           || view.member->default_value_cmp(view.value))) any = 1;
+    }
+    return any;
+}
+
+/*
+ * Purpose: discard SEQUENCE decoder state before returning to SET ownership.
+ * Source: SEQUENCE OER context ownership and synthetic SET group layout.
+ * Version/date: 1.0, 2026-10-30. Inputs: td/st identify temporary group data.
+ * Returns: 0 on success, -1 on invalid group layout.
+ * Errors: invalid context offsets are rejected before accessing storage.
+ * Author: asn1c maintainers. History: prevents retained preamble leaks.
+ * Example: OER group decoding releases its SEQUENCE phase-10 bitmap.
+ */
+int
+SET_group_clear_wire_context(const asn_TYPE_descriptor_t *td, void *st) {
+    const asn_SET_specifics_t *specs;
+    asn_struct_ctx_t *ctx;
+
+    if(!td || !td->specifics || !st) return -1;
+    specs = (const asn_SET_specifics_t *)td->specifics;
+    if(!_SET_group_layout_valid(td, specs)) return -1;
+    ctx = (asn_struct_ctx_t *)((char *)st + specs->ctx_offset);
+    FREEMEM(ctx->ptr);
+    memset(ctx, 0, sizeof(*ctx));
+    return 0;
+}
+
+/*
+ * Purpose: rebuild SET presence bits after decoding the SEQUENCE wire view.
+ * Source: SET child descriptor and generated presence bitmap convention.
+ * Version/date: 1.0, 2026-10-30. Inputs: td/st identify a decoded group.
+ * Returns: 0 on success or -1 if its layout is invalid or incomplete.
+ * Errors: malformed storage or missing required pointer leaves fail.
+ * Author: asn1c maintainers. History: maintains BER/XER compatibility.
+ * Example: a decoded mandatory inline member gets its presence bit set.
+ */
+int
+SET_group_mark_present(const asn_TYPE_descriptor_t *td, void *st) {
+    const asn_SET_specifics_t *specs;
+    unsigned i;
+
+    if(SET_group_is_populated(td, st) != 1) return -1;
+    specs = (const asn_SET_specifics_t *)td->specifics;
+    for(i = 0; i < td->elements_count; i++) {
+        const asn_TYPE_member_t *member = &td->elements[i];
+        if(!(member->flags & ATF_POINTER)
+        || *(void **)((char *)st + member->memb_offset))
+            ASN_SET_MKPRESENT((char *)st + specs->pres_offset, i);
+    }
+    return 0;
+}
+
+/*
  * Purpose: test whether a SET presence bitmap includes mandatory members.
  * Source: The SET descriptor's network-order mandatory bit mask.
  * Version: 2026-10-22.
@@ -579,11 +1065,26 @@ void
 SET_free(const asn_TYPE_descriptor_t *td, void *ptr,
          enum asn_struct_free_method method) {
     size_t edx;
+    const asn_SET_specifics_t *specs;
 
 	if(!td || !ptr)
 		return;
 
 	ASN_DEBUG("Freeing %s as SET", td->name);
+
+    /* OER member and extension phases own ctx->ptr; other codecs may borrow it. */
+    specs = (const asn_SET_specifics_t *)td->specifics;
+    if(specs && specs->ctx_offset <= specs->struct_size
+    && sizeof(asn_struct_ctx_t) <= specs->struct_size - specs->ctx_offset) {
+        asn_struct_ctx_t *ctx = (asn_struct_ctx_t *)((char *)ptr + specs->ctx_offset);
+        if(ctx->phase == ASN_SET_OER_PHASE_MEMBERS
+        || ctx->phase == ASN_SET_OER_PHASE_EXTENSION_MAP
+        || ctx->phase == ASN_SET_OER_PHASE_EXTENSIONS) {
+#ifndef ASN_DISABLE_OER_SUPPORT
+            SET_oer_free_member_context(ctx);
+#endif
+        }
+    }
 
 	for(edx = 0; edx < td->elements_count; edx++) {
 		asn_TYPE_member_t *elm = &td->elements[edx];
@@ -611,10 +1112,20 @@ SET_free(const asn_TYPE_descriptor_t *td, void *ptr,
     }
 }
 
+/*
+ * Purpose: check every present SET member and reject missing mandatory members.
+ * Source: SEQUENCE_constraint and generated SET member descriptors.
+ * Version/date: 1.1, 2026-10-30. Inputs: td/sptr identify the SET;
+ * ctfailcb/app_key receive constraint errors. Returns: zero or child failure.
+ * Exceptions: none. Author: asn1c maintainers. History: check all members.
+ * Example: a failing second member rejects the complete SET.
+ */
 int
 SET_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
                asn_app_constraint_failed_f *ctfailcb, void *app_key) {
     size_t edx;
+
+	if(!td || (td->elements_count && !td->elements)) return -1;
 
 	if(!sptr) {
 		ASN__CTFAIL(app_key, td, sptr,
@@ -629,6 +1140,10 @@ SET_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	for(edx = 0; edx < td->elements_count; edx++) {
 		asn_TYPE_member_t *elm = &td->elements[edx];
 		const void *memb_ptr;
+		asn_constr_check_f *constr;
+		int ret;
+
+		if(!elm->type || !elm->name) return -1;
 
 		if(elm->flags & ATF_POINTER) {
 			memb_ptr = *(const void * const *)((const char *)sptr + elm->memb_offset);
@@ -644,13 +1159,12 @@ SET_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			memb_ptr = (const void *)((const char *)sptr + elm->memb_offset);
 		}
 
-		if(elm->encoding_constraints.general_constraints) {
-			return elm->encoding_constraints.general_constraints(
-					elm->type, memb_ptr, ctfailcb, app_key);
-		} else {
-			return elm->type->encoding_constraints.general_constraints(
-					elm->type, memb_ptr, ctfailcb, app_key);
-		}
+		/* A successful child does not exempt later members from validation. */
+		constr = elm->encoding_constraints.general_constraints;
+		if(!constr) constr = elm->type->encoding_constraints.general_constraints;
+		if(!constr) return -1;
+		ret = constr(elm->type, memb_ptr, ctfailcb, app_key);
+		if(ret) return ret;
 	}
 
 	return 0;

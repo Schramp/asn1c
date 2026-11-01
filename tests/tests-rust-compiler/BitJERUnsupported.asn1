@@ -1,0 +1,5 @@
+BitJERUnsupported DEFINITIONS ::= BEGIN
+
+Bits ::= BIT STRING { flagged(0) } (SIZE(1..3))
+
+END

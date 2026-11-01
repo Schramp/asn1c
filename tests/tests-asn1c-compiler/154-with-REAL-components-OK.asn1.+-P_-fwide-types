@@ -120,19 +120,19 @@ WeirdlyConstrainedREAL_constraint(const asn_TYPE_descriptor_t *td, const void *s
 
 /*** <<< STAT-DEFS [WeirdlyConstrainedREAL] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_WeirdlyConstrainedREAL_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_WeirdlyConstrainedREAL_tags_2[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_WeirdlyConstrainedREAL = {
 	"WeirdlyConstrainedREAL",
 	"WeirdlyConstrainedREAL",
 	&asn_OP_REAL,
-	asn_DEF_WeirdlyConstrainedREAL_tags_1,
-	sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_1)
-		/sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_1[0]), /* 1 */
-	asn_DEF_WeirdlyConstrainedREAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_1)
-		/sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_1[0]), /* 1 */
+	asn_DEF_WeirdlyConstrainedREAL_tags_2,
+	sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_2)
+		/sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_2[0]), /* 1 */
+	asn_DEF_WeirdlyConstrainedREAL_tags_2,	/* Same as above */
+	sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_2)
+		/sizeof(asn_DEF_WeirdlyConstrainedREAL_tags_2[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -161,7 +161,7 @@ typedef UnconstrainedREAL_t	 Indirect_IEEE_binary32_t;
 /*** <<< FUNC-DECLS [Indirect-IEEE-binary32] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_Indirect_IEEE_binary32;
-extern const asn_REAL_specifics_t asn_SPC_Indirect_IEEE_binary32_specs_1;
+extern const asn_REAL_specifics_t asn_SPC_Indirect_IEEE_binary32_specs_3;
 asn_struct_free_f Indirect_IEEE_binary32_free;
 asn_struct_print_f Indirect_IEEE_binary32_print;
 asn_constr_check_f Indirect_IEEE_binary32_constraint;
@@ -191,7 +191,8 @@ Indirect_IEEE_binary32_constraint(const asn_TYPE_descriptor_t *td, const void *s
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != Indirect_IEEE_binary32_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != Indirect_IEEE_binary32_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -205,22 +206,22 @@ Indirect_IEEE_binary32_constraint(const asn_TYPE_descriptor_t *td, const void *s
 
 /*** <<< STAT-DEFS [Indirect-IEEE-binary32] >>> ***/
 
-const asn_NativeReal_specifics_t asn_SPC_Indirect_IEEE_binary32_specs_1 = {
+const asn_NativeReal_specifics_t asn_SPC_Indirect_IEEE_binary32_specs_3 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_Indirect_IEEE_binary32_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Indirect_IEEE_binary32_tags_3[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Indirect_IEEE_binary32 = {
 	"Indirect-IEEE-binary32",
 	"Indirect-IEEE-binary32",
 	&asn_OP_REAL,
-	asn_DEF_Indirect_IEEE_binary32_tags_1,
-	sizeof(asn_DEF_Indirect_IEEE_binary32_tags_1)
-		/sizeof(asn_DEF_Indirect_IEEE_binary32_tags_1[0]), /* 1 */
-	asn_DEF_Indirect_IEEE_binary32_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Indirect_IEEE_binary32_tags_1)
-		/sizeof(asn_DEF_Indirect_IEEE_binary32_tags_1[0]), /* 1 */
+	asn_DEF_Indirect_IEEE_binary32_tags_3,
+	sizeof(asn_DEF_Indirect_IEEE_binary32_tags_3)
+		/sizeof(asn_DEF_Indirect_IEEE_binary32_tags_3[0]), /* 1 */
+	asn_DEF_Indirect_IEEE_binary32_tags_3,	/* Same as above */
+	sizeof(asn_DEF_Indirect_IEEE_binary32_tags_3)
+		/sizeof(asn_DEF_Indirect_IEEE_binary32_tags_3[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -234,7 +235,7 @@ asn_TYPE_descriptor_t asn_DEF_Indirect_IEEE_binary32 = {
 		Indirect_IEEE_binary32_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_Indirect_IEEE_binary32_specs_1	/* Additional specs */
+	&asn_SPC_Indirect_IEEE_binary32_specs_3	/* Additional specs */
 };
 
 
@@ -249,7 +250,7 @@ typedef float	 IEEE_binary32_w_t;
 /*** <<< FUNC-DECLS [IEEE-binary32-w] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_w;
-extern const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w_specs_1;
+extern const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w_specs_4;
 asn_struct_free_f IEEE_binary32_w_free;
 asn_struct_print_f IEEE_binary32_w_print;
 asn_constr_check_f IEEE_binary32_w_constraint;
@@ -279,7 +280,8 @@ IEEE_binary32_w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != IEEE_binary32_w_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != IEEE_binary32_w_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -293,22 +295,22 @@ IEEE_binary32_w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [IEEE-binary32-w] >>> ***/
 
-const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w_specs_1 = {
+const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w_specs_4 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_IEEE_binary32_w_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_IEEE_binary32_w_tags_4[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_w = {
 	"IEEE-binary32-w",
 	"IEEE-binary32-w",
 	&asn_OP_NativeReal,
-	asn_DEF_IEEE_binary32_w_tags_1,
-	sizeof(asn_DEF_IEEE_binary32_w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary32_w_tags_1[0]), /* 1 */
-	asn_DEF_IEEE_binary32_w_tags_1,	/* Same as above */
-	sizeof(asn_DEF_IEEE_binary32_w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary32_w_tags_1[0]), /* 1 */
+	asn_DEF_IEEE_binary32_w_tags_4,
+	sizeof(asn_DEF_IEEE_binary32_w_tags_4)
+		/sizeof(asn_DEF_IEEE_binary32_w_tags_4[0]), /* 1 */
+	asn_DEF_IEEE_binary32_w_tags_4,	/* Same as above */
+	sizeof(asn_DEF_IEEE_binary32_w_tags_4)
+		/sizeof(asn_DEF_IEEE_binary32_w_tags_4[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -322,7 +324,7 @@ asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_w = {
 		IEEE_binary32_w_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_IEEE_binary32_w_specs_1	/* Additional specs */
+	&asn_SPC_IEEE_binary32_w_specs_4	/* Additional specs */
 };
 
 
@@ -337,7 +339,7 @@ typedef float	 IEEE_binary32_0w_t;
 /*** <<< FUNC-DECLS [IEEE-binary32-0w] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_0w;
-extern const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_0w_specs_1;
+extern const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_0w_specs_5;
 asn_struct_free_f IEEE_binary32_0w_free;
 asn_struct_print_f IEEE_binary32_0w_print;
 asn_constr_check_f IEEE_binary32_0w_constraint;
@@ -367,7 +369,8 @@ IEEE_binary32_0w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != IEEE_binary32_0w_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != IEEE_binary32_0w_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -381,22 +384,22 @@ IEEE_binary32_0w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [IEEE-binary32-0w] >>> ***/
 
-const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_0w_specs_1 = {
+const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_0w_specs_5 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_IEEE_binary32_0w_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_IEEE_binary32_0w_tags_5[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_0w = {
 	"IEEE-binary32-0w",
 	"IEEE-binary32-0w",
 	&asn_OP_NativeReal,
-	asn_DEF_IEEE_binary32_0w_tags_1,
-	sizeof(asn_DEF_IEEE_binary32_0w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary32_0w_tags_1[0]), /* 1 */
-	asn_DEF_IEEE_binary32_0w_tags_1,	/* Same as above */
-	sizeof(asn_DEF_IEEE_binary32_0w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary32_0w_tags_1[0]), /* 1 */
+	asn_DEF_IEEE_binary32_0w_tags_5,
+	sizeof(asn_DEF_IEEE_binary32_0w_tags_5)
+		/sizeof(asn_DEF_IEEE_binary32_0w_tags_5[0]), /* 1 */
+	asn_DEF_IEEE_binary32_0w_tags_5,	/* Same as above */
+	sizeof(asn_DEF_IEEE_binary32_0w_tags_5)
+		/sizeof(asn_DEF_IEEE_binary32_0w_tags_5[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -410,7 +413,7 @@ asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_0w = {
 		IEEE_binary32_0w_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_IEEE_binary32_0w_specs_1	/* Additional specs */
+	&asn_SPC_IEEE_binary32_0w_specs_5	/* Additional specs */
 };
 
 
@@ -425,7 +428,7 @@ typedef float	 IEEE_binary32_w0_t;
 /*** <<< FUNC-DECLS [IEEE-binary32-w0] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_w0;
-extern const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w0_specs_1;
+extern const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w0_specs_6;
 asn_struct_free_f IEEE_binary32_w0_free;
 asn_struct_print_f IEEE_binary32_w0_print;
 asn_constr_check_f IEEE_binary32_w0_constraint;
@@ -455,7 +458,8 @@ IEEE_binary32_w0_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != IEEE_binary32_w0_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != IEEE_binary32_w0_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -469,22 +473,22 @@ IEEE_binary32_w0_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [IEEE-binary32-w0] >>> ***/
 
-const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w0_specs_1 = {
+const asn_NativeReal_specifics_t asn_SPC_IEEE_binary32_w0_specs_6 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_IEEE_binary32_w0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_IEEE_binary32_w0_tags_6[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_w0 = {
 	"IEEE-binary32-w0",
 	"IEEE-binary32-w0",
 	&asn_OP_NativeReal,
-	asn_DEF_IEEE_binary32_w0_tags_1,
-	sizeof(asn_DEF_IEEE_binary32_w0_tags_1)
-		/sizeof(asn_DEF_IEEE_binary32_w0_tags_1[0]), /* 1 */
-	asn_DEF_IEEE_binary32_w0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_IEEE_binary32_w0_tags_1)
-		/sizeof(asn_DEF_IEEE_binary32_w0_tags_1[0]), /* 1 */
+	asn_DEF_IEEE_binary32_w0_tags_6,
+	sizeof(asn_DEF_IEEE_binary32_w0_tags_6)
+		/sizeof(asn_DEF_IEEE_binary32_w0_tags_6[0]), /* 1 */
+	asn_DEF_IEEE_binary32_w0_tags_6,	/* Same as above */
+	sizeof(asn_DEF_IEEE_binary32_w0_tags_6)
+		/sizeof(asn_DEF_IEEE_binary32_w0_tags_6[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -498,7 +502,7 @@ asn_TYPE_descriptor_t asn_DEF_IEEE_binary32_w0 = {
 		IEEE_binary32_w0_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_IEEE_binary32_w0_specs_1	/* Additional specs */
+	&asn_SPC_IEEE_binary32_w0_specs_6	/* Additional specs */
 };
 
 
@@ -542,7 +546,8 @@ IEEE_binary64_w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != IEEE_binary64_w_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != IEEE_binary64_w_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -556,19 +561,19 @@ IEEE_binary64_w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [IEEE-binary64-w] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_IEEE_binary64_w_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_IEEE_binary64_w_tags_7[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_IEEE_binary64_w = {
 	"IEEE-binary64-w",
 	"IEEE-binary64-w",
 	&asn_OP_NativeReal,
-	asn_DEF_IEEE_binary64_w_tags_1,
-	sizeof(asn_DEF_IEEE_binary64_w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary64_w_tags_1[0]), /* 1 */
-	asn_DEF_IEEE_binary64_w_tags_1,	/* Same as above */
-	sizeof(asn_DEF_IEEE_binary64_w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary64_w_tags_1[0]), /* 1 */
+	asn_DEF_IEEE_binary64_w_tags_7,
+	sizeof(asn_DEF_IEEE_binary64_w_tags_7)
+		/sizeof(asn_DEF_IEEE_binary64_w_tags_7[0]), /* 1 */
+	asn_DEF_IEEE_binary64_w_tags_7,	/* Same as above */
+	sizeof(asn_DEF_IEEE_binary64_w_tags_7)
+		/sizeof(asn_DEF_IEEE_binary64_w_tags_7[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -626,7 +631,8 @@ IEEE_binary64_0w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != IEEE_binary64_0w_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != IEEE_binary64_0w_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -640,19 +646,19 @@ IEEE_binary64_0w_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [IEEE-binary64-0w] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_IEEE_binary64_0w_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_IEEE_binary64_0w_tags_8[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_IEEE_binary64_0w = {
 	"IEEE-binary64-0w",
 	"IEEE-binary64-0w",
 	&asn_OP_NativeReal,
-	asn_DEF_IEEE_binary64_0w_tags_1,
-	sizeof(asn_DEF_IEEE_binary64_0w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary64_0w_tags_1[0]), /* 1 */
-	asn_DEF_IEEE_binary64_0w_tags_1,	/* Same as above */
-	sizeof(asn_DEF_IEEE_binary64_0w_tags_1)
-		/sizeof(asn_DEF_IEEE_binary64_0w_tags_1[0]), /* 1 */
+	asn_DEF_IEEE_binary64_0w_tags_8,
+	sizeof(asn_DEF_IEEE_binary64_0w_tags_8)
+		/sizeof(asn_DEF_IEEE_binary64_0w_tags_8[0]), /* 1 */
+	asn_DEF_IEEE_binary64_0w_tags_8,	/* Same as above */
+	sizeof(asn_DEF_IEEE_binary64_0w_tags_8)
+		/sizeof(asn_DEF_IEEE_binary64_0w_tags_8[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -710,7 +716,8 @@ IEEE_binary64_w0_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != IEEE_binary64_w0_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != IEEE_binary64_w0_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -724,19 +731,19 @@ IEEE_binary64_w0_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [IEEE-binary64-w0] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_IEEE_binary64_w0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_IEEE_binary64_w0_tags_9[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_IEEE_binary64_w0 = {
 	"IEEE-binary64-w0",
 	"IEEE-binary64-w0",
 	&asn_OP_NativeReal,
-	asn_DEF_IEEE_binary64_w0_tags_1,
-	sizeof(asn_DEF_IEEE_binary64_w0_tags_1)
-		/sizeof(asn_DEF_IEEE_binary64_w0_tags_1[0]), /* 1 */
-	asn_DEF_IEEE_binary64_w0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_IEEE_binary64_w0_tags_1)
-		/sizeof(asn_DEF_IEEE_binary64_w0_tags_1[0]), /* 1 */
+	asn_DEF_IEEE_binary64_w0_tags_9,
+	sizeof(asn_DEF_IEEE_binary64_w0_tags_9)
+		/sizeof(asn_DEF_IEEE_binary64_w0_tags_9[0]), /* 1 */
+	asn_DEF_IEEE_binary64_w0_tags_9,	/* Same as above */
+	sizeof(asn_DEF_IEEE_binary64_w0_tags_9)
+		/sizeof(asn_DEF_IEEE_binary64_w0_tags_9[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -782,16 +789,16 @@ typedef struct Test {
 
 /*** <<< FUNC-DECLS [Test] >>> ***/
 
-/* extern asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_2;	// (Use -fall-defs-global to expose) */
-/* extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_3;	// (Use -fall-defs-global to expose) */
-/* extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_4;	// (Use -fall-defs-global to expose) */
-/* extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_5;	// (Use -fall-defs-global to expose) */
+/* extern asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_11;	// (Use -fall-defs-global to expose) */
+/* extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_12;	// (Use -fall-defs-global to expose) */
+/* extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_13;	// (Use -fall-defs-global to expose) */
+/* extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_14;	// (Use -fall-defs-global to expose) */
 extern asn_TYPE_descriptor_t asn_DEF_Test;
 
 /*** <<< CODE [Test] >>> ***/
 
 static int
-indirect_ieee_binary32_2_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
+indirect_ieee_binary32_11_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -807,7 +814,8 @@ indirect_ieee_binary32_2_constraint(const asn_TYPE_descriptor_t *td, const void 
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != indirect_ieee_binary32_2_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != indirect_ieee_binary32_11_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -816,12 +824,12 @@ indirect_ieee_binary32_2_constraint(const asn_TYPE_descriptor_t *td, const void 
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32 __attribute__((weak, alias("asn_DEF_indirect_ieee_binary32_2")));
+extern asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32 __attribute__((weak, alias("asn_DEF_indirect_ieee_binary32_11")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_2;
+static asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_11;
 static asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32;
-__attribute__((constructor)) static void asn_DEF_indirect_ieee_binary32_2_alias_init(void) {
-	asn_DEF_indirect_ieee_binary32 = asn_DEF_indirect_ieee_binary32_2;
+__attribute__((constructor)) static void asn_DEF_indirect_ieee_binary32_11_alias_init(void) {
+	asn_DEF_indirect_ieee_binary32 = asn_DEF_indirect_ieee_binary32_11;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -830,7 +838,7 @@ __attribute__((constructor)) static void asn_DEF_indirect_ieee_binary32_2_alias_
  * so here we adjust the DEF accordingly.
  */
 static int
-ieee_binary32_w_3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
+ieee_binary32_w_12_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -846,7 +854,8 @@ ieee_binary32_w_3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != ieee_binary32_w_3_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != ieee_binary32_w_12_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -855,12 +864,12 @@ ieee_binary32_w_3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w __attribute__((weak, alias("asn_DEF_ieee_binary32_w_3")));
+extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w __attribute__((weak, alias("asn_DEF_ieee_binary32_w_12")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_3;
+static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_12;
 static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w;
-__attribute__((constructor)) static void asn_DEF_ieee_binary32_w_3_alias_init(void) {
-	asn_DEF_ieee_binary32_w = asn_DEF_ieee_binary32_w_3;
+__attribute__((constructor)) static void asn_DEF_ieee_binary32_w_12_alias_init(void) {
+	asn_DEF_ieee_binary32_w = asn_DEF_ieee_binary32_w_12;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -869,7 +878,7 @@ __attribute__((constructor)) static void asn_DEF_ieee_binary32_w_3_alias_init(vo
  * so here we adjust the DEF accordingly.
  */
 static int
-ieee_binary32_0w_4_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
+ieee_binary32_0w_13_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -885,7 +894,8 @@ ieee_binary32_0w_4_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != ieee_binary32_0w_4_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != ieee_binary32_0w_13_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -894,12 +904,12 @@ ieee_binary32_0w_4_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w __attribute__((weak, alias("asn_DEF_ieee_binary32_0w_4")));
+extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w __attribute__((weak, alias("asn_DEF_ieee_binary32_0w_13")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_4;
+static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_13;
 static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w;
-__attribute__((constructor)) static void asn_DEF_ieee_binary32_0w_4_alias_init(void) {
-	asn_DEF_ieee_binary32_0w = asn_DEF_ieee_binary32_0w_4;
+__attribute__((constructor)) static void asn_DEF_ieee_binary32_0w_13_alias_init(void) {
+	asn_DEF_ieee_binary32_0w = asn_DEF_ieee_binary32_0w_13;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -908,7 +918,7 @@ __attribute__((constructor)) static void asn_DEF_ieee_binary32_0w_4_alias_init(v
  * so here we adjust the DEF accordingly.
  */
 static int
-ieee_binary32_w0_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
+ieee_binary32_w0_14_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -924,7 +934,8 @@ ieee_binary32_w0_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != ieee_binary32_w0_5_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != ieee_binary32_w0_14_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -933,12 +944,12 @@ ieee_binary32_w0_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0 __attribute__((weak, alias("asn_DEF_ieee_binary32_w0_5")));
+extern asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0 __attribute__((weak, alias("asn_DEF_ieee_binary32_w0_14")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_5;
+static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_14;
 static asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0;
-__attribute__((constructor)) static void asn_DEF_ieee_binary32_w0_5_alias_init(void) {
-	asn_DEF_ieee_binary32_w0 = asn_DEF_ieee_binary32_w0_5;
+__attribute__((constructor)) static void asn_DEF_ieee_binary32_w0_14_alias_init(void) {
+	asn_DEF_ieee_binary32_w0 = asn_DEF_ieee_binary32_w0_14;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -949,23 +960,23 @@ __attribute__((constructor)) static void asn_DEF_ieee_binary32_w0_5_alias_init(v
 
 /*** <<< STAT-DEFS [Test] >>> ***/
 
-static const asn_NativeReal_specifics_t asn_SPC_indirect_ieee_binary32_specs_2 = {
+static const asn_NativeReal_specifics_t asn_SPC_indirect_ieee_binary32_specs_11 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_indirect_ieee_binary32_tags_2[] = {
+static const ber_tlv_tag_t asn_DEF_indirect_ieee_binary32_tags_11[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_2 = {
+asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_11 = {
 	"indirect-ieee-binary32",
 	"indirect-ieee-binary32",
 	&asn_OP_REAL,
-	asn_DEF_indirect_ieee_binary32_tags_2,
-	sizeof(asn_DEF_indirect_ieee_binary32_tags_2)
-		/sizeof(asn_DEF_indirect_ieee_binary32_tags_2[0]), /* 1 */
-	asn_DEF_indirect_ieee_binary32_tags_2,	/* Same as above */
-	sizeof(asn_DEF_indirect_ieee_binary32_tags_2)
-		/sizeof(asn_DEF_indirect_ieee_binary32_tags_2[0]), /* 1 */
+	asn_DEF_indirect_ieee_binary32_tags_11,
+	sizeof(asn_DEF_indirect_ieee_binary32_tags_11)
+		/sizeof(asn_DEF_indirect_ieee_binary32_tags_11[0]), /* 1 */
+	asn_DEF_indirect_ieee_binary32_tags_11,	/* Same as above */
+	sizeof(asn_DEF_indirect_ieee_binary32_tags_11)
+		/sizeof(asn_DEF_indirect_ieee_binary32_tags_11[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -976,29 +987,29 @@ asn_TYPE_descriptor_t asn_DEF_indirect_ieee_binary32_2 = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		indirect_ieee_binary32_2_constraint
+		indirect_ieee_binary32_11_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_indirect_ieee_binary32_specs_2	/* Additional specs */
+	&asn_SPC_indirect_ieee_binary32_specs_11	/* Additional specs */
 };
 
-static const asn_NativeReal_specifics_t asn_SPC_ieee_binary32_w_specs_3 = {
+static const asn_NativeReal_specifics_t asn_SPC_ieee_binary32_w_specs_12 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_ieee_binary32_w_tags_3[] = {
+static const ber_tlv_tag_t asn_DEF_ieee_binary32_w_tags_12[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_3 = {
+asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_12 = {
 	"ieee-binary32-w",
 	"ieee-binary32-w",
 	&asn_OP_NativeReal,
-	asn_DEF_ieee_binary32_w_tags_3,
-	sizeof(asn_DEF_ieee_binary32_w_tags_3)
-		/sizeof(asn_DEF_ieee_binary32_w_tags_3[0]), /* 1 */
-	asn_DEF_ieee_binary32_w_tags_3,	/* Same as above */
-	sizeof(asn_DEF_ieee_binary32_w_tags_3)
-		/sizeof(asn_DEF_ieee_binary32_w_tags_3[0]), /* 1 */
+	asn_DEF_ieee_binary32_w_tags_12,
+	sizeof(asn_DEF_ieee_binary32_w_tags_12)
+		/sizeof(asn_DEF_ieee_binary32_w_tags_12[0]), /* 1 */
+	asn_DEF_ieee_binary32_w_tags_12,	/* Same as above */
+	sizeof(asn_DEF_ieee_binary32_w_tags_12)
+		/sizeof(asn_DEF_ieee_binary32_w_tags_12[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1009,29 +1020,29 @@ asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w_3 = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		ieee_binary32_w_3_constraint
+		ieee_binary32_w_12_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_ieee_binary32_w_specs_3	/* Additional specs */
+	&asn_SPC_ieee_binary32_w_specs_12	/* Additional specs */
 };
 
-static const asn_NativeReal_specifics_t asn_SPC_ieee_binary32_0w_specs_4 = {
+static const asn_NativeReal_specifics_t asn_SPC_ieee_binary32_0w_specs_13 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_ieee_binary32_0w_tags_4[] = {
+static const ber_tlv_tag_t asn_DEF_ieee_binary32_0w_tags_13[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_4 = {
+asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_13 = {
 	"ieee-binary32-0w",
 	"ieee-binary32-0w",
 	&asn_OP_NativeReal,
-	asn_DEF_ieee_binary32_0w_tags_4,
-	sizeof(asn_DEF_ieee_binary32_0w_tags_4)
-		/sizeof(asn_DEF_ieee_binary32_0w_tags_4[0]), /* 1 */
-	asn_DEF_ieee_binary32_0w_tags_4,	/* Same as above */
-	sizeof(asn_DEF_ieee_binary32_0w_tags_4)
-		/sizeof(asn_DEF_ieee_binary32_0w_tags_4[0]), /* 1 */
+	asn_DEF_ieee_binary32_0w_tags_13,
+	sizeof(asn_DEF_ieee_binary32_0w_tags_13)
+		/sizeof(asn_DEF_ieee_binary32_0w_tags_13[0]), /* 1 */
+	asn_DEF_ieee_binary32_0w_tags_13,	/* Same as above */
+	sizeof(asn_DEF_ieee_binary32_0w_tags_13)
+		/sizeof(asn_DEF_ieee_binary32_0w_tags_13[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1042,29 +1053,29 @@ asn_TYPE_descriptor_t asn_DEF_ieee_binary32_0w_4 = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		ieee_binary32_0w_4_constraint
+		ieee_binary32_0w_13_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_ieee_binary32_0w_specs_4	/* Additional specs */
+	&asn_SPC_ieee_binary32_0w_specs_13	/* Additional specs */
 };
 
-static const asn_NativeReal_specifics_t asn_SPC_ieee_binary32_w0_specs_5 = {
+static const asn_NativeReal_specifics_t asn_SPC_ieee_binary32_w0_specs_14 = {
 	4	/* Use 'float' type. */
 };
-static const ber_tlv_tag_t asn_DEF_ieee_binary32_w0_tags_5[] = {
+static const ber_tlv_tag_t asn_DEF_ieee_binary32_w0_tags_14[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (9 << 2))
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_5 = {
+asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_14 = {
 	"ieee-binary32-w0",
 	"ieee-binary32-w0",
 	&asn_OP_NativeReal,
-	asn_DEF_ieee_binary32_w0_tags_5,
-	sizeof(asn_DEF_ieee_binary32_w0_tags_5)
-		/sizeof(asn_DEF_ieee_binary32_w0_tags_5[0]), /* 1 */
-	asn_DEF_ieee_binary32_w0_tags_5,	/* Same as above */
-	sizeof(asn_DEF_ieee_binary32_w0_tags_5)
-		/sizeof(asn_DEF_ieee_binary32_w0_tags_5[0]), /* 1 */
+	asn_DEF_ieee_binary32_w0_tags_14,
+	sizeof(asn_DEF_ieee_binary32_w0_tags_14)
+		/sizeof(asn_DEF_ieee_binary32_w0_tags_14[0]), /* 1 */
+	asn_DEF_ieee_binary32_w0_tags_14,	/* Same as above */
+	sizeof(asn_DEF_ieee_binary32_w0_tags_14)
+		/sizeof(asn_DEF_ieee_binary32_w0_tags_14[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1075,13 +1086,13 @@ asn_TYPE_descriptor_t asn_DEF_ieee_binary32_w0_5 = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		ieee_binary32_w0_5_constraint
+		ieee_binary32_w0_14_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_ieee_binary32_w0_specs_5	/* Additional specs */
+	&asn_SPC_ieee_binary32_w0_specs_14	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_Test_1[] = {
+static asn_TYPE_member_t asn_MBR_Test_10[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct Test, indirect_ieee_binary32),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (9 << 2)),
 		.tag_mode = 0,
@@ -1223,10 +1234,10 @@ static asn_TYPE_member_t asn_MBR_Test_1[] = {
 		.name = "ieee-binary64-w0"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_Test_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Test_tags_10[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_Test_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_Test_tag2el_10[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (9 << 2)), 0, 0, 6 }, /* indirect-ieee-binary32 */
     { (ASN_TAG_CLASS_UNIVERSAL | (9 << 2)), 1, -1, 5 }, /* ieee-binary32-w */
     { (ASN_TAG_CLASS_UNIVERSAL | (9 << 2)), 2, -2, 4 }, /* ieee-binary32-0w */
@@ -1235,10 +1246,10 @@ static const asn_TYPE_tag2member_t asn_MAP_Test_tag2el_1[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (9 << 2)), 5, -5, 1 }, /* ieee-binary64-0w */
     { (ASN_TAG_CLASS_UNIVERSAL | (9 << 2)), 6, -6, 0 } /* ieee-binary64-w0 */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_Test_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_Test_specs_10 = {
 	sizeof(struct Test),
 	offsetof(struct Test, _asn_ctx),
-	.tag2el = asn_MAP_Test_tag2el_1,
+	.tag2el = asn_MAP_Test_tag2el_10,
 	.tag2el_count = 7,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -1248,12 +1259,12 @@ asn_TYPE_descriptor_t asn_DEF_Test = {
 	"Test",
 	"Test",
 	&asn_OP_SEQUENCE,
-	asn_DEF_Test_tags_1,
-	sizeof(asn_DEF_Test_tags_1)
-		/sizeof(asn_DEF_Test_tags_1[0]), /* 1 */
-	asn_DEF_Test_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Test_tags_1)
-		/sizeof(asn_DEF_Test_tags_1[0]), /* 1 */
+	asn_DEF_Test_tags_10,
+	sizeof(asn_DEF_Test_tags_10)
+		/sizeof(asn_DEF_Test_tags_10[0]), /* 1 */
+	asn_DEF_Test_tags_10,	/* Same as above */
+	sizeof(asn_DEF_Test_tags_10)
+		/sizeof(asn_DEF_Test_tags_10[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1266,9 +1277,9 @@ asn_TYPE_descriptor_t asn_DEF_Test = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_Test_1,
+	asn_MBR_Test_10,
 	7,	/* Elements count */
-	&asn_SPC_Test_specs_1	/* Additional specs */
+	&asn_SPC_Test_specs_10	/* Additional specs */
 };
 
 
@@ -1322,19 +1333,19 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_33")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_33;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_33_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_33;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_33[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -1396,23 +1407,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_33[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_33 = {
 	sizeof(struct encoding),
 	offsetof(struct encoding, _asn_ctx),
 	offsetof(struct encoding, present),
 	sizeof(((struct encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_33,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_33 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -1432,12 +1443,12 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_33,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_33	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_29[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -1501,7 +1512,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_33,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -1519,11 +1530,11 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_29[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_29[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -1531,10 +1542,10 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_29 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_29,
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -1544,12 +1555,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_29,
+	sizeof(asn_DEF_EXTERNAL_tags_29)
+		/sizeof(asn_DEF_EXTERNAL_tags_29[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_29,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_29)
+		/sizeof(asn_DEF_EXTERNAL_tags_29[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1562,8 +1573,8 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_29,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_29	/* Additional specs */
 };
 

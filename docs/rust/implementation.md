@@ -9,7 +9,20 @@ The matching runtime uses `std`, forbids unsafe Rust, and has no dependencies.
 
 `--rust` selects the complete Rust output mode. It generates a Cargo package
 with typed Rust bindings and a local copy of the Rust runtime. The current
-defaults are UPER and CER. An explicit request for an unavailable
+defaults are UPER and CER. `-gen-APER` and `-gen-OER` add paired primitive
+encoders and decoders; `-gen-BER` adds BER decoding and DER encoding.
+`-gen-CBOR` adds direct BOOLEAN, NULL, bounded INTEGER, opaque ANY, fixed or
+bounded BIT/OCTET STRING, and flat SEQUENCE map codecs for these direct field
+types. A bounded direct CHOICE subset uses one-pair text-key maps. SEQUENCE
+supports required, OPTIONAL, and literal BOOLEAN or bounded
+INTEGER DEFAULT fields in this mode. Top-level local primitive CONTAINING
+uses complete inner CBOR bytes inside an outer BIT/OCTET byte string. The narrow
+IOC-selected OPEN TYPE record also supports direct selected CBOR map values.
+-gen-JER adds compact JSON encoding and complete-input decoding for top-level
+BOOLEAN, NULL, bounded INTEGER, direct ANY, direct nonextensible ENUMERATED, direct
+fixed-size or bounded nonextensible OCTET STRING, and direct fixed-size or
+bounded nonextensible BIT STRING assignments. JER for these strings is
+available by itself or together with UPER. An explicit request for an unavailable
 codec or unsupported ASN.1 form fails before publishing output; the C
 compiler's default codec set does not select Rust codecs.
 
@@ -22,6 +35,18 @@ To generate only CER encoding and decoding, disable UPER explicitly:
 
 ```sh
 asn1c --rust -no-gen-UPER -D generated schema.asn1
+cargo check --offline --manifest-path generated/Cargo.toml
+```
+
+For fixed-size OCTET STRING or BIT STRING, bounded-size OCTET STRING or
+BIT STRING, or a SEQUENCE with required and OPTIONAL direct or inline nested
+BOOLEAN, NULL, finite bounded INTEGER, inline nonextensible ENUMERATED,
+fixed-size string, and bounded-size OCTET STRING or BIT STRING fields,
+plus BOOLEAN and bounded INTEGER DEFAULT
+fields, select UPER alone:
+
+```sh
+asn1c --rust -no-gen-CER -D generated schema.asn1
 cargo check --offline --manifest-path generated/Cargo.toml
 ```
 
@@ -50,25 +75,144 @@ fresh directory after adding application code or running Cargo there.
 | Top-level NULL | UPER complete zero-width encoding and prefix decoding |
 | Direct bounded INTEGER | Nonextensible finite signed i64 range; UPER codecs |
 | Top-level BOOLEAN, NULL, bounded INTEGER | CER encoding; INTEGER bounds are finite, nonextensible, and fit `i64` |
-| Runtime limits | Input bytes, output bytes, and meaningful bit work |
+| Runtime limits | Input bytes, output bytes, and cumulative field work for composed UPER values |
+| SEQUENCE | Required and OPTIONAL direct primitives, inline nonextensible ENUMERATED, or inline nested records; BOOLEAN and bounded INTEGER DEFAULT fields; UPER-only shared cursor and presence bitmap |
+| Fixed OCTET STRING and BIT STRING | Direct nonextensible SIZE(N), 0 <= N < 65536; UPER, standalone or SEQUENCE field |
+| Bounded OCTET STRING | One nonextensible SIZE(l..u), 0 <= l < u < 65536; UPER direct/SEQUENCE |
+| Bounded BIT STRING | One nonextensible SIZE(l..u), 0 <= l < u < 65536; UPER direct/SEQUENCE; NamedBitList excluded |
+| Direct fixed OCTET STRING | Opt-in JER hexadecimal string encode/decode; JER alone or with UPER |
+| Direct bounded OCTET STRING | Opt-in JER quoted uppercase-hex encode/decode with complete-input and size-range checks; JER alone or with UPER |
+| Direct fixed BIT STRING | Opt-in JER packed hexadecimal string; JER alone or with UPER |
+| Direct bounded BIT STRING | One nonextensible SIZE(l..u), 0 <= l < u < 65536; JER `value`/`length` object, JER alone or with UPER |
+| Direct ENUMERATED | Nonextensible root values fitting i64, up to 64 items; UPER or opt-in JER encode/decode |
+| Primitive CONTAINING | UPER top-level and required/OPTIONAL SEQUENCE fields; unconstrained BIT/OCTET STRING containing a same-module direct BOOLEAN or non-singleton bounded INTEGER; validates inner range, length, and octet padding |
+| Top-level primitive CONTAINING under CBOR | Unconstrained BIT/OCTET STRING containing a same-module direct BOOLEAN or non-singleton bounded INTEGER; complete inner CBOR value, octet-aligned BIT contents, and C-compatible outer byte string |
+| Direct ANY and required/OPTIONAL ANY SEQUENCE fields | Opaque octets under UPER with C-compatible length framing and shared cursor budgets |
+| Direct ANY | Opt-in APER/OER octet framing, JER hexadecimal strings, and CBOR byte strings; C interoperability vectors and malformed-input checks |
+| Direct BOOLEAN, NULL, bounded INTEGER | Opt-in CBOR prefix encode/decode, including semantic tags and nonminimal heads; bignum tags are rejected |
+| Direct fixed/bounded BIT or OCTET STRING | Opt-in CBOR definite byte-string encode/decode with SIZE checks; BIT STRING includes an unused-bit count octet and validates zero padding |
+| Flat SEQUENCE of CBOR primitives, strings, or ANY | Opt-in definite text-key map; declaration-order encoding, unordered prefix decoding, required/OPTIONAL/DEFAULT fields, duplicate-key checks and unknown definite-item skip |
+| Direct CHOICE of BOOLEAN, NULL, bounded INTEGER or ANY | CBOR-only one-entry text-key map with at most eight alternatives; unknown, duplicate or multiple keys fail |
+| IOC-selected OPEN TYPE under CBOR | Narrow existing two-field required SEQUENCE and local object-set rows; direct BOOLEAN or bounded INTEGER selected value in a text-key map; selector agreement and complete selected value checked; unique unknown keys skipped and duplicate keys rejected |
 | Top-level BOOLEAN, NULL, bounded INTEGER | Strict CER decoding; canonical short-form TLV only |
-| BER/DER decoding or encoding, OER, APER, XER, JER, CBOR | Planned; unavailable in Rust mode |
-| Collections, strings, ENUMERATED, aliases, imports, tagged types | Planned; rejected in this slice |
-| Encoding controls, information objects, parameterized types | Planned; rejected in this slice |
+| Top-level BOOLEAN, NULL, bounded INTEGER | Opt-in BER prefix decoding and DER encoding with `-gen-BER` |
+| Top-level BOOLEAN, NULL, bounded INTEGER | Opt-in APER and OER encode/decode; each call begins at an octet boundary |
+| Top-level BOOLEAN, NULL, bounded INTEGER | Opt-in JER encode/decode of one complete JSON primitive with -gen-JER |
+| Direct fixed OCTET/BIT STRING | Opt-in JER uppercase-hex encoding, case-insensitive complete-input decoding, exact packed size and zero-padding checks, and resource limits |
+| Direct bounded BIT STRING | Opt-in JER minified `{"value":"HEX","length":N}` encoding and complete-input decoding with range, padding, and resource-limit checks |
+| Direct ENUMERATED | Opt-in JER quoted-name encode/decode; complete input, JSON whitespace, unknown-name and resource-limit checks |
+| Flat SET and SEQUENCE | XER-only basic encoder for direct BOOLEAN, bounded INTEGER, unconstrained IA5String and REAL DEFAULT 0.5 fields; OPTIONAL and supported DEFAULT fields use `Option` |
+| XER and CBOR/JER outside the listed slices | Planned; unavailable in Rust mode |
+| SET outside the listed XER slice, collections, CHOICE outside the listed CBOR slice, extensible, unbounded, fragmented or disjoint strings, named-bit strings, extensible ENUMERATED, aliases, imports, top-level tagged types | Planned; rejected in this slice |
+| Encoding controls, other information-object forms, parameterized types | Planned; rejected in this slice |
+| IOC-selected OPEN TYPE | UPER, APER, OER, CBOR; one local nonextensible set, bounded INTEGER selector, BOOLEAN or bounded INTEGER rows, and a two-field required SEQUENCE; APER selector 0..255 and row spans <=255 |
+| Other CONTAINING and OPEN TYPE forms | Unsupported; rejected before output publication |
+| ANY in SEQUENCE outside UPER/CBOR, and ANY under BER/DER, CER, or XER | Require codec-specific opaque-value semantics; rejected before output publication |
+
+For CBOR SEQUENCE, an omitted literal DEFAULT decodes to the default value.
+The Rust record does not retain whether that field appeared on the wire, so
+encoding that record includes the value explicitly. Generated C emits a DEFAULT
+member when its pointer is populated and omits it when absent.
+
+The XER slice is selected with `-gen-XER -no-gen-UPER -no-gen-CER` and does
+not provide decoding or canonical XER. Untagged and AUTOMATIC TAGS records
+are supported; explicitly tagged fields are rejected. It emits absent BOOLEAN, INTEGER and
+REAL DEFAULT fields, omits absent OPTIONAL fields, and rejects unsupported
+shapes and mixed codec selections before publication. REAL accepts only DEFAULT
+0.5 and finite values of magnitude at most 1,000,000, with nonzero magnitude
+at least 1e-15; values whose formatted decimal cannot round-trip are rejected.
+IA5 accepts tab, line feed, carriage return, and ASCII 0x20–0x7f; other IA5
+control characters and their XER control elements are unsupported. Carriage
+returns use XML character references to survive line-ending normalization.
+Output and work limits apply to the complete XML value.
 
 BOOLEAN and INTEGER wrappers expose constructors, value getters, and the
 methods selected during generation. UPER methods encode and prefix-decode the
 supported primitives. CER adds `encode_cer` and strict `decode_cer` methods for
-BOOLEAN, NULL, and bounded INTEGER. NULL is a unit struct. INTEGER construction checks the
+BOOLEAN, NULL, and bounded INTEGER. APER and OER add matching encode/decode
+methods for the same subset when explicitly selected. NULL is a unit struct.
+JER emits `true`, `false`, `null`, or minimal signed decimal text. Its decoder
+accepts surrounding JSON whitespace and `-0`, rejects a second value and
+malformed JSON numbers, and reports consumption of the entire input. It is
+not a streaming decoder. Applications should use a JSON number parser that
+preserves the full signed 64-bit range when consuming its output.
+The C NULL decoder accepts some malformed tokens beginning with `n`; the Rust
+decoder requires the complete `null` literal. C's JER INTEGER parser uses
+native `long` and may have a narrower range on 32-bit targets.
+INTEGER construction checks the
 declared range. Codecs return typed errors for malformed values, invalid
 constraints, exceeded limits, or allocation failure.
+Generated SEQUENCE structs expose required and DEFAULT fields directly and
+represent OPTIONAL fields as `Option<T>`. Inline nonextensible ENUMERATED
+fields use their declared numeric values and encode declaration-order PER
+ranks; unknown values and spare ranks are rejected. Inline nested SEQUENCE fields use
+deterministic public Rust record types. Nested record types and aggregate field
+work are bounded during generation; cycles and generated-name collisions are
+rejected. Constructed DEFAULTs, extensions, aliases, and imports remain
+unsupported. DEFAULT is supported only for literal BOOLEAN and in-range finite
+bounded INTEGER values. Each record writes or reads its own OPTIONAL and
+DEFAULT presence bitmap immediately before that record's payload. Encoding
+omits a DEFAULT payload when the field equals its literal; decoding substitutes
+the literal when absent and accepts a present value equal to the default.
+UPER ignores direct component tags, including `AUTOMATIC TAGS`; tagged
+top-level types remain unsupported. Fields pack without per-field padding.
+Private `encode_uper_fields` and `decode_uper_fields` helpers pass one cursor
+through all records; only the public top-level methods create the cursor and
+finish the complete value. One budget covers the whole operation. Each field
+charges its wire bits plus eight work units, including presence bits, NULL, and
+singleton INTEGER fields.
+The entire decode slice counts toward the input-byte limit. Only a complete
+zero-width SEQUENCE uses one zero filler byte; a zero-width field inside a
+nonzero value adds none.
+Fixed OCTET STRING values use exactly N octets; fixed BIT STRING values use
+ceil(N/8) octets with unused low bits zero in the Rust API. The two string
+forms contribute N*8 and N wire bits, respectively, with no length determinant
+or per-field alignment. Constructors and cursor writes reject invalid lengths
+and nonzero unused BIT STRING bits. This subset excludes PER fragmentation.
+For a bounded OCTET STRING or BIT STRING with `SIZE(l..u)`, UPER writes the
+constrained length offset in `ceil(log2(u-l+1))` bits, followed immediately by
+the content octets or meaningful bits. Both share the unaligned cursor; no
+field alignment is inserted. `BitStringValue` preserves the exact logical bit
+length and validates zero unused low bits in its storage. The runtime validates
+spare length codes, input bounds, work, and output limits before allocating or
+committing reader state. Generated wrappers validate `l <= value.len() <= u`
+for octets and the corresponding bit length for BIT STRING. These forms use
+UPER for SEQUENCE fields. Direct OCTET STRING assignments also support
+`-gen-JER` for fixed and bounded sizes; both emit C-compatible quoted uppercase
+hexadecimal and decode one complete token with a range check. `NamedBitList`
+forms are rejected because they use separate canonicalization rules. With
+`-gen-JER`, fixed OCTET STRING and BIT STRING assignments use the C-compatible
+quoted hexadecimal form. BIT STRING values
+include their packed octets and require zero unused low bits. Bounded BIT STRING
+assignments use the C-compatible minified object with `value` before `length`;
+the decoder validates the declared range, exact packed-octet count, and zero
+padding. Encoding uses uppercase hex; decoding accepts uppercase or lowercase
+digits and surrounding JSON whitespace, then requires complete input. JER is
+available without UPER or alongside UPER for these direct assignments.
+Direct ENUMERATED values are Rust enum variants. Their UPER indexes follow
+ascending ASN.1 numeric value order, including when declaration order differs.
+Unused root indexes fail decoding; a singleton uses zero meaningful bits and
+the complete-value filler. With -gen-JER, root alternatives encode as the
+same quoted ASN.1 identifiers used by C, independent of numeric value order.
+The JER decoder accepts one complete quoted known name with JSON whitespace
+around it and rejects escapes, unknown names, trailing data, and over-limit
+input or lookup work. Extension markers and named-number constraints are
+outside this ENUMERATED subset.
 
-CER methods emit complete TLV byte strings. `Encoded.bit_len` is the encoded
+CER and DER methods emit complete TLV byte strings. `Encoded.bit_len` is the encoded
 byte length multiplied by eight. `decode_cer` accepts only the exact universal
 tag, a short-form definite length, and canonical content; it rejects long-form
 or indefinite lengths, BOOLEAN content other than `00`/`FF`, non-empty NULL,
 and non-minimal or out-of-range INTEGER. Trailing bytes are left unconsumed.
-The C `ATS_CER` decoder is likewise strict.
+The C `ATS_CER` decoder is likewise strict. BER decoding accepts definite
+long-form lengths and any nonzero BOOLEAN content octet as true. The current
+Rust BER BOOLEAN decoder requires exactly one content octet; the C decoder
+also accepts malformed longer forms. This is a documented parity gap, not a
+claim that those forms are valid BER. The Rust BER INTEGER decoder accepts
+redundant sign-extension octets as a compatibility extension, while DER and
+CER output remain minimal. The wire-form distinctions follow
+[ITU-T X.690 (2021)](https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.690-202102-I%21%21PDF-E&lang=e&type=items),
+clauses 8.1.3, 8.2, and 8.3.
 
 `Encoded` carries output bytes and meaningful bit length. `Decoded<T>` carries
 the value and consumed bits and bytes. Prefix decoding may leave a suffix;
@@ -88,22 +232,27 @@ documents the API.
 The runtime tests cover independent vectors, signed and full-i64 endpoints,
 singleton ranges, spare codes, truncation, padding, consumption, and limits.
 A deterministic mutation test exhausts every first-byte pattern of a small
-constrained INTEGER. The compiler integration harness builds generated Cargo
+constrained INTEGER and flips each meaningful bit in bounded OCTET and BIT
+STRING golden vectors. The compiler integration harness builds generated Cargo
 packages offline and checks CLI failures, schema gates, output ownership,
 repeat generation. Rust CI checks runtime formatting,
 unit tests, Clippy, generated codecs, and installed runtime packaging.
 
-The Rust runtime suite passed 10 tests. The generated Rust harness passed all
-10 conformance checks against the corrected C encoder, including fresh C
-UPER/CER reference comparisons, C decoding of generated Rust UPER/CER bytes,
-codec selection, and negative-schema checks. Earlier runtime formatting,
-Clippy, and generated CER-only offline checks passed. The installed-toolchain
-and source-distribution qualifications pass; the source distribution included
-all 13 required assets. Hosted Rust CI has not yet run for this slice. No
-minimum Rust compiler version is claimed.
+The Rust runtime suite includes composable UPER cursors,
+fixed strings, APER/OER range transitions, JER primitives, malformed-input,
+and limit cases.
+The generated Rust harness includes primitive, string, ENUMERATED, and flat
+SEQUENCE tests, including C comparisons for selected UPER/CER/APER/OER/JER vectors,
+C decoding of Rust output, codec selection, and negative-schema checks.
+Runtime and generated crates pass pedantic and nursery Clippy with warnings
+denied. `make dist` includes the APER, OER, JER, CBOR, XER, and UPER cursor modules and their
+test fixtures; `make install-data` installs the runtime modules. Hosted Rust CI has not yet run
+for this extension. No minimum Rust compiler version is claimed.
 
 These are first-slice gates. The [test migration plan](testing.md) remains the
-stage-wide target; additional primitive types and constructed UPER types come
-next, followed by the remaining codec families. The CER encoder is also only a
-first slice and does not establish whole-runtime parity. No minimum Rust
-compiler version is claimed.
+stage-wide target; unsupported DEFAULT forms, other SET shapes, and open types still need
+schema and codec support. XER and CBOR/JER for types outside the listed slices remain unimplemented.
+The CER encoder is also only a first slice and does not establish whole-runtime
+parity.
+
+The [OPEN TYPE boundary and plan](open-type-plan.md) describes the current selector-driven subset and future work.

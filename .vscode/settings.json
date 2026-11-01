@@ -1,10 +1,12 @@
 {
-    "makefile.configureOnOpen": true,
-    "files.associations": {
-        "*.h": "c"
-    },
     "C_Cpp.files.exclude": {
         "**/.worktrees": true
+    },
+    "chat.tools.terminal.autoApprove": {
+        "git fetch": true,
+        "git merge-base": true,
+        "git remote": true,
+        "printf": true
     },
     "cSpell.words": [
         "acho",
@@ -120,10 +122,39 @@
         "ybuf",
         "zhouvlia"
     ],
-    "chat.tools.terminal.autoApprove": {
-        "git remote": true,
-        "git fetch": true,
-        "git merge-base": true,
-        "printf": true
-    }
+    "files.associations": {
+        "*.h": "c"
+    },
+    "makefile.configurations": [
+        {
+            "name": "Unnamed configuration 1",
+            "options.shell": "/bin/bash",
+            "type": "shell"
+        },
+        {
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "miDebuggerPath": "/opt/local/bin/ggdb",
+            "MIMode": "gdb",
+            "name": "Makefile",
+            "oldtype": "cppdbg",
+            "options.shell": "/bin/bash",
+            "preLaunchTask": "make",
+            "program": "${workspaceFolder}/${workspaceFolderBasename}",
+            "request": "launch",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "ignoreFailures": true,
+                    "text": "-enable-pretty-printing"
+                }
+            ],
+            "stopAtEntry": false,
+            "symbolSearchPath": "${workspaceFolder}",
+            "type": "cppdbg"
+        }
+    ],
+    "makefile.configureOnOpen": true
 }

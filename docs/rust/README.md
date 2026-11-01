@@ -3,15 +3,36 @@
 This directory defines the first stage of converting asn1c to Rust: generate Rust
 types and codecs backed by a Rust implementation of the runtime currently in
 `skeletons/`, and migrate the relevant codec tests. The compiler frontend remains
-in C during this stage. The first implementation supplies a safe Rust runtime
-for UPER BOOLEAN, NULL, and bounded INTEGER values; the remaining runtime and
-codec coverage is an incremental conversion target.
+in C during this stage. The implemented Rust runtime covers selected UPER,
+APER, OER, CER, BER, DER, and JER operations for BOOLEAN, NULL, and bounded INTEGER values;
+the remaining runtime and codec coverage is an incremental conversion target.
 
 The user authorized backend implementation on 2026-10-11. The selected mode is
 `--rust`; codec coverage is incremental and uses safe Rust with `std`. The
-current generated-code slice supports UPER encode/decode for BOOLEAN, NULL,
-and bounded nonextensible INTEGER, plus CER encoding for those types. CER
-decoding and the remaining codecs are not implemented in Rust.
+current generated-code slice supports UPER encode/decode, CER encode/strict
+decode, and opt-in APER/OER/JER encode/decode or BER decode/DER encode for BOOLEAN, NULL, and bounded
+nonextensible INTEGER. Other types and codecs remain conversion targets.
+An explicit UPER-only selection also supports SEQUENCE assignments with
+required and OPTIONAL direct primitive or inline nested fields, BOOLEAN and
+bounded INTEGER DEFAULT fields, and one cumulative resource budget. Direct
+nonextensible fixed-size OCTET STRING and BIT STRING assignments and fields
+are also supported with that selection.
+Direct OCTET STRING assignments and SEQUENCE fields with one contiguous,
+nonextensible `SIZE(l..u)` range (`0 <= l < u < 65536`) also support UPER
+encode/decode. Direct bounded OCTET STRING assignments additionally support
+opt-in JER encode/decode as quoted uppercase hexadecimal; that JER selection
+can stand alone or accompany UPER. Extensible, unbounded, disjoint, and larger
+ranges remain unsupported.
+The same UPER-only subset supports nonextensible BIT STRING ranges with an
+explicit packed value and exact bit length. Direct fixed and bounded BIT STRING
+assignments also support opt-in JER with `-gen-JER`; bounded values preserve
+their exact bit length in C's `{"value":"HEX","length":N}` object form.
+`NamedBitList` forms remain unsupported, and JER for SEQUENCE string fields is
+not available.
+Direct nonextensible fixed-size OCTET STRING assignments additionally support
+opt-in JER encode/decode with `-gen-JER`.
+The same selection supports direct nonextensible ENUMERATED assignments;
+JER is also available for those assignments when selected explicitly.
 
 Start with the [architecture decision](architecture.md) and
 [implementation plan](stage-one-plan.md). Supporting designs describe the

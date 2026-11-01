@@ -1,1 +1,0 @@
-/home/runner/work/asn1c/asn1c/skeletons/asn_codecs_prim_jer.c

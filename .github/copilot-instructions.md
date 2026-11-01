@@ -111,6 +111,16 @@ make -C tests/tests-asn1c-compiler check  # run specific test suite
 - **tests-c-compiler/**: Generated code compilation tests
 - **tests-randomized/**: Fuzzing and stress tests
 
+### Generated Output and Git Hygiene
+- Run compiler and code-generation experiments in a temporary directory, not in
+  the repository root or the top-level `tests/` directory.
+- Do not add generated compiler output, generated makefile fragments, binaries,
+  or symlinks to skeleton files to the top-level `tests/` directory. Put
+  intentional regression fixtures in the appropriate test-suite directory and
+  follow that suite's existing fixture conventions.
+- Before finalizing changes, inspect `git status --short` and the staged diff.
+  Remove accidental symlinks and generated artifacts before committing.
+
 ## Domain-Specific Knowledge
 
 ### ASN.1 Concepts to Understand

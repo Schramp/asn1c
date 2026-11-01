@@ -1,0 +1,10 @@
+ReproUse DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+IMPORTS PROTOCOL-IES, ProtocolIE-ContainerList FROM ReproTemplate;
+
+IES-A PROTOCOL-IES ::= { { ID 1 TYPE INTEGER } }
+IES-B PROTOCOL-IES ::= { { ID 2 TYPE BOOLEAN } }
+
+E ::= ProtocolIE-ContainerList {{IES-A}}
+F ::= ProtocolIE-ContainerList {{IES-B}}
+
+END

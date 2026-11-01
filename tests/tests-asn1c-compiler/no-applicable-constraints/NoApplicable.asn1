@@ -1,0 +1,10 @@
+-- Value constraints below are syntactically accepted but have no applicable
+-- runtime value check for OCTET STRING or BIT STRING.
+NoApplicable DEFINITIONS ::= BEGIN
+
+T ::= OCTET STRING ("Value Constraint")
+B ::= BIT STRING ("Value Constraint")
+Base ::= OCTET STRING
+Alias ::= Base ("Value Constraint")
+
+END

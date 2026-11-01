@@ -119,29 +119,29 @@ B_0_0_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [B-0-0] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_B_0_0_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_B_0_0_constr_2 CC_NOTUSED = {
 	{ 1, 1 }	/* (0..0) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [B-0-0] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_B_0_0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_B_0_0_tags_2[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_B_0_0 = {
 	"B-0-0",
 	"B-0-0",
 	&asn_OP_NativeInteger,
-	asn_DEF_B_0_0_tags_1,
-	sizeof(asn_DEF_B_0_0_tags_1)
-		/sizeof(asn_DEF_B_0_0_tags_1[0]), /* 1 */
-	asn_DEF_B_0_0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_B_0_0_tags_1)
-		/sizeof(asn_DEF_B_0_0_tags_1[0]), /* 1 */
+	asn_DEF_B_0_0_tags_2,
+	sizeof(asn_DEF_B_0_0_tags_2)
+		/sizeof(asn_DEF_B_0_0_tags_2[0]), /* 1 */
+	asn_DEF_B_0_0_tags_2,	/* Same as above */
+	sizeof(asn_DEF_B_0_0_tags_2)
+		/sizeof(asn_DEF_B_0_0_tags_2[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_B_0_0_constr_1,
+		&asn_OER_type_B_0_0_constr_2,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -214,29 +214,29 @@ C_1_2_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [C-1-2] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_C_1_2_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_C_1_2_constr_3 CC_NOTUSED = {
 	{ 1, 1 }	/* (1..2) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [C-1-2] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_C_1_2_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_C_1_2_tags_3[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_C_1_2 = {
 	"C-1-2",
 	"C-1-2",
 	&asn_OP_NativeInteger,
-	asn_DEF_C_1_2_tags_1,
-	sizeof(asn_DEF_C_1_2_tags_1)
-		/sizeof(asn_DEF_C_1_2_tags_1[0]), /* 1 */
-	asn_DEF_C_1_2_tags_1,	/* Same as above */
-	sizeof(asn_DEF_C_1_2_tags_1)
-		/sizeof(asn_DEF_C_1_2_tags_1[0]), /* 1 */
+	asn_DEF_C_1_2_tags_3,
+	sizeof(asn_DEF_C_1_2_tags_3)
+		/sizeof(asn_DEF_C_1_2_tags_3[0]), /* 1 */
+	asn_DEF_C_1_2_tags_3,	/* Same as above */
+	sizeof(asn_DEF_C_1_2_tags_3)
+		/sizeof(asn_DEF_C_1_2_tags_3[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_C_1_2_constr_1,
+		&asn_OER_type_C_1_2_constr_3,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -309,29 +309,29 @@ D_inv_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [D-inv] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_D_inv_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_D_inv_constr_4 CC_NOTUSED = {
 	{ 0, 0 },
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [D-inv] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_D_inv_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_D_inv_tags_4[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_D_inv = {
 	"D-inv",
 	"D-inv",
 	&asn_OP_NativeInteger,
-	asn_DEF_D_inv_tags_1,
-	sizeof(asn_DEF_D_inv_tags_1)
-		/sizeof(asn_DEF_D_inv_tags_1[0]), /* 1 */
-	asn_DEF_D_inv_tags_1,	/* Same as above */
-	sizeof(asn_DEF_D_inv_tags_1)
-		/sizeof(asn_DEF_D_inv_tags_1[0]), /* 1 */
+	asn_DEF_D_inv_tags_4,
+	sizeof(asn_DEF_D_inv_tags_4)
+		/sizeof(asn_DEF_D_inv_tags_4[0]), /* 1 */
+	asn_DEF_D_inv_tags_4,	/* Same as above */
+	sizeof(asn_DEF_D_inv_tags_4)
+		/sizeof(asn_DEF_D_inv_tags_4[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_D_inv_constr_1,
+		&asn_OER_type_D_inv_constr_4,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -404,29 +404,29 @@ E_2_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [E-2-5] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_E_2_5_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_E_2_5_constr_5 CC_NOTUSED = {
 	{ 1, 1 }	/* (2..5) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [E-2-5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_E_2_5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_E_2_5_tags_5[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_E_2_5 = {
 	"E-2-5",
 	"E-2-5",
 	&asn_OP_NativeInteger,
-	asn_DEF_E_2_5_tags_1,
-	sizeof(asn_DEF_E_2_5_tags_1)
-		/sizeof(asn_DEF_E_2_5_tags_1[0]), /* 1 */
-	asn_DEF_E_2_5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_E_2_5_tags_1)
-		/sizeof(asn_DEF_E_2_5_tags_1[0]), /* 1 */
+	asn_DEF_E_2_5_tags_5,
+	sizeof(asn_DEF_E_2_5_tags_5)
+		/sizeof(asn_DEF_E_2_5_tags_5[0]), /* 1 */
+	asn_DEF_E_2_5_tags_5,	/* Same as above */
+	sizeof(asn_DEF_E_2_5_tags_5)
+		/sizeof(asn_DEF_E_2_5_tags_5[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_E_2_5_constr_1,
+		&asn_OER_type_E_2_5_constr_5,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -499,29 +499,29 @@ F_inv_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [F-inv] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_F_inv_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_F_inv_constr_6 CC_NOTUSED = {
 	{ 1, 1 }	/* (0..10) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [F-inv] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_F_inv_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_F_inv_tags_6[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_F_inv = {
 	"F-inv",
 	"F-inv",
 	&asn_OP_NativeInteger,
-	asn_DEF_F_inv_tags_1,
-	sizeof(asn_DEF_F_inv_tags_1)
-		/sizeof(asn_DEF_F_inv_tags_1[0]), /* 1 */
-	asn_DEF_F_inv_tags_1,	/* Same as above */
-	sizeof(asn_DEF_F_inv_tags_1)
-		/sizeof(asn_DEF_F_inv_tags_1[0]), /* 1 */
+	asn_DEF_F_inv_tags_6,
+	sizeof(asn_DEF_F_inv_tags_6)
+		/sizeof(asn_DEF_F_inv_tags_6[0]), /* 1 */
+	asn_DEF_F_inv_tags_6,	/* Same as above */
+	sizeof(asn_DEF_F_inv_tags_6)
+		/sizeof(asn_DEF_F_inv_tags_6[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_F_inv_constr_1,
+		&asn_OER_type_F_inv_constr_6,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -594,29 +594,29 @@ G_3_3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [G-3-3] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_G_3_3_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_G_3_3_constr_7 CC_NOTUSED = {
 	{ 1, 1 }	/* (3..3) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [G-3-3] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_G_3_3_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_G_3_3_tags_7[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_G_3_3 = {
 	"G-3-3",
 	"G-3-3",
 	&asn_OP_NativeInteger,
-	asn_DEF_G_3_3_tags_1,
-	sizeof(asn_DEF_G_3_3_tags_1)
-		/sizeof(asn_DEF_G_3_3_tags_1[0]), /* 1 */
-	asn_DEF_G_3_3_tags_1,	/* Same as above */
-	sizeof(asn_DEF_G_3_3_tags_1)
-		/sizeof(asn_DEF_G_3_3_tags_1[0]), /* 1 */
+	asn_DEF_G_3_3_tags_7,
+	sizeof(asn_DEF_G_3_3_tags_7)
+		/sizeof(asn_DEF_G_3_3_tags_7[0]), /* 1 */
+	asn_DEF_G_3_3_tags_7,	/* Same as above */
+	sizeof(asn_DEF_G_3_3_tags_7)
+		/sizeof(asn_DEF_G_3_3_tags_7[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_G_3_3_constr_1,
+		&asn_OER_type_G_3_3_constr_7,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -689,29 +689,29 @@ H_4_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [H-4-5] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_H_4_5_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_H_4_5_constr_8 CC_NOTUSED = {
 	{ 1, 1 }	/* (4..5) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [H-4-5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_H_4_5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_H_4_5_tags_8[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_H_4_5 = {
 	"H-4-5",
 	"H-4-5",
 	&asn_OP_NativeInteger,
-	asn_DEF_H_4_5_tags_1,
-	sizeof(asn_DEF_H_4_5_tags_1)
-		/sizeof(asn_DEF_H_4_5_tags_1[0]), /* 1 */
-	asn_DEF_H_4_5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_H_4_5_tags_1)
-		/sizeof(asn_DEF_H_4_5_tags_1[0]), /* 1 */
+	asn_DEF_H_4_5_tags_8,
+	sizeof(asn_DEF_H_4_5_tags_8)
+		/sizeof(asn_DEF_H_4_5_tags_8[0]), /* 1 */
+	asn_DEF_H_4_5_tags_8,	/* Same as above */
+	sizeof(asn_DEF_H_4_5_tags_8)
+		/sizeof(asn_DEF_H_4_5_tags_8[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_H_4_5_constr_1,
+		&asn_OER_type_H_4_5_constr_8,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -784,29 +784,29 @@ I_1_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [I-1-5] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_I_1_5_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_I_1_5_constr_9 CC_NOTUSED = {
 	{ 1, 1 }	/* (1..5) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [I-1-5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_I_1_5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_I_1_5_tags_9[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_I_1_5 = {
 	"I-1-5",
 	"I-1-5",
 	&asn_OP_NativeInteger,
-	asn_DEF_I_1_5_tags_1,
-	sizeof(asn_DEF_I_1_5_tags_1)
-		/sizeof(asn_DEF_I_1_5_tags_1[0]), /* 1 */
-	asn_DEF_I_1_5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_I_1_5_tags_1)
-		/sizeof(asn_DEF_I_1_5_tags_1[0]), /* 1 */
+	asn_DEF_I_1_5_tags_9,
+	sizeof(asn_DEF_I_1_5_tags_9)
+		/sizeof(asn_DEF_I_1_5_tags_9[0]), /* 1 */
+	asn_DEF_I_1_5_tags_9,	/* Same as above */
+	sizeof(asn_DEF_I_1_5_tags_9)
+		/sizeof(asn_DEF_I_1_5_tags_9[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_I_1_5_constr_1,
+		&asn_OER_type_I_1_5_constr_9,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -879,29 +879,29 @@ J_4_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [J-4-5] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_J_4_5_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_J_4_5_constr_10 CC_NOTUSED = {
 	{ 1, 1 }	/* (4..5) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [J-4-5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_J_4_5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_J_4_5_tags_10[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_J_4_5 = {
 	"J-4-5",
 	"J-4-5",
 	&asn_OP_NativeInteger,
-	asn_DEF_J_4_5_tags_1,
-	sizeof(asn_DEF_J_4_5_tags_1)
-		/sizeof(asn_DEF_J_4_5_tags_1[0]), /* 1 */
-	asn_DEF_J_4_5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_J_4_5_tags_1)
-		/sizeof(asn_DEF_J_4_5_tags_1[0]), /* 1 */
+	asn_DEF_J_4_5_tags_10,
+	sizeof(asn_DEF_J_4_5_tags_10)
+		/sizeof(asn_DEF_J_4_5_tags_10[0]), /* 1 */
+	asn_DEF_J_4_5_tags_10,	/* Same as above */
+	sizeof(asn_DEF_J_4_5_tags_10)
+		/sizeof(asn_DEF_J_4_5_tags_10[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_J_4_5_constr_1,
+		&asn_OER_type_J_4_5_constr_10,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -974,29 +974,29 @@ K_1_4_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [K-1-4] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_K_1_4_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_K_1_4_constr_11 CC_NOTUSED = {
 	{ 1, 1 }	/* (1..4) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [K-1-4] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_K_1_4_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_K_1_4_tags_11[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_K_1_4 = {
 	"K-1-4",
 	"K-1-4",
 	&asn_OP_NativeInteger,
-	asn_DEF_K_1_4_tags_1,
-	sizeof(asn_DEF_K_1_4_tags_1)
-		/sizeof(asn_DEF_K_1_4_tags_1[0]), /* 1 */
-	asn_DEF_K_1_4_tags_1,	/* Same as above */
-	sizeof(asn_DEF_K_1_4_tags_1)
-		/sizeof(asn_DEF_K_1_4_tags_1[0]), /* 1 */
+	asn_DEF_K_1_4_tags_11,
+	sizeof(asn_DEF_K_1_4_tags_11)
+		/sizeof(asn_DEF_K_1_4_tags_11[0]), /* 1 */
+	asn_DEF_K_1_4_tags_11,	/* Same as above */
+	sizeof(asn_DEF_K_1_4_tags_11)
+		/sizeof(asn_DEF_K_1_4_tags_11[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_K_1_4_constr_1,
+		&asn_OER_type_K_1_4_constr_11,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1069,29 +1069,29 @@ L_0_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [L-0-5] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_L_0_5_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_L_0_5_constr_12 CC_NOTUSED = {
 	{ 1, 1 }	/* (0..5) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [L-0-5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_L_0_5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_L_0_5_tags_12[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_L_0_5 = {
 	"L-0-5",
 	"L-0-5",
 	&asn_OP_NativeInteger,
-	asn_DEF_L_0_5_tags_1,
-	sizeof(asn_DEF_L_0_5_tags_1)
-		/sizeof(asn_DEF_L_0_5_tags_1[0]), /* 1 */
-	asn_DEF_L_0_5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_L_0_5_tags_1)
-		/sizeof(asn_DEF_L_0_5_tags_1[0]), /* 1 */
+	asn_DEF_L_0_5_tags_12,
+	sizeof(asn_DEF_L_0_5_tags_12)
+		/sizeof(asn_DEF_L_0_5_tags_12[0]), /* 1 */
+	asn_DEF_L_0_5_tags_12,	/* Same as above */
+	sizeof(asn_DEF_L_0_5_tags_12)
+		/sizeof(asn_DEF_L_0_5_tags_12[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_L_0_5_constr_1,
+		&asn_OER_type_L_0_5_constr_12,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1164,29 +1164,29 @@ M_inv_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [M-inv] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_M_inv_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_M_inv_constr_13 CC_NOTUSED = {
 	{ 0, 0 },
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [M-inv] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_M_inv_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_M_inv_tags_13[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_M_inv = {
 	"M-inv",
 	"M-inv",
 	&asn_OP_NativeInteger,
-	asn_DEF_M_inv_tags_1,
-	sizeof(asn_DEF_M_inv_tags_1)
-		/sizeof(asn_DEF_M_inv_tags_1[0]), /* 1 */
-	asn_DEF_M_inv_tags_1,	/* Same as above */
-	sizeof(asn_DEF_M_inv_tags_1)
-		/sizeof(asn_DEF_M_inv_tags_1[0]), /* 1 */
+	asn_DEF_M_inv_tags_13,
+	sizeof(asn_DEF_M_inv_tags_13)
+		/sizeof(asn_DEF_M_inv_tags_13[0]), /* 1 */
+	asn_DEF_M_inv_tags_13,	/* Same as above */
+	sizeof(asn_DEF_M_inv_tags_13)
+		/sizeof(asn_DEF_M_inv_tags_13[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_M_inv_constr_1,
+		&asn_OER_type_M_inv_constr_13,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1259,29 +1259,29 @@ N_0_5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [N-0-5] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_N_0_5_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_N_0_5_constr_14 CC_NOTUSED = {
 	{ 1, 1 }	/* (0..5) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [N-0-5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_N_0_5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_N_0_5_tags_14[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_N_0_5 = {
 	"N-0-5",
 	"N-0-5",
 	&asn_OP_NativeInteger,
-	asn_DEF_N_0_5_tags_1,
-	sizeof(asn_DEF_N_0_5_tags_1)
-		/sizeof(asn_DEF_N_0_5_tags_1[0]), /* 1 */
-	asn_DEF_N_0_5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_N_0_5_tags_1)
-		/sizeof(asn_DEF_N_0_5_tags_1[0]), /* 1 */
+	asn_DEF_N_0_5_tags_14,
+	sizeof(asn_DEF_N_0_5_tags_14)
+		/sizeof(asn_DEF_N_0_5_tags_14[0]), /* 1 */
+	asn_DEF_N_0_5_tags_14,	/* Same as above */
+	sizeof(asn_DEF_N_0_5_tags_14)
+		/sizeof(asn_DEF_N_0_5_tags_14[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_N_0_5_constr_1,
+		&asn_OER_type_N_0_5_constr_14,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1354,29 +1354,29 @@ O_inv_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [O-inv] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_O_inv_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_O_inv_constr_15 CC_NOTUSED = {
 	{ 0, 0 },
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [O-inv] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_O_inv_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_O_inv_tags_15[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_O_inv = {
 	"O-inv",
 	"O-inv",
 	&asn_OP_NativeInteger,
-	asn_DEF_O_inv_tags_1,
-	sizeof(asn_DEF_O_inv_tags_1)
-		/sizeof(asn_DEF_O_inv_tags_1[0]), /* 1 */
-	asn_DEF_O_inv_tags_1,	/* Same as above */
-	sizeof(asn_DEF_O_inv_tags_1)
-		/sizeof(asn_DEF_O_inv_tags_1[0]), /* 1 */
+	asn_DEF_O_inv_tags_15,
+	sizeof(asn_DEF_O_inv_tags_15)
+		/sizeof(asn_DEF_O_inv_tags_15[0]), /* 1 */
+	asn_DEF_O_inv_tags_15,	/* Same as above */
+	sizeof(asn_DEF_O_inv_tags_15)
+		/sizeof(asn_DEF_O_inv_tags_15[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_O_inv_constr_1,
+		&asn_OER_type_O_inv_constr_15,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1449,29 +1449,29 @@ EConstr_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [EConstr] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_EConstr_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_EConstr_constr_16 CC_NOTUSED = {
 	{ 0, 0 },
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [EConstr] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_EConstr_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_EConstr_tags_16[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_EConstr = {
 	"EConstr",
 	"EConstr",
 	&asn_OP_NativeInteger,
-	asn_DEF_EConstr_tags_1,
-	sizeof(asn_DEF_EConstr_tags_1)
-		/sizeof(asn_DEF_EConstr_tags_1[0]), /* 1 */
-	asn_DEF_EConstr_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EConstr_tags_1)
-		/sizeof(asn_DEF_EConstr_tags_1[0]), /* 1 */
+	asn_DEF_EConstr_tags_16,
+	sizeof(asn_DEF_EConstr_tags_16)
+		/sizeof(asn_DEF_EConstr_tags_16[0]), /* 1 */
+	asn_DEF_EConstr_tags_16,	/* Same as above */
+	sizeof(asn_DEF_EConstr_tags_16)
+		/sizeof(asn_DEF_EConstr_tags_16[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_EConstr_constr_1,
+		&asn_OER_type_EConstr_constr_16,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1544,29 +1544,29 @@ FConstr_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [FConstr] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_FConstr_constr_1 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_FConstr_constr_17 CC_NOTUSED = {
 	{ 1, 1 }	/* (0..4) */,
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [FConstr] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_FConstr_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_FConstr_tags_17[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_FConstr = {
 	"FConstr",
 	"FConstr",
 	&asn_OP_NativeInteger,
-	asn_DEF_FConstr_tags_1,
-	sizeof(asn_DEF_FConstr_tags_1)
-		/sizeof(asn_DEF_FConstr_tags_1[0]), /* 1 */
-	asn_DEF_FConstr_tags_1,	/* Same as above */
-	sizeof(asn_DEF_FConstr_tags_1)
-		/sizeof(asn_DEF_FConstr_tags_1[0]), /* 1 */
+	asn_DEF_FConstr_tags_17,
+	sizeof(asn_DEF_FConstr_tags_17)
+		/sizeof(asn_DEF_FConstr_tags_17[0]), /* 1 */
+	asn_DEF_FConstr_tags_17,	/* Same as above */
+	sizeof(asn_DEF_FConstr_tags_17)
+		/sizeof(asn_DEF_FConstr_tags_17[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_FConstr_constr_1,
+		&asn_OER_type_FConstr_constr_17,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1631,12 +1631,12 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_33")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_33;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_33_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_33;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -1644,14 +1644,14 @@ __attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
 /*** <<< CTDEFS [EXTERNAL] >>> ***/
 
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-static asn_oer_constraints_t asn_OER_type_encoding_constr_5 CC_NOTUSED = {
+static asn_oer_constraints_t asn_OER_type_encoding_constr_33 CC_NOTUSED = {
 	{ 0, 0 },
 	-1};
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_33[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -1713,23 +1713,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_33[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_33 = {
 	sizeof(struct encoding),
 	offsetof(struct encoding, _asn_ctx),
 	offsetof(struct encoding, present),
 	sizeof(((struct encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_33,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_33 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -1739,7 +1739,7 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 	0,	/* No tags (count) */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
-		&asn_OER_type_encoding_constr_5,
+		&asn_OER_type_encoding_constr_33,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
 		0,
@@ -1749,12 +1749,12 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_33,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_33	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_29[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -1818,7 +1818,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_33,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -1836,12 +1836,12 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const int asn_MAP_EXTERNAL_oms_1[] = { 0, 1, 2 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const int asn_MAP_EXTERNAL_oms_29[] = { 0, 1, 2 };
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_29[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_29[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -1849,12 +1849,12 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_29 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_29,
 	.tag2el_count = 6,	/* Count of tags in the map */
-	asn_MAP_EXTERNAL_oms_1,	/* Optional members */
+	asn_MAP_EXTERNAL_oms_29,	/* Optional members */
 	3, 0,	/* Root/Additions */
 	-1,	/* First extension addition */
 	0	/* Extension addition group body */
@@ -1863,12 +1863,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_29,
+	sizeof(asn_DEF_EXTERNAL_tags_29)
+		/sizeof(asn_DEF_EXTERNAL_tags_29[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_29,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_29)
+		/sizeof(asn_DEF_EXTERNAL_tags_29[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1881,9 +1881,9 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_29,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_29	/* Additional specs */
 };
 
 

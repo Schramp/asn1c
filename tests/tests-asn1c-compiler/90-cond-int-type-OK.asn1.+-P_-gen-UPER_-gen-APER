@@ -107,7 +107,8 @@ CN_IntegerMinMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 	}
 	
 	/* prevent infinite recursion */
-	if(td->encoding_constraints.general_constraints != CN_IntegerMinMax_constraint) {
+	if(td->encoding_constraints.general_constraints
+	   && td->encoding_constraints.general_constraints != CN_IntegerMinMax_constraint) {
 		return td->encoding_constraints.general_constraints(td, sptr, ctfailcb, app_key);
 	} else {
 		return 0;
@@ -122,7 +123,7 @@ CN_IntegerMinMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [CN-IntegerMinMax] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_CN_IntegerMinMax_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_CN_IntegerMinMax_constr_2 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -131,25 +132,25 @@ static asn_per_constraints_t asn_PER_type_CN_IntegerMinMax_constr_1 CC_NOTUSED =
 
 /*** <<< STAT-DEFS [CN-IntegerMinMax] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_CN_IntegerMinMax_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_CN_IntegerMinMax_tags_2[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_CN_IntegerMinMax = {
 	"CN-IntegerMinMax",
 	"CN-IntegerMinMax",
 	&asn_OP_NativeInteger,
-	asn_DEF_CN_IntegerMinMax_tags_1,
-	sizeof(asn_DEF_CN_IntegerMinMax_tags_1)
-		/sizeof(asn_DEF_CN_IntegerMinMax_tags_1[0]), /* 1 */
-	asn_DEF_CN_IntegerMinMax_tags_1,	/* Same as above */
-	sizeof(asn_DEF_CN_IntegerMinMax_tags_1)
-		/sizeof(asn_DEF_CN_IntegerMinMax_tags_1[0]), /* 1 */
+	asn_DEF_CN_IntegerMinMax_tags_2,
+	sizeof(asn_DEF_CN_IntegerMinMax_tags_2)
+		/sizeof(asn_DEF_CN_IntegerMinMax_tags_2[0]), /* 1 */
+	asn_DEF_CN_IntegerMinMax_tags_2,	/* Same as above */
+	sizeof(asn_DEF_CN_IntegerMinMax_tags_2)
+		/sizeof(asn_DEF_CN_IntegerMinMax_tags_2[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_CN_IntegerMinMax_constr_1,
+		&asn_PER_type_CN_IntegerMinMax_constr_2,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -221,7 +222,7 @@ CN_IntegerMinLow_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [CN-IntegerMinLow] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_CN_IntegerMinLow_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_CN_IntegerMinLow_constr_3 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 }	/* (MIN..1) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -230,25 +231,25 @@ static asn_per_constraints_t asn_PER_type_CN_IntegerMinLow_constr_1 CC_NOTUSED =
 
 /*** <<< STAT-DEFS [CN-IntegerMinLow] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_CN_IntegerMinLow_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_CN_IntegerMinLow_tags_3[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_CN_IntegerMinLow = {
 	"CN-IntegerMinLow",
 	"CN-IntegerMinLow",
 	&asn_OP_NativeInteger,
-	asn_DEF_CN_IntegerMinLow_tags_1,
-	sizeof(asn_DEF_CN_IntegerMinLow_tags_1)
-		/sizeof(asn_DEF_CN_IntegerMinLow_tags_1[0]), /* 1 */
-	asn_DEF_CN_IntegerMinLow_tags_1,	/* Same as above */
-	sizeof(asn_DEF_CN_IntegerMinLow_tags_1)
-		/sizeof(asn_DEF_CN_IntegerMinLow_tags_1[0]), /* 1 */
+	asn_DEF_CN_IntegerMinLow_tags_3,
+	sizeof(asn_DEF_CN_IntegerMinLow_tags_3)
+		/sizeof(asn_DEF_CN_IntegerMinLow_tags_3[0]), /* 1 */
+	asn_DEF_CN_IntegerMinLow_tags_3,	/* Same as above */
+	sizeof(asn_DEF_CN_IntegerMinLow_tags_3)
+		/sizeof(asn_DEF_CN_IntegerMinLow_tags_3[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_CN_IntegerMinLow_constr_1,
+		&asn_PER_type_CN_IntegerMinLow_constr_3,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -291,8 +292,8 @@ per_type_encoder_f NO_IntegerMinHigh_encode_aper;
 int
 NO_IntegerMinHigh_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
-	static const asn_cval_t asn_CVAL_NO_IntegerMinHigh_1_lb = { ACV_ABSENT, { 0 } };
-	static const asn_cval_t asn_CVAL_NO_IntegerMinHigh_1_ub = { ACV_UINT, { .u = UINTMAX_C(3000000000) } };
+	static const asn_cval_t asn_CVAL_NO_IntegerMinHigh_4_lb = { ACV_ABSENT, { 0 } };
+	static const asn_cval_t asn_CVAL_NO_IntegerMinHigh_4_ub = { ACV_UINT, { .u = UINTMAX_C(3000000000) } };
 	const INTEGER_t *st = (const INTEGER_t *)sptr;
 	
 	if(!sptr) {
@@ -302,7 +303,7 @@ NO_IntegerMinHigh_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 		return -1;
 	}
 	
-	if(asn_check_INTEGER_range(st, &asn_CVAL_NO_IntegerMinHigh_1_lb, &asn_CVAL_NO_IntegerMinHigh_1_ub, 0) == 0) {
+	if(asn_check_INTEGER_range(st, &asn_CVAL_NO_IntegerMinHigh_4_lb, &asn_CVAL_NO_IntegerMinHigh_4_ub, 0) == 0) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -321,7 +322,7 @@ NO_IntegerMinHigh_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [NO-IntegerMinHigh] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerMinHigh_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerMinHigh_constr_4 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 }	/* (MIN..3000000000) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -330,25 +331,25 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerMinHigh_constr_1 CC_NOTUSED 
 
 /*** <<< STAT-DEFS [NO-IntegerMinHigh] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_NO_IntegerMinHigh_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerMinHigh_tags_4[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerMinHigh = {
 	"NO-IntegerMinHigh",
 	"NO-IntegerMinHigh",
 	&asn_OP_INTEGER,
-	asn_DEF_NO_IntegerMinHigh_tags_1,
-	sizeof(asn_DEF_NO_IntegerMinHigh_tags_1)
-		/sizeof(asn_DEF_NO_IntegerMinHigh_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerMinHigh_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerMinHigh_tags_1)
-		/sizeof(asn_DEF_NO_IntegerMinHigh_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerMinHigh_tags_4,
+	sizeof(asn_DEF_NO_IntegerMinHigh_tags_4)
+		/sizeof(asn_DEF_NO_IntegerMinHigh_tags_4[0]), /* 1 */
+	asn_DEF_NO_IntegerMinHigh_tags_4,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerMinHigh_tags_4)
+		/sizeof(asn_DEF_NO_IntegerMinHigh_tags_4[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerMinHigh_constr_1,
+		&asn_PER_type_NO_IntegerMinHigh_constr_4,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -420,7 +421,7 @@ NO_IntegerLowHigh_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [NO-IntegerLowHigh] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerLowHigh_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerLowHigh_constr_5 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 32, -1,  1,  3000000000 }	/* (1..3000000000) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -429,30 +430,30 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerLowHigh_constr_1 CC_NOTUSED 
 
 /*** <<< STAT-DEFS [NO-IntegerLowHigh] >>> ***/
 
-static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerLowHigh_specs_1 = {
+static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerLowHigh_specs_5 = {
 	0,	0,	0,	0,	0,
 	0,	/* Native integer width in octets */
 	1	/* Unsigned representation */
 };
-static const ber_tlv_tag_t asn_DEF_NO_IntegerLowHigh_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerLowHigh_tags_5[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerLowHigh = {
 	"NO-IntegerLowHigh",
 	"NO-IntegerLowHigh",
 	&asn_OP_NativeInteger,
-	asn_DEF_NO_IntegerLowHigh_tags_1,
-	sizeof(asn_DEF_NO_IntegerLowHigh_tags_1)
-		/sizeof(asn_DEF_NO_IntegerLowHigh_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerLowHigh_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerLowHigh_tags_1)
-		/sizeof(asn_DEF_NO_IntegerLowHigh_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerLowHigh_tags_5,
+	sizeof(asn_DEF_NO_IntegerLowHigh_tags_5)
+		/sizeof(asn_DEF_NO_IntegerLowHigh_tags_5[0]), /* 1 */
+	asn_DEF_NO_IntegerLowHigh_tags_5,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerLowHigh_tags_5)
+		/sizeof(asn_DEF_NO_IntegerLowHigh_tags_5[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerLowHigh_constr_1,
+		&asn_PER_type_NO_IntegerLowHigh_constr_5,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -460,7 +461,7 @@ asn_TYPE_descriptor_t asn_DEF_NO_IntegerLowHigh = {
 		NO_IntegerLowHigh_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_NO_IntegerLowHigh_specs_1	/* Additional specs */
+	&asn_SPC_NO_IntegerLowHigh_specs_5	/* Additional specs */
 };
 
 
@@ -524,7 +525,7 @@ CN_IntegerLowMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [CN-IntegerLowMax] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_CN_IntegerLowMax_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_CN_IntegerLowMax_constr_6 CC_NOTUSED = {
 	{ APC_SEMI_CONSTRAINED,	-1, -1,  1,  0 }	/* (1..MAX) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -533,30 +534,30 @@ static asn_per_constraints_t asn_PER_type_CN_IntegerLowMax_constr_1 CC_NOTUSED =
 
 /*** <<< STAT-DEFS [CN-IntegerLowMax] >>> ***/
 
-static const asn_INTEGER_specifics_t asn_SPC_CN_IntegerLowMax_specs_1 = {
+static const asn_INTEGER_specifics_t asn_SPC_CN_IntegerLowMax_specs_6 = {
 	0,	0,	0,	0,	0,
 	0,	/* Native integer width in octets */
 	1	/* Unsigned representation */
 };
-static const ber_tlv_tag_t asn_DEF_CN_IntegerLowMax_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_CN_IntegerLowMax_tags_6[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_CN_IntegerLowMax = {
 	"CN-IntegerLowMax",
 	"CN-IntegerLowMax",
 	&asn_OP_NativeInteger,
-	asn_DEF_CN_IntegerLowMax_tags_1,
-	sizeof(asn_DEF_CN_IntegerLowMax_tags_1)
-		/sizeof(asn_DEF_CN_IntegerLowMax_tags_1[0]), /* 1 */
-	asn_DEF_CN_IntegerLowMax_tags_1,	/* Same as above */
-	sizeof(asn_DEF_CN_IntegerLowMax_tags_1)
-		/sizeof(asn_DEF_CN_IntegerLowMax_tags_1[0]), /* 1 */
+	asn_DEF_CN_IntegerLowMax_tags_6,
+	sizeof(asn_DEF_CN_IntegerLowMax_tags_6)
+		/sizeof(asn_DEF_CN_IntegerLowMax_tags_6[0]), /* 1 */
+	asn_DEF_CN_IntegerLowMax_tags_6,	/* Same as above */
+	sizeof(asn_DEF_CN_IntegerLowMax_tags_6)
+		/sizeof(asn_DEF_CN_IntegerLowMax_tags_6[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_CN_IntegerLowMax_constr_1,
+		&asn_PER_type_CN_IntegerLowMax_constr_6,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -564,7 +565,7 @@ asn_TYPE_descriptor_t asn_DEF_CN_IntegerLowMax = {
 		CN_IntegerLowMax_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_CN_IntegerLowMax_specs_1	/* Additional specs */
+	&asn_SPC_CN_IntegerLowMax_specs_6	/* Additional specs */
 };
 
 
@@ -599,8 +600,8 @@ per_type_encoder_f NO_IntegerHighMax_encode_aper;
 int
 NO_IntegerHighMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
-	static const asn_cval_t asn_CVAL_NO_IntegerHighMax_1_lb = { ACV_UINT, { .u = UINTMAX_C(3000000000) } };
-	static const asn_cval_t asn_CVAL_NO_IntegerHighMax_1_ub = { ACV_ABSENT, { 0 } };
+	static const asn_cval_t asn_CVAL_NO_IntegerHighMax_7_lb = { ACV_UINT, { .u = UINTMAX_C(3000000000) } };
+	static const asn_cval_t asn_CVAL_NO_IntegerHighMax_7_ub = { ACV_ABSENT, { 0 } };
 	const INTEGER_t *st = (const INTEGER_t *)sptr;
 	
 	if(!sptr) {
@@ -610,7 +611,7 @@ NO_IntegerHighMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 		return -1;
 	}
 	
-	if(asn_check_INTEGER_range(st, &asn_CVAL_NO_IntegerHighMax_1_lb, &asn_CVAL_NO_IntegerHighMax_1_ub, 0) == 0) {
+	if(asn_check_INTEGER_range(st, &asn_CVAL_NO_IntegerHighMax_7_lb, &asn_CVAL_NO_IntegerHighMax_7_ub, 0) == 0) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -629,7 +630,7 @@ NO_IntegerHighMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [NO-IntegerHighMax] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerHighMax_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerHighMax_constr_7 CC_NOTUSED = {
 	{ APC_SEMI_CONSTRAINED,	-1, -1,  3000000000,  0 }	/* (3000000000..MAX) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -638,25 +639,25 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerHighMax_constr_1 CC_NOTUSED 
 
 /*** <<< STAT-DEFS [NO-IntegerHighMax] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_NO_IntegerHighMax_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerHighMax_tags_7[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerHighMax = {
 	"NO-IntegerHighMax",
 	"NO-IntegerHighMax",
 	&asn_OP_INTEGER,
-	asn_DEF_NO_IntegerHighMax_tags_1,
-	sizeof(asn_DEF_NO_IntegerHighMax_tags_1)
-		/sizeof(asn_DEF_NO_IntegerHighMax_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerHighMax_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerHighMax_tags_1)
-		/sizeof(asn_DEF_NO_IntegerHighMax_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerHighMax_tags_7,
+	sizeof(asn_DEF_NO_IntegerHighMax_tags_7)
+		/sizeof(asn_DEF_NO_IntegerHighMax_tags_7[0]), /* 1 */
+	asn_DEF_NO_IntegerHighMax_tags_7,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerHighMax_tags_7)
+		/sizeof(asn_DEF_NO_IntegerHighMax_tags_7[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerHighMax_constr_1,
+		&asn_PER_type_NO_IntegerHighMax_constr_7,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -699,8 +700,8 @@ per_type_encoder_f NO_IntegerLowestMax_encode_aper;
 int
 NO_IntegerLowestMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
-	static const asn_cval_t asn_CVAL_NO_IntegerLowestMax_1_lb = { ACV_SINT, { .s = INTMAX_C(-3000000000) } };
-	static const asn_cval_t asn_CVAL_NO_IntegerLowestMax_1_ub = { ACV_ABSENT, { 0 } };
+	static const asn_cval_t asn_CVAL_NO_IntegerLowestMax_8_lb = { ACV_SINT, { .s = INTMAX_C(-3000000000) } };
+	static const asn_cval_t asn_CVAL_NO_IntegerLowestMax_8_ub = { ACV_ABSENT, { 0 } };
 	const INTEGER_t *st = (const INTEGER_t *)sptr;
 	
 	if(!sptr) {
@@ -710,7 +711,7 @@ NO_IntegerLowestMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr
 		return -1;
 	}
 	
-	if(asn_check_INTEGER_range(st, &asn_CVAL_NO_IntegerLowestMax_1_lb, &asn_CVAL_NO_IntegerLowestMax_1_ub, 0) == 0) {
+	if(asn_check_INTEGER_range(st, &asn_CVAL_NO_IntegerLowestMax_8_lb, &asn_CVAL_NO_IntegerLowestMax_8_ub, 0) == 0) {
 		/* Constraint check succeeded */
 		return 0;
 	} else {
@@ -729,7 +730,7 @@ NO_IntegerLowestMax_constraint(const asn_TYPE_descriptor_t *td, const void *sptr
 /*** <<< CTDEFS [NO-IntegerLowestMax] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerLowestMax_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerLowestMax_constr_8 CC_NOTUSED = {
 	{ APC_SEMI_CONSTRAINED,	-1, -1, -3000000000,  0 }	/* (-3000000000..MAX) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -738,25 +739,25 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerLowestMax_constr_1 CC_NOTUSE
 
 /*** <<< STAT-DEFS [NO-IntegerLowestMax] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_NO_IntegerLowestMax_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerLowestMax_tags_8[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerLowestMax = {
 	"NO-IntegerLowestMax",
 	"NO-IntegerLowestMax",
 	&asn_OP_INTEGER,
-	asn_DEF_NO_IntegerLowestMax_tags_1,
-	sizeof(asn_DEF_NO_IntegerLowestMax_tags_1)
-		/sizeof(asn_DEF_NO_IntegerLowestMax_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerLowestMax_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerLowestMax_tags_1)
-		/sizeof(asn_DEF_NO_IntegerLowestMax_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerLowestMax_tags_8,
+	sizeof(asn_DEF_NO_IntegerLowestMax_tags_8)
+		/sizeof(asn_DEF_NO_IntegerLowestMax_tags_8[0]), /* 1 */
+	asn_DEF_NO_IntegerLowestMax_tags_8,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerLowestMax_tags_8)
+		/sizeof(asn_DEF_NO_IntegerLowestMax_tags_8[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerLowestMax_constr_1,
+		&asn_PER_type_NO_IntegerLowestMax_constr_8,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -828,7 +829,7 @@ NO_IntegerOutRange_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [NO-IntegerOutRange] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerOutRange_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerOutRange_constr_9 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 1, -1,  3000000000,  3000000001 }	/* (3000000000..3000000001) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -837,30 +838,30 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerOutRange_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [NO-IntegerOutRange] >>> ***/
 
-static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerOutRange_specs_1 = {
+static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerOutRange_specs_9 = {
 	0,	0,	0,	0,	0,
 	0,	/* Native integer width in octets */
 	1	/* Unsigned representation */
 };
-static const ber_tlv_tag_t asn_DEF_NO_IntegerOutRange_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerOutRange_tags_9[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerOutRange = {
 	"NO-IntegerOutRange",
 	"NO-IntegerOutRange",
 	&asn_OP_NativeInteger,
-	asn_DEF_NO_IntegerOutRange_tags_1,
-	sizeof(asn_DEF_NO_IntegerOutRange_tags_1)
-		/sizeof(asn_DEF_NO_IntegerOutRange_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerOutRange_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerOutRange_tags_1)
-		/sizeof(asn_DEF_NO_IntegerOutRange_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerOutRange_tags_9,
+	sizeof(asn_DEF_NO_IntegerOutRange_tags_9)
+		/sizeof(asn_DEF_NO_IntegerOutRange_tags_9[0]), /* 1 */
+	asn_DEF_NO_IntegerOutRange_tags_9,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerOutRange_tags_9)
+		/sizeof(asn_DEF_NO_IntegerOutRange_tags_9[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerOutRange_constr_1,
+		&asn_PER_type_NO_IntegerOutRange_constr_9,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -868,7 +869,7 @@ asn_TYPE_descriptor_t asn_DEF_NO_IntegerOutRange = {
 		NO_IntegerOutRange_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_NO_IntegerOutRange_specs_1	/* Additional specs */
+	&asn_SPC_NO_IntegerOutRange_specs_9	/* Additional specs */
 };
 
 
@@ -932,7 +933,7 @@ NO_IntegerOutValue_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [NO-IntegerOutValue] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerOutValue_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerOutValue_constr_10 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 0, -1,  3000000000,  3000000000 }	/* (3000000000..3000000000) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -941,30 +942,30 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerOutValue_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [NO-IntegerOutValue] >>> ***/
 
-static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerOutValue_specs_1 = {
+static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerOutValue_specs_10 = {
 	0,	0,	0,	0,	0,
 	0,	/* Native integer width in octets */
 	1	/* Unsigned representation */
 };
-static const ber_tlv_tag_t asn_DEF_NO_IntegerOutValue_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerOutValue_tags_10[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerOutValue = {
 	"NO-IntegerOutValue",
 	"NO-IntegerOutValue",
 	&asn_OP_NativeInteger,
-	asn_DEF_NO_IntegerOutValue_tags_1,
-	sizeof(asn_DEF_NO_IntegerOutValue_tags_1)
-		/sizeof(asn_DEF_NO_IntegerOutValue_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerOutValue_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerOutValue_tags_1)
-		/sizeof(asn_DEF_NO_IntegerOutValue_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerOutValue_tags_10,
+	sizeof(asn_DEF_NO_IntegerOutValue_tags_10)
+		/sizeof(asn_DEF_NO_IntegerOutValue_tags_10[0]), /* 1 */
+	asn_DEF_NO_IntegerOutValue_tags_10,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerOutValue_tags_10)
+		/sizeof(asn_DEF_NO_IntegerOutValue_tags_10[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerOutValue_constr_1,
+		&asn_PER_type_NO_IntegerOutValue_constr_10,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -972,7 +973,7 @@ asn_TYPE_descriptor_t asn_DEF_NO_IntegerOutValue = {
 		NO_IntegerOutValue_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_NO_IntegerOutValue_specs_1	/* Additional specs */
+	&asn_SPC_NO_IntegerOutValue_specs_10	/* Additional specs */
 };
 
 
@@ -1036,7 +1037,7 @@ OK_IntegerInRange1_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [OK-IntegerInRange1] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_OK_IntegerInRange1_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_OK_IntegerInRange1_constr_11 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 8,  8, -100,  100 }	/* (-100..100) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1045,25 +1046,25 @@ static asn_per_constraints_t asn_PER_type_OK_IntegerInRange1_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [OK-IntegerInRange1] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange1_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange1_tags_11[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_OK_IntegerInRange1 = {
 	"OK-IntegerInRange1",
 	"OK-IntegerInRange1",
 	&asn_OP_NativeInteger,
-	asn_DEF_OK_IntegerInRange1_tags_1,
-	sizeof(asn_DEF_OK_IntegerInRange1_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange1_tags_1[0]), /* 1 */
-	asn_DEF_OK_IntegerInRange1_tags_1,	/* Same as above */
-	sizeof(asn_DEF_OK_IntegerInRange1_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange1_tags_1[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange1_tags_11,
+	sizeof(asn_DEF_OK_IntegerInRange1_tags_11)
+		/sizeof(asn_DEF_OK_IntegerInRange1_tags_11[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange1_tags_11,	/* Same as above */
+	sizeof(asn_DEF_OK_IntegerInRange1_tags_11)
+		/sizeof(asn_DEF_OK_IntegerInRange1_tags_11[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_OK_IntegerInRange1_constr_1,
+		&asn_PER_type_OK_IntegerInRange1_constr_11,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -1135,7 +1136,7 @@ OK_IntegerInRange2_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [OK-IntegerInRange2] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_OK_IntegerInRange2_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_OK_IntegerInRange2_constr_12 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 8,  8, -100,  100 }	/* (-100..100) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1144,25 +1145,25 @@ static asn_per_constraints_t asn_PER_type_OK_IntegerInRange2_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [OK-IntegerInRange2] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange2_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange2_tags_12[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_OK_IntegerInRange2 = {
 	"OK-IntegerInRange2",
 	"OK-IntegerInRange2",
 	&asn_OP_NativeInteger,
-	asn_DEF_OK_IntegerInRange2_tags_1,
-	sizeof(asn_DEF_OK_IntegerInRange2_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange2_tags_1[0]), /* 1 */
-	asn_DEF_OK_IntegerInRange2_tags_1,	/* Same as above */
-	sizeof(asn_DEF_OK_IntegerInRange2_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange2_tags_1[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange2_tags_12,
+	sizeof(asn_DEF_OK_IntegerInRange2_tags_12)
+		/sizeof(asn_DEF_OK_IntegerInRange2_tags_12[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange2_tags_12,	/* Same as above */
+	sizeof(asn_DEF_OK_IntegerInRange2_tags_12)
+		/sizeof(asn_DEF_OK_IntegerInRange2_tags_12[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_OK_IntegerInRange2_constr_1,
+		&asn_PER_type_OK_IntegerInRange2_constr_12,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -1234,7 +1235,7 @@ OK_IntegerInRange3_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [OK-IntegerInRange3] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_OK_IntegerInRange3_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_OK_IntegerInRange3_constr_13 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 32, -1, (-2147483647L - 1),  2147483647 }	/* (-2147483648..2147483647) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1243,25 +1244,25 @@ static asn_per_constraints_t asn_PER_type_OK_IntegerInRange3_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [OK-IntegerInRange3] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange3_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange3_tags_13[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_OK_IntegerInRange3 = {
 	"OK-IntegerInRange3",
 	"OK-IntegerInRange3",
 	&asn_OP_NativeInteger,
-	asn_DEF_OK_IntegerInRange3_tags_1,
-	sizeof(asn_DEF_OK_IntegerInRange3_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange3_tags_1[0]), /* 1 */
-	asn_DEF_OK_IntegerInRange3_tags_1,	/* Same as above */
-	sizeof(asn_DEF_OK_IntegerInRange3_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange3_tags_1[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange3_tags_13,
+	sizeof(asn_DEF_OK_IntegerInRange3_tags_13)
+		/sizeof(asn_DEF_OK_IntegerInRange3_tags_13[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange3_tags_13,	/* Same as above */
+	sizeof(asn_DEF_OK_IntegerInRange3_tags_13)
+		/sizeof(asn_DEF_OK_IntegerInRange3_tags_13[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_OK_IntegerInRange3_constr_1,
+		&asn_PER_type_OK_IntegerInRange3_constr_13,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -1333,7 +1334,7 @@ OK_IntegerInRange4_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [OK-IntegerInRange4] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_OK_IntegerInRange4_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_OK_IntegerInRange4_constr_14 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 32, -1, (-2147483647L - 1),  2147483647 }	/* (-2147483648..2147483647) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1342,25 +1343,25 @@ static asn_per_constraints_t asn_PER_type_OK_IntegerInRange4_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [OK-IntegerInRange4] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange4_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange4_tags_14[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_OK_IntegerInRange4 = {
 	"OK-IntegerInRange4",
 	"OK-IntegerInRange4",
 	&asn_OP_NativeInteger,
-	asn_DEF_OK_IntegerInRange4_tags_1,
-	sizeof(asn_DEF_OK_IntegerInRange4_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange4_tags_1[0]), /* 1 */
-	asn_DEF_OK_IntegerInRange4_tags_1,	/* Same as above */
-	sizeof(asn_DEF_OK_IntegerInRange4_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange4_tags_1[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange4_tags_14,
+	sizeof(asn_DEF_OK_IntegerInRange4_tags_14)
+		/sizeof(asn_DEF_OK_IntegerInRange4_tags_14[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange4_tags_14,	/* Same as above */
+	sizeof(asn_DEF_OK_IntegerInRange4_tags_14)
+		/sizeof(asn_DEF_OK_IntegerInRange4_tags_14[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_OK_IntegerInRange4_constr_1,
+		&asn_PER_type_OK_IntegerInRange4_constr_14,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -1432,7 +1433,7 @@ OK_IntegerInRange5_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [OK-IntegerInRange5] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_OK_IntegerInRange5_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_OK_IntegerInRange5_constr_15 CC_NOTUSED = {
 	{ APC_CONSTRAINED | APC_EXTENSIBLE,  32, -1, (-2147483647L - 1),  2147483647 }	/* (-2147483648..2147483647,...) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1441,25 +1442,25 @@ static asn_per_constraints_t asn_PER_type_OK_IntegerInRange5_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [OK-IntegerInRange5] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_OK_IntegerInRange5_tags_15[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_OK_IntegerInRange5 = {
 	"OK-IntegerInRange5",
 	"OK-IntegerInRange5",
 	&asn_OP_NativeInteger,
-	asn_DEF_OK_IntegerInRange5_tags_1,
-	sizeof(asn_DEF_OK_IntegerInRange5_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange5_tags_1[0]), /* 1 */
-	asn_DEF_OK_IntegerInRange5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_OK_IntegerInRange5_tags_1)
-		/sizeof(asn_DEF_OK_IntegerInRange5_tags_1[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange5_tags_15,
+	sizeof(asn_DEF_OK_IntegerInRange5_tags_15)
+		/sizeof(asn_DEF_OK_IntegerInRange5_tags_15[0]), /* 1 */
+	asn_DEF_OK_IntegerInRange5_tags_15,	/* Same as above */
+	sizeof(asn_DEF_OK_IntegerInRange5_tags_15)
+		/sizeof(asn_DEF_OK_IntegerInRange5_tags_15[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_OK_IntegerInRange5_constr_1,
+		&asn_PER_type_OK_IntegerInRange5_constr_15,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -1531,7 +1532,7 @@ NO_IntegerInRange6_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [NO-IntegerInRange6] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_NO_IntegerInRange6_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_NO_IntegerInRange6_constr_16 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 32, -1,  0,  4294967295 }	/* (0..4294967295) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1540,30 +1541,30 @@ static asn_per_constraints_t asn_PER_type_NO_IntegerInRange6_constr_1 CC_NOTUSED
 
 /*** <<< STAT-DEFS [NO-IntegerInRange6] >>> ***/
 
-static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerInRange6_specs_1 = {
+static const asn_INTEGER_specifics_t asn_SPC_NO_IntegerInRange6_specs_16 = {
 	0,	0,	0,	0,	0,
 	0,	/* Native integer width in octets */
 	1	/* Unsigned representation */
 };
-static const ber_tlv_tag_t asn_DEF_NO_IntegerInRange6_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerInRange6_tags_16[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerInRange6 = {
 	"NO-IntegerInRange6",
 	"NO-IntegerInRange6",
 	&asn_OP_NativeInteger,
-	asn_DEF_NO_IntegerInRange6_tags_1,
-	sizeof(asn_DEF_NO_IntegerInRange6_tags_1)
-		/sizeof(asn_DEF_NO_IntegerInRange6_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerInRange6_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerInRange6_tags_1)
-		/sizeof(asn_DEF_NO_IntegerInRange6_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerInRange6_tags_16,
+	sizeof(asn_DEF_NO_IntegerInRange6_tags_16)
+		/sizeof(asn_DEF_NO_IntegerInRange6_tags_16[0]), /* 1 */
+	asn_DEF_NO_IntegerInRange6_tags_16,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerInRange6_tags_16)
+		/sizeof(asn_DEF_NO_IntegerInRange6_tags_16[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_NO_IntegerInRange6_constr_1,
+		&asn_PER_type_NO_IntegerInRange6_constr_16,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -1571,7 +1572,7 @@ asn_TYPE_descriptor_t asn_DEF_NO_IntegerInRange6 = {
 		NO_IntegerInRange6_constraint
 	},
 	0, 0,	/* No members */
-	&asn_SPC_NO_IntegerInRange6_specs_1	/* Additional specs */
+	&asn_SPC_NO_IntegerInRange6_specs_16	/* Additional specs */
 };
 
 
@@ -1616,19 +1617,19 @@ per_type_encoder_f CN_IntegerEnumerated1_encode_aper;
 
 /*** <<< STAT-DEFS [CN-IntegerEnumerated1] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_CN_IntegerEnumerated1_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_CN_IntegerEnumerated1_tags_17[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_CN_IntegerEnumerated1 = {
 	"CN-IntegerEnumerated1",
 	"CN-IntegerEnumerated1",
 	&asn_OP_NativeInteger,
-	asn_DEF_CN_IntegerEnumerated1_tags_1,
-	sizeof(asn_DEF_CN_IntegerEnumerated1_tags_1)
-		/sizeof(asn_DEF_CN_IntegerEnumerated1_tags_1[0]), /* 1 */
-	asn_DEF_CN_IntegerEnumerated1_tags_1,	/* Same as above */
-	sizeof(asn_DEF_CN_IntegerEnumerated1_tags_1)
-		/sizeof(asn_DEF_CN_IntegerEnumerated1_tags_1[0]), /* 1 */
+	asn_DEF_CN_IntegerEnumerated1_tags_17,
+	sizeof(asn_DEF_CN_IntegerEnumerated1_tags_17)
+		/sizeof(asn_DEF_CN_IntegerEnumerated1_tags_17[0]), /* 1 */
+	asn_DEF_CN_IntegerEnumerated1_tags_17,	/* Same as above */
+	sizeof(asn_DEF_CN_IntegerEnumerated1_tags_17)
+		/sizeof(asn_DEF_CN_IntegerEnumerated1_tags_17[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1687,19 +1688,19 @@ per_type_encoder_f NO_IntegerEnumerated2_encode_aper;
 
 /*** <<< STAT-DEFS [NO-IntegerEnumerated2] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_NO_IntegerEnumerated2_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_NO_IntegerEnumerated2_tags_20[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_NO_IntegerEnumerated2 = {
 	"NO-IntegerEnumerated2",
 	"NO-IntegerEnumerated2",
 	&asn_OP_INTEGER,
-	asn_DEF_NO_IntegerEnumerated2_tags_1,
-	sizeof(asn_DEF_NO_IntegerEnumerated2_tags_1)
-		/sizeof(asn_DEF_NO_IntegerEnumerated2_tags_1[0]), /* 1 */
-	asn_DEF_NO_IntegerEnumerated2_tags_1,	/* Same as above */
-	sizeof(asn_DEF_NO_IntegerEnumerated2_tags_1)
-		/sizeof(asn_DEF_NO_IntegerEnumerated2_tags_1[0]), /* 1 */
+	asn_DEF_NO_IntegerEnumerated2_tags_20,
+	sizeof(asn_DEF_NO_IntegerEnumerated2_tags_20)
+		/sizeof(asn_DEF_NO_IntegerEnumerated2_tags_20[0]), /* 1 */
+	asn_DEF_NO_IntegerEnumerated2_tags_20,	/* Same as above */
+	sizeof(asn_DEF_NO_IntegerEnumerated2_tags_20)
+		/sizeof(asn_DEF_NO_IntegerEnumerated2_tags_20[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1767,12 +1768,12 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_38")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_38;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_38_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_38;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -1780,7 +1781,7 @@ __attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
 /*** <<< CTDEFS [EXTERNAL] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_encoding_constr_5 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_encoding_constr_38 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 2,  2,  0,  2 }	/* (0..2) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1789,7 +1790,7 @@ static asn_per_constraints_t asn_PER_type_encoding_constr_5 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_38[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -1851,23 +1852,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_38[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_38 = {
 	sizeof(struct encoding),
 	offsetof(struct encoding, _asn_ctx),
 	offsetof(struct encoding, present),
 	sizeof(((struct encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_38,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_38 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -1880,19 +1881,19 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_encoding_constr_5,
+		&asn_PER_type_encoding_constr_38,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_38,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_38	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_34[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -1956,7 +1957,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_38,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -1974,12 +1975,12 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const int asn_MAP_EXTERNAL_oms_1[] = { 0, 1, 2 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const int asn_MAP_EXTERNAL_oms_34[] = { 0, 1, 2 };
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_34[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_34[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -1987,12 +1988,12 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_34 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_34,
 	.tag2el_count = 6,	/* Count of tags in the map */
-	asn_MAP_EXTERNAL_oms_1,	/* Optional members */
+	asn_MAP_EXTERNAL_oms_34,	/* Optional members */
 	3, 0,	/* Root/Additions */
 	-1,	/* First extension addition */
 	0	/* Extension addition group body */
@@ -2001,12 +2002,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_34,
+	sizeof(asn_DEF_EXTERNAL_tags_34)
+		/sizeof(asn_DEF_EXTERNAL_tags_34[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_34,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_34)
+		/sizeof(asn_DEF_EXTERNAL_tags_34[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -2019,9 +2020,9 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_34,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_34	/* Additional specs */
 };
 
 

@@ -10,7 +10,7 @@ typedef long	 PacketId_t;
 /*** <<< FUNC-DECLS [PacketId] >>> ***/
 
 #define PacketId_id_TYPE1	((PacketId_t)1)
-extern asn_per_constraints_t asn_PER_type_PacketId_constr_1;
+extern asn_per_constraints_t asn_PER_type_PacketId_constr_2;
 extern asn_TYPE_descriptor_t asn_DEF_PacketId;
 asn_struct_free_f PacketId_free;
 asn_struct_print_f PacketId_print;
@@ -61,7 +61,7 @@ PacketId_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [PacketId] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-asn_per_constraints_t asn_PER_type_PacketId_constr_1 CC_NOTUSED = {
+asn_per_constraints_t asn_PER_type_PacketId_constr_2 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 16,  16,  0,  65535 }	/* (0..65535) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -70,25 +70,25 @@ asn_per_constraints_t asn_PER_type_PacketId_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [PacketId] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_PacketId_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_PacketId_tags_2[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (2 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_PacketId = {
 	"PacketId",
 	"PacketId",
 	&asn_OP_NativeInteger,
-	asn_DEF_PacketId_tags_1,
-	sizeof(asn_DEF_PacketId_tags_1)
-		/sizeof(asn_DEF_PacketId_tags_1[0]), /* 1 */
-	asn_DEF_PacketId_tags_1,	/* Same as above */
-	sizeof(asn_DEF_PacketId_tags_1)
-		/sizeof(asn_DEF_PacketId_tags_1[0]), /* 1 */
+	asn_DEF_PacketId_tags_2,
+	sizeof(asn_DEF_PacketId_tags_2)
+		/sizeof(asn_DEF_PacketId_tags_2[0]), /* 1 */
+	asn_DEF_PacketId_tags_2,	/* Same as above */
+	sizeof(asn_DEF_PacketId_tags_2)
+		/sizeof(asn_DEF_PacketId_tags_2[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_PacketId_constr_1,
+		&asn_PER_type_PacketId_constr_2,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
@@ -118,9 +118,9 @@ typedef long	 Color_t;
 
 /*** <<< FUNC-DECLS [Color] >>> ***/
 
-extern asn_per_constraints_t asn_PER_type_Color_constr_1;
+extern asn_per_constraints_t asn_PER_type_Color_constr_3;
 extern asn_TYPE_descriptor_t asn_DEF_Color;
-extern const asn_INTEGER_specifics_t asn_SPC_Color_specs_1;
+extern const asn_INTEGER_specifics_t asn_SPC_Color_specs_3;
 asn_struct_free_f Color_free;
 asn_struct_print_f Color_print;
 asn_constr_check_f Color_constraint;
@@ -145,7 +145,7 @@ per_type_encoder_f Color_encode_aper;
 /*** <<< CTDEFS [Color] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-asn_per_constraints_t asn_PER_type_Color_constr_1 CC_NOTUSED = {
+asn_per_constraints_t asn_PER_type_Color_constr_3 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 2,  2,  0,  2 }	/* (0..2) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -154,12 +154,12 @@ asn_per_constraints_t asn_PER_type_Color_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [Color] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Color_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Color_value2enum_3[] = {
 	{ 0,	3,	"red" },
 	{ 1,	5,	"green" },
 	{ 2,	4,	"blue" }
 };
-static int asn_validate_Color_1(const asn_TYPE_descriptor_t *td,
+static int asn_validate_Color_3(const asn_TYPE_descriptor_t *td,
                        const void *sptr,
                        asn_app_constraint_failed_f *ctfailcb,
                        void* app_key) {
@@ -173,47 +173,47 @@ static int asn_validate_Color_1(const asn_TYPE_descriptor_t *td,
     }
     return -1;
 }
-static const unsigned int asn_MAP_Color_enum2value_1[] = {
+static const unsigned int asn_MAP_Color_enum2value_3[] = {
 	2,	/* blue(2) */
 	1,	/* green(1) */
 	0	/* red(0) */
 };
-const asn_INTEGER_specifics_t asn_SPC_Color_specs_1 = {
-	asn_MAP_Color_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Color_enum2value_1,	/* N => "tag"; sorted by N */
+const asn_INTEGER_specifics_t asn_SPC_Color_specs_3 = {
+	asn_MAP_Color_value2enum_3,	/* "tag" => N; sorted by tag */
+	asn_MAP_Color_enum2value_3,	/* N => "tag"; sorted by N */
 	3,	/* Number of elements in the maps */
 	0,	/* Enumeration is not extensible */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Color_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Color_tags_3[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Color = {
 	"Color",
 	"Color",
 	&asn_OP_NativeEnumerated,
-	asn_DEF_Color_tags_1,
-	sizeof(asn_DEF_Color_tags_1)
-		/sizeof(asn_DEF_Color_tags_1[0]), /* 1 */
-	asn_DEF_Color_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Color_tags_1)
-		/sizeof(asn_DEF_Color_tags_1[0]), /* 1 */
+	asn_DEF_Color_tags_3,
+	sizeof(asn_DEF_Color_tags_3)
+		/sizeof(asn_DEF_Color_tags_3[0]), /* 1 */
+	asn_DEF_Color_tags_3,	/* Same as above */
+	sizeof(asn_DEF_Color_tags_3)
+		/sizeof(asn_DEF_Color_tags_3[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_Color_constr_1,
+		&asn_PER_type_Color_constr_3,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn_validate_Color_1
+		asn_validate_Color_3
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Color_specs_1	/* Additional specs */
+	&asn_SPC_Color_specs_3	/* Additional specs */
 };
 
 
@@ -234,9 +234,9 @@ typedef long	 Valid_t;
 
 /*** <<< FUNC-DECLS [Valid] >>> ***/
 
-extern asn_per_constraints_t asn_PER_type_Valid_constr_1;
+extern asn_per_constraints_t asn_PER_type_Valid_constr_7;
 extern asn_TYPE_descriptor_t asn_DEF_Valid;
-extern const asn_INTEGER_specifics_t asn_SPC_Valid_specs_1;
+extern const asn_INTEGER_specifics_t asn_SPC_Valid_specs_7;
 asn_struct_free_f Valid_free;
 asn_struct_print_f Valid_print;
 asn_constr_check_f Valid_constraint;
@@ -261,7 +261,7 @@ per_type_encoder_f Valid_encode_aper;
 /*** <<< CTDEFS [Valid] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-asn_per_constraints_t asn_PER_type_Valid_constr_1 CC_NOTUSED = {
+asn_per_constraints_t asn_PER_type_Valid_constr_7 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 1,  1,  0,  1 }	/* (0..1) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -270,11 +270,11 @@ asn_per_constraints_t asn_PER_type_Valid_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [Valid] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Valid_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Valid_value2enum_7[] = {
 	{ 0,	7,	"crc-nok" },
 	{ 1,	6,	"crc-ok" }
 };
-static int asn_validate_Valid_1(const asn_TYPE_descriptor_t *td,
+static int asn_validate_Valid_7(const asn_TYPE_descriptor_t *td,
                        const void *sptr,
                        asn_app_constraint_failed_f *ctfailcb,
                        void* app_key) {
@@ -287,46 +287,46 @@ static int asn_validate_Valid_1(const asn_TYPE_descriptor_t *td,
     }
     return -1;
 }
-static const unsigned int asn_MAP_Valid_enum2value_1[] = {
+static const unsigned int asn_MAP_Valid_enum2value_7[] = {
 	0,	/* crc-nok(0) */
 	1	/* crc-ok(1) */
 };
-const asn_INTEGER_specifics_t asn_SPC_Valid_specs_1 = {
-	asn_MAP_Valid_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Valid_enum2value_1,	/* N => "tag"; sorted by N */
+const asn_INTEGER_specifics_t asn_SPC_Valid_specs_7 = {
+	asn_MAP_Valid_value2enum_7,	/* "tag" => N; sorted by tag */
+	asn_MAP_Valid_enum2value_7,	/* N => "tag"; sorted by N */
 	2,	/* Number of elements in the maps */
 	0,	/* Enumeration is not extensible */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Valid_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Valid_tags_7[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Valid = {
 	"Valid",
 	"Valid",
 	&asn_OP_NativeEnumerated,
-	asn_DEF_Valid_tags_1,
-	sizeof(asn_DEF_Valid_tags_1)
-		/sizeof(asn_DEF_Valid_tags_1[0]), /* 1 */
-	asn_DEF_Valid_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Valid_tags_1)
-		/sizeof(asn_DEF_Valid_tags_1[0]), /* 1 */
+	asn_DEF_Valid_tags_7,
+	sizeof(asn_DEF_Valid_tags_7)
+		/sizeof(asn_DEF_Valid_tags_7[0]), /* 1 */
+	asn_DEF_Valid_tags_7,	/* Same as above */
+	sizeof(asn_DEF_Valid_tags_7)
+		/sizeof(asn_DEF_Valid_tags_7[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_Valid_constr_1,
+		&asn_PER_type_Valid_constr_7,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn_validate_Valid_1
+		asn_validate_Valid_7
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Valid_specs_1	/* Additional specs */
+	&asn_SPC_Valid_specs_7	/* Additional specs */
 };
 
 
@@ -399,7 +399,7 @@ Packet_List_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
  * Example: Called by a constrained SEQUENCE OF or SET OF descriptor.
  */
 static int
-asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+asn1c_collection_constraint_28(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	size_t size;
 
@@ -432,7 +432,7 @@ asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [Packet-List] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_Packet_List_constr_1 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_Packet_List_constr_28 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	{ APC_CONSTRAINED,	 8,  8,  1,  256 }	/* (SIZE(1..256)) */,
 	0, 0	/* No PER value map */
@@ -441,34 +441,34 @@ static asn_per_constraints_t asn_PER_type_Packet_List_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [Packet-List] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_Packet_List_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Packet_List_tags_28[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Packet_List = {
 	"Packet-List",
 	"Packet-List",
 	&asn_OP_SEQUENCE_OF,
-	asn_DEF_Packet_List_tags_1,
-	sizeof(asn_DEF_Packet_List_tags_1)
-		/sizeof(asn_DEF_Packet_List_tags_1[0]), /* 1 */
-	asn_DEF_Packet_List_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Packet_List_tags_1)
-		/sizeof(asn_DEF_Packet_List_tags_1[0]), /* 1 */
+	asn_DEF_Packet_List_tags_28,
+	sizeof(asn_DEF_Packet_List_tags_28)
+		/sizeof(asn_DEF_Packet_List_tags_28[0]), /* 1 */
+	asn_DEF_Packet_List_tags_28,	/* Same as above */
+	sizeof(asn_DEF_Packet_List_tags_28)
+		/sizeof(asn_DEF_Packet_List_tags_28[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_Packet_List_constr_1,
+		&asn_PER_type_Packet_List_constr_28,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn1c_collection_constraint_1
+		asn1c_collection_constraint_28
 	},
-	asn_MBR_LowerLayer_List_45P0_1,
+	asn_MBR_LowerLayer_List_45P0_30,
 	1,	/* Single element */
-	&asn_SPC_LowerLayer_List_45P0_specs_1	/* Additional specs */
+	&asn_SPC_LowerLayer_List_45P0_specs_30	/* Additional specs */
 };
 
 
@@ -476,13 +476,13 @@ asn_TYPE_descriptor_t asn_DEF_Packet_List = {
 
 #include "LowerLayer-List.h"
 
-/*** <<< TYPE-DECLS [UpperLayer-List] >>> ***/
+/*** <<< FWD-DECLS [UpperLayer-List] >>> ***/
 
-typedef struct LowerLayer_List	 UpperLayer_List_41P0_t;
+typedef struct LowerLayer_List_45P0	 UpperLayer_List_41P0_t;
 
 /*** <<< FUNC-DECLS [UpperLayer-List] >>> ***/
 
-extern asn_per_constraints_t asn_PER_type_UpperLayer_List_41P0_constr_1;
+extern asn_per_constraints_t asn_PER_type_UpperLayer_List_41P0_constr_29;
 extern asn_TYPE_descriptor_t asn_DEF_UpperLayer_List_41P0;
 asn_struct_free_f UpperLayer_List_41P0_free;
 asn_struct_print_f UpperLayer_List_41P0_print;
@@ -542,7 +542,7 @@ UpperLayer_List_41P0_constraint(const asn_TYPE_descriptor_t *td, const void *spt
  * Example: Called by a constrained SEQUENCE OF or SET OF descriptor.
  */
 static int
-asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+asn1c_collection_constraint_29(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	size_t size;
 
@@ -575,7 +575,7 @@ asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [UpperLayer-List] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-asn_per_constraints_t asn_PER_type_UpperLayer_List_41P0_constr_1 CC_NOTUSED = {
+asn_per_constraints_t asn_PER_type_UpperLayer_List_41P0_constr_29 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	{ APC_CONSTRAINED,	 8,  8,  1,  256 }	/* (SIZE(1..256)) */,
 	0, 0	/* No PER value map */
@@ -584,34 +584,34 @@ asn_per_constraints_t asn_PER_type_UpperLayer_List_41P0_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [UpperLayer-List] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_UpperLayer_List_41P0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_UpperLayer_List_41P0_tags_29[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_UpperLayer_List_41P0 = {
 	"UpperLayer-List",
 	"UpperLayer-List",
 	&asn_OP_SEQUENCE_OF,
-	asn_DEF_UpperLayer_List_41P0_tags_1,
-	sizeof(asn_DEF_UpperLayer_List_41P0_tags_1)
-		/sizeof(asn_DEF_UpperLayer_List_41P0_tags_1[0]), /* 1 */
-	asn_DEF_UpperLayer_List_41P0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_UpperLayer_List_41P0_tags_1)
-		/sizeof(asn_DEF_UpperLayer_List_41P0_tags_1[0]), /* 1 */
+	asn_DEF_UpperLayer_List_41P0_tags_29,
+	sizeof(asn_DEF_UpperLayer_List_41P0_tags_29)
+		/sizeof(asn_DEF_UpperLayer_List_41P0_tags_29[0]), /* 1 */
+	asn_DEF_UpperLayer_List_41P0_tags_29,	/* Same as above */
+	sizeof(asn_DEF_UpperLayer_List_41P0_tags_29)
+		/sizeof(asn_DEF_UpperLayer_List_41P0_tags_29[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_UpperLayer_List_41P0_constr_1,
+		&asn_PER_type_UpperLayer_List_41P0_constr_29,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn1c_collection_constraint_1
+		asn1c_collection_constraint_29
 	},
-	asn_MBR_LowerLayer_List_45P0_1,
+	asn_MBR_LowerLayer_List_45P0_30,
 	1,	/* Single element */
-	&asn_SPC_LowerLayer_List_45P0_specs_1	/* Additional specs */
+	&asn_SPC_LowerLayer_List_45P0_specs_30	/* Additional specs */
 };
 
 
@@ -627,7 +627,7 @@ struct SinglePacket_48P0;
 /*** <<< TYPE-DECLS [LowerLayer-List] >>> ***/
 
 typedef struct LowerLayer_List_45P0 {
-	A_SEQUENCE_OF(struct SinglePacket) list;
+	A_SEQUENCE_OF(struct ClassItem) list;
 	
 	/* Context for parsing across buffer boundaries */
 	asn_struct_ctx_t _asn_ctx;
@@ -636,9 +636,9 @@ typedef struct LowerLayer_List_45P0 {
 /*** <<< FUNC-DECLS [LowerLayer-List] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_LowerLayer_List_45P0;
-extern asn_SET_OF_specifics_t asn_SPC_LowerLayer_List_45P0_specs_1;
-extern asn_TYPE_member_t asn_MBR_LowerLayer_List_45P0_1[1];
-extern asn_per_constraints_t asn_PER_type_LowerLayer_List_45P0_constr_1;
+extern asn_SET_OF_specifics_t asn_SPC_LowerLayer_List_45P0_specs_30;
+extern asn_TYPE_member_t asn_MBR_LowerLayer_List_45P0_30[1];
+extern asn_per_constraints_t asn_PER_type_LowerLayer_List_45P0_constr_30;
 
 /*** <<< POST-INCLUDE [LowerLayer-List] >>> ***/
 
@@ -662,7 +662,7 @@ extern asn_per_constraints_t asn_PER_type_LowerLayer_List_45P0_constr_1;
  * Example: Called by a constrained SEQUENCE OF or SET OF descriptor.
  */
 static int
-asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+asn1c_collection_constraint_30(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	size_t size;
 
@@ -691,7 +691,7 @@ asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [LowerLayer-List] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-asn_per_constraints_t asn_PER_type_LowerLayer_List_45P0_constr_1 CC_NOTUSED = {
+asn_per_constraints_t asn_PER_type_LowerLayer_List_45P0_constr_30 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	{ APC_CONSTRAINED,	 8,  8,  1,  256 }	/* (SIZE(1..256)) */,
 	0, 0	/* No PER value map */
@@ -700,7 +700,7 @@ asn_per_constraints_t asn_PER_type_LowerLayer_List_45P0_constr_1 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [LowerLayer-List] >>> ***/
 
-asn_TYPE_member_t asn_MBR_LowerLayer_List_45P0_1[] = {
+asn_TYPE_member_t asn_MBR_LowerLayer_List_45P0_30[] = {
 	{ ATF_POINTER, 0, 0,
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (16 << 2)),
 		.tag_mode = 0,
@@ -722,10 +722,10 @@ asn_TYPE_member_t asn_MBR_LowerLayer_List_45P0_1[] = {
 		.name = ""
 		},
 };
-static const ber_tlv_tag_t asn_DEF_LowerLayer_List_45P0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_LowerLayer_List_45P0_tags_30[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-asn_SET_OF_specifics_t asn_SPC_LowerLayer_List_45P0_specs_1 = {
+asn_SET_OF_specifics_t asn_SPC_LowerLayer_List_45P0_specs_30 = {
 	sizeof(struct LowerLayer_List_45P0),
 	offsetof(struct LowerLayer_List_45P0, _asn_ctx),
 	0,	/* XER encoding is XMLDelimitedItemList */
@@ -734,27 +734,27 @@ asn_TYPE_descriptor_t asn_DEF_LowerLayer_List_45P0 = {
 	"LowerLayer-List",
 	"LowerLayer-List",
 	&asn_OP_SEQUENCE_OF,
-	asn_DEF_LowerLayer_List_45P0_tags_1,
-	sizeof(asn_DEF_LowerLayer_List_45P0_tags_1)
-		/sizeof(asn_DEF_LowerLayer_List_45P0_tags_1[0]), /* 1 */
-	asn_DEF_LowerLayer_List_45P0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_LowerLayer_List_45P0_tags_1)
-		/sizeof(asn_DEF_LowerLayer_List_45P0_tags_1[0]), /* 1 */
+	asn_DEF_LowerLayer_List_45P0_tags_30,
+	sizeof(asn_DEF_LowerLayer_List_45P0_tags_30)
+		/sizeof(asn_DEF_LowerLayer_List_45P0_tags_30[0]), /* 1 */
+	asn_DEF_LowerLayer_List_45P0_tags_30,	/* Same as above */
+	sizeof(asn_DEF_LowerLayer_List_45P0_tags_30)
+		/sizeof(asn_DEF_LowerLayer_List_45P0_tags_30[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_LowerLayer_List_45P0_constr_1,
+		&asn_PER_type_LowerLayer_List_45P0_constr_30,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn1c_collection_constraint_1
+		asn1c_collection_constraint_30
 	},
-	asn_MBR_LowerLayer_List_45P0_1,
+	asn_MBR_LowerLayer_List_45P0_30,
 	1,	/* Single element */
-	&asn_SPC_LowerLayer_List_45P0_specs_1	/* Additional specs */
+	&asn_SPC_LowerLayer_List_45P0_specs_30	/* Additional specs */
 };
 
 
@@ -762,7 +762,7 @@ asn_TYPE_descriptor_t asn_DEF_LowerLayer_List_45P0 = {
 
 #include "Packet.h"
 
-/*** <<< TYPE-DECLS [SinglePacket] >>> ***/
+/*** <<< FWD-DECLS [SinglePacket] >>> ***/
 
 typedef struct ClassItem	 SinglePacket_48P0_t;
 
@@ -792,19 +792,19 @@ per_type_encoder_f SinglePacket_48P0_encode_aper;
 
 /*** <<< STAT-DEFS [SinglePacket] >>> ***/
 
-static const ber_tlv_tag_t asn_DEF_SinglePacket_48P0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_SinglePacket_48P0_tags_32[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_SinglePacket_48P0 = {
 	"SinglePacket",
 	"SinglePacket",
 	&asn_OP_SEQUENCE,
-	asn_DEF_SinglePacket_48P0_tags_1,
-	sizeof(asn_DEF_SinglePacket_48P0_tags_1)
-		/sizeof(asn_DEF_SinglePacket_48P0_tags_1[0]), /* 1 */
-	asn_DEF_SinglePacket_48P0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_SinglePacket_48P0_tags_1)
-		/sizeof(asn_DEF_SinglePacket_48P0_tags_1[0]), /* 1 */
+	asn_DEF_SinglePacket_48P0_tags_32,
+	sizeof(asn_DEF_SinglePacket_48P0_tags_32)
+		/sizeof(asn_DEF_SinglePacket_48P0_tags_32[0]), /* 1 */
+	asn_DEF_SinglePacket_48P0_tags_32,	/* Same as above */
+	sizeof(asn_DEF_SinglePacket_48P0_tags_32)
+		/sizeof(asn_DEF_SinglePacket_48P0_tags_32[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -817,9 +817,9 @@ asn_TYPE_descriptor_t asn_DEF_SinglePacket_48P0 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_ClassItem_1,
+	asn_MBR_ClassItem_33,
 	3,	/* Elements count */
-	&asn_SPC_ClassItem_specs_1	/* Additional specs */
+	&asn_SPC_ClassItem_specs_33	/* Additional specs */
 };
 
 
@@ -872,29 +872,29 @@ typedef struct ClassItem {
 /*** <<< FUNC-DECLS [Packet] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_ClassItem;
-extern asn_SEQUENCE_specifics_t asn_SPC_ClassItem_specs_1;
-extern asn_TYPE_member_t asn_MBR_ClassItem_1[3];
+extern asn_SEQUENCE_specifics_t asn_SPC_ClassItem_specs_33;
+extern asn_TYPE_member_t asn_MBR_ClassItem_33[3];
 
 /*** <<< IOC-TABLES [Packet] >>> ***/
 
-static const long asn_VAL_ClassItem_1_id_TYPE1 = 1;
-static const long asn_VAL_ClassItem_1_blue = 2;
-static const long asn_VAL_ClassItem_1_crc_ok = 1;
+static const long asn_VAL_ClassItem_24_id_TYPE1 = 1;
+static const long asn_VAL_ClassItem_25_blue = 2;
+static const long asn_VAL_ClassItem_27_crc_ok = 1;
 
-static const asn_ioc_cell_t asn_IOS_ClassItem_1_rows[] = {
-	{ "&id", aioc__value, &asn_DEF_NativeInteger, &asn_VAL_ClassItem_1_id_TYPE1 },
-	{ "&color", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_ClassItem_1_blue },
+static const asn_ioc_cell_t asn_IOS_ClassItem_23_rows[] = {
+	{ "&id", aioc__value, &asn_DEF_NativeInteger, &asn_VAL_ClassItem_24_id_TYPE1 },
+	{ "&color", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_ClassItem_25_blue },
 	{ "&Value", aioc__type, &asn_DEF_OCTET_STRING },
-	{ "&valid", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_ClassItem_1_crc_ok }
+	{ "&valid", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_ClassItem_27_crc_ok }
 };
-static const asn_ioc_set_t asn_IOS_ClassItem_1[] = {
-	{ 1, 4, asn_IOS_ClassItem_1_rows }
+static const asn_ioc_set_t asn_IOS_ClassItem_23[] = {
+	{ 1, 4, asn_IOS_ClassItem_23_rows }
 };
 
 /*** <<< CODE [Packet] >>> ***/
 
 static int
-memb_id_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+memb_id_constraint_33(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	long value;
 	
@@ -921,7 +921,7 @@ memb_id_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 static asn_type_selector_result_t
 select_ClassItem_color_type(const asn_TYPE_descriptor_t *parent_type, const void *parent_sptr) {
 	asn_type_selector_result_t result = {0, 0};
-	const asn_ioc_set_t *itable = asn_IOS_ClassItem_1;
+	const asn_ioc_set_t *itable = asn_IOS_ClassItem_23;
 	size_t constraining_column = 0; /* &id */
 	size_t for_column = 1; /* &color */
 	size_t row, presence_index = 0;
@@ -953,7 +953,7 @@ select_ClassItem_color_type(const asn_TYPE_descriptor_t *parent_type, const void
 }
 
 static int
-memb_color_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+memb_color_constraint_33(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -974,7 +974,7 @@ memb_color_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 static asn_type_selector_result_t
 select_ClassItem_value_type(const asn_TYPE_descriptor_t *parent_type, const void *parent_sptr) {
 	asn_type_selector_result_t result = {0, 0};
-	const asn_ioc_set_t *itable = asn_IOS_ClassItem_1;
+	const asn_ioc_set_t *itable = asn_IOS_ClassItem_23;
 	size_t constraining_column = 0; /* &id */
 	size_t for_column = 2; /* &Value */
 	size_t row, presence_index = 0;
@@ -1006,7 +1006,7 @@ select_ClassItem_value_type(const asn_TYPE_descriptor_t *parent_type, const void
 }
 
 static int
-memb_value_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+memb_value_constraint_33(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -1028,21 +1028,21 @@ memb_value_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 /*** <<< CTDEFS [Packet] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_memb_id_constr_2 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_memb_id_constr_34 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 16,  16,  0,  65535 }	/* (0..65535) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
 };
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_memb_color_constr_3 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_memb_color_constr_35 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 2,  2,  0,  2 }	/* (0..2) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
 };
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_memb_value_constr_4 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_memb_value_constr_36 CC_NOTUSED = {
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1051,7 +1051,7 @@ static asn_per_constraints_t asn_PER_memb_value_constr_4 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [Packet] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_ClassItem__value_4[] = {
+static asn_TYPE_member_t asn_MBR_ClassItem__value_36[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct value, choice.OCTET_STRING),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (4 << 2)),
 		.tag_mode = 0,
@@ -1094,24 +1094,24 @@ static asn_TYPE_member_t asn_MBR_ClassItem__value_4[] = {
 		.name = "asn1cUnknown"
 		},
 };
-static const unsigned asn_MAP_value_from_canonical_4[] = { 1, 0 };
-static const unsigned asn_MAP_value_to_canonical_4[] = { 1, 0 };
-static const asn_TYPE_tag2member_t asn_MAP_value_tag2el_4[] = {
+static const unsigned asn_MAP_value_from_canonical_36[] = { 1, 0 };
+static const unsigned asn_MAP_value_to_canonical_36[] = { 1, 0 };
+static const asn_TYPE_tag2member_t asn_MAP_value_tag2el_36[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (4 << 2)), 0, 0, 0 } /* OCTET STRING */
 };
-static asn_CHOICE_specifics_t asn_SPC_value_specs_4 = {
+static asn_CHOICE_specifics_t asn_SPC_value_specs_36 = {
 	sizeof(struct value),
 	offsetof(struct value, _asn_ctx),
 	offsetof(struct value, present),
 	sizeof(((struct value *)0)->present),
-	.tag2el = asn_MAP_value_tag2el_4,
+	.tag2el = asn_MAP_value_tag2el_36,
 	.tag2el_count = 1,	/* Count of tags in the map */
-	.to_canonical_order = asn_MAP_value_to_canonical_4,
-	.from_canonical_order = asn_MAP_value_from_canonical_4,
+	.to_canonical_order = asn_MAP_value_to_canonical_36,
+	.from_canonical_order = asn_MAP_value_from_canonical_36,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_value_4 = {
+asn_TYPE_descriptor_t asn_DEF_value_36 = {
 	"OPEN TYPE",
 	"OPEN_TYPE",
 	&asn_OP_OPEN_TYPE,
@@ -1131,12 +1131,12 @@ asn_TYPE_descriptor_t asn_DEF_value_4 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		OPEN_TYPE_constraint
 	},
-	asn_MBR_ClassItem__value_4,
+	asn_MBR_ClassItem__value_36,
 	2,	/* Elements count */
-	&asn_SPC_value_specs_4	/* Additional specs */
+	&asn_SPC_value_specs_36	/* Additional specs */
 };
 
-asn_TYPE_member_t asn_MBR_ClassItem_1[] = {
+asn_TYPE_member_t asn_MBR_ClassItem_33[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct ClassItem, id),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)),
 		.tag_mode = 0,
@@ -1147,12 +1147,12 @@ asn_TYPE_member_t asn_MBR_ClassItem_1[] = {
 			.oer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-			.per_constraints = &asn_PER_memb_id_constr_2,
+			.per_constraints = &asn_PER_memb_id_constr_34,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 			.jer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-			.general_constraints = memb_id_constraint_1
+			.general_constraints = memb_id_constraint_33
 		},
 		0, 0, /* No default value */
 		.name = "id"
@@ -1167,12 +1167,12 @@ asn_TYPE_member_t asn_MBR_ClassItem_1[] = {
 			.oer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-			.per_constraints = &asn_PER_memb_color_constr_3,
+			.per_constraints = &asn_PER_memb_color_constr_35,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 			.jer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-			.general_constraints = memb_color_constraint_1
+			.general_constraints = memb_color_constraint_33
 		},
 		0, 0, /* No default value */
 		.name = "color"
@@ -1180,35 +1180,35 @@ asn_TYPE_member_t asn_MBR_ClassItem_1[] = {
 	{ ATF_OPEN_TYPE | ATF_NOFLAGS, 0, offsetof(struct ClassItem, value),
 		.tag = -1 /* Ambiguous tag (ANY?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_value_4,
+		.type = &asn_DEF_value_36,
 		.type_selector = select_ClassItem_value_type,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 			.oer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-			.per_constraints = &asn_PER_memb_value_constr_4,
+			.per_constraints = &asn_PER_memb_value_constr_36,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 			.jer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-			.general_constraints = memb_value_constraint_1
+			.general_constraints = memb_value_constraint_33
 		},
 		0, 0, /* No default value */
 		.name = "value"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_ClassItem_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_ClassItem_tags_33[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_ClassItem_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_ClassItem_tag2el_33[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 0, 0, 0 }, /* id */
     { (ASN_TAG_CLASS_UNIVERSAL | (10 << 2)), 1, 0, 0 } /* color */
 };
-asn_SEQUENCE_specifics_t asn_SPC_ClassItem_specs_1 = {
+asn_SEQUENCE_specifics_t asn_SPC_ClassItem_specs_33 = {
 	sizeof(struct ClassItem),
 	offsetof(struct ClassItem, _asn_ctx),
-	.tag2el = asn_MAP_ClassItem_tag2el_1,
+	.tag2el = asn_MAP_ClassItem_tag2el_33,
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -1218,12 +1218,12 @@ asn_TYPE_descriptor_t asn_DEF_ClassItem = {
 	"ClassItem",
 	"ClassItem",
 	&asn_OP_SEQUENCE,
-	asn_DEF_ClassItem_tags_1,
-	sizeof(asn_DEF_ClassItem_tags_1)
-		/sizeof(asn_DEF_ClassItem_tags_1[0]), /* 1 */
-	asn_DEF_ClassItem_tags_1,	/* Same as above */
-	sizeof(asn_DEF_ClassItem_tags_1)
-		/sizeof(asn_DEF_ClassItem_tags_1[0]), /* 1 */
+	asn_DEF_ClassItem_tags_33,
+	sizeof(asn_DEF_ClassItem_tags_33)
+		/sizeof(asn_DEF_ClassItem_tags_33[0]), /* 1 */
+	asn_DEF_ClassItem_tags_33,	/* Same as above */
+	sizeof(asn_DEF_ClassItem_tags_33)
+		/sizeof(asn_DEF_ClassItem_tags_33[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1236,9 +1236,9 @@ asn_TYPE_descriptor_t asn_DEF_ClassItem = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_ClassItem_1,
+	asn_MBR_ClassItem_33,
 	3,	/* Elements count */
-	&asn_SPC_ClassItem_specs_1	/* Additional specs */
+	&asn_SPC_ClassItem_specs_33	/* Additional specs */
 };
 
 
@@ -1292,12 +1292,12 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_53")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_53;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_53_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_53;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
@@ -1305,7 +1305,7 @@ __attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
 /*** <<< CTDEFS [EXTERNAL] >>> ***/
 
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-static asn_per_constraints_t asn_PER_type_encoding_constr_5 CC_NOTUSED = {
+static asn_per_constraints_t asn_PER_type_encoding_constr_53 CC_NOTUSED = {
 	{ APC_CONSTRAINED,	 2,  2,  0,  2 }	/* (0..2) */,
 	{ APC_UNCONSTRAINED,	-1, -1,  0,  0 },
 	0, 0	/* No PER value map */
@@ -1314,7 +1314,7 @@ static asn_per_constraints_t asn_PER_type_encoding_constr_5 CC_NOTUSED = {
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_53[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -1376,23 +1376,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_53[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_53 = {
 	sizeof(struct encoding),
 	offsetof(struct encoding, _asn_ctx),
 	offsetof(struct encoding, present),
 	sizeof(((struct encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_53,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_53 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -1405,19 +1405,19 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 		0,
 #endif  /* !defined(ASN_DISABLE_OER_SUPPORT) */
 #if !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT)
-		&asn_PER_type_encoding_constr_5,
+		&asn_PER_type_encoding_constr_53,
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_53,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_53	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_49[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -1481,7 +1481,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_53,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -1499,12 +1499,12 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const int asn_MAP_EXTERNAL_oms_1[] = { 0, 1, 2 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const int asn_MAP_EXTERNAL_oms_49[] = { 0, 1, 2 };
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_49[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_49[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -1512,12 +1512,12 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_49 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_49,
 	.tag2el_count = 6,	/* Count of tags in the map */
-	asn_MAP_EXTERNAL_oms_1,	/* Optional members */
+	asn_MAP_EXTERNAL_oms_49,	/* Optional members */
 	3, 0,	/* Root/Additions */
 	-1,	/* First extension addition */
 	0	/* Extension addition group body */
@@ -1526,12 +1526,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_49,
+	sizeof(asn_DEF_EXTERNAL_tags_49)
+		/sizeof(asn_DEF_EXTERNAL_tags_49[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_49,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_49)
+		/sizeof(asn_DEF_EXTERNAL_tags_49[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1544,9 +1544,9 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_49,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_49	/* Additional specs */
 };
 
 

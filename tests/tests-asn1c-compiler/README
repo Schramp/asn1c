@@ -23,3 +23,18 @@ Where
 Example:
 	07-int-OK.asn1		# Correct ASN.1 file
 	07-int-OK.asn1.-EF	# Test of file regeneration with -E -F flags.
+
+The check-parsing.sh test compares these saved outputs with the current
+compiler output. Run check-parsing.sh regenerate from this directory after an
+intentional output-format change, then review the resulting diff before
+committing the updated fixtures. The 2026-10-23 fixture refresh records
+input-wide generated-symbol indexes and earlier forward declarations for
+parameterized aliases.
+
+check-issue-592.sh compiles headers from issue-592/StructTags.asn1 and checks
+that numbered parameterized instances, aliases, and prefixed types use the
+defined struct tags. It also checks that a long generated tag is not truncated.
+
+check-standard-module-order.sh creates the two standard modules in opposite
+directory orders and compares the generated output. It guards against the
+filesystem-dependent symbol indexes that caused PR #593 CI failures.

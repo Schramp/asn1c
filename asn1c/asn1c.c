@@ -779,7 +779,10 @@ asn1c_parse_complex_threshold(const char *value,
 static int
 asn1c_validate_options(const asn1c_cli_options_t *options) {
     const uint64_t rust_supported =
-        (uint64_t)A1C_GEN_UPER | (uint64_t)A1C_GEN_CER;
+        (uint64_t)A1C_GEN_UPER | (uint64_t)A1C_GEN_BER
+        | (uint64_t)A1C_GEN_CER | (uint64_t)A1C_GEN_APER
+        | (uint64_t)A1C_GEN_OER | (uint64_t)A1C_GEN_JER | (uint64_t)A1C_GEN_CBOR
+        | (uint64_t)A1C_GEN_XER;
     if(options->print_out) {
         if((options->printer_flags & APF_PRINT_CONSTRAINTS)
            && !options->fix_n_print) {
@@ -806,7 +809,7 @@ asn1c_validate_options(const asn1c_cli_options_t *options) {
         if(!options->rust_codec_flags
            || (options->rust_codec_flags & ~rust_supported)) {
             fprintf(stderr,
-                    "Error: --rust supports UPER and CER; select at least "
+                    "Error: --rust supports UPER, APER, OER, BER, CER, JER, CBOR, and XER; select at least "
                     "one supported codec and no other codec\n");
             return -1;
         }
@@ -1118,17 +1121,111 @@ cleanup:
 }
 
 /*
- * Parse and import *.asn1 from skeletons/standard-modules
+ * Purpose: order standard module filenames independently of directory iteration.
+ * Source: issue #592 PR #593 CI investigation. Version: 2026-10-30.
+ * Inputs: left and right are pointers to filename pointers; return: qsort order.
+ * Exceptions: none. Author/responsible party: asn1c maintainers.
+ * History: keep the EXTERNAL module first to preserve generated symbol indexes.
+ * Example: qsort(names, count, sizeof(*names), standard_module_name_compare).
+ */
+static int
+standard_module_name_compare(const void *left, const void *right) {
+    const char *a = *(const char *const *)left;
+    const char *b = *(const char *const *)right;
+    const char *first = "ASN1C-UsefulInformationObjectClasses.asn1";
+    if(strcmp(a, first) == 0) return strcmp(b, first) == 0 ? 0 : -1;
+    if(strcmp(b, first) == 0) return 1;
+    return strcmp(a, b);
+}
+
+/*
+ * Purpose: append an owned standard module filename to a growable list.
+ * Source: issue #592 PR #593 CI investigation. Version: 2026-10-30.
+ * Inputs: names, count, and capacity describe the list; filename is copied.
+ * Return: zero on success, minus one on allocation or size overflow.
+ * Exceptions: none. Author/responsible party: asn1c maintainers.
+ * History: added deterministic directory enumeration. Example: append_standard_module_name(&names, &count, &cap, name).
+ */
+static int
+append_standard_module_name(char ***names, size_t *count, size_t *capacity,
+                            const char *filename) {
+    size_t length = strlen(filename);
+    char *copy;
+    if(length == SIZE_MAX) return -1;
+    if(*count == *capacity) {
+        size_t next;
+        char **grown;
+        if(*capacity > SIZE_MAX / 2) return -1;
+        next = *capacity ? *capacity * 2 : 8;
+        if(next > SIZE_MAX / sizeof(*grown)) return -1;
+        grown = realloc(*names, next * sizeof(*grown));
+        if(!grown) return -1;
+        *names = grown;
+        *capacity = next;
+    }
+    copy = malloc(length + 1);
+    if(!copy) return -1;
+    memcpy(copy, filename, length + 1);
+    (*names)[(*count)++] = copy;
+    return 0;
+}
+
+/*
+ * Purpose: parse and append one standard ASN.1 module to the compiler tree.
+ * Source: former importStandardModules body. Version: 2026-10-30.
+ * Inputs: asn is the destination tree; directory and filename identify the file.
+ * Return: zero on success, minus one on parse, allocation, or size failure.
+ * Exceptions: none. Author/responsible party: asn1c maintainers.
+ * History: extracted to permit sorted imports. Example: import_standard_module_file(asn, dir, name).
+ */
+static int
+import_standard_module_file(asn1p_t *asn, const char *directory,
+                            const char *filename) {
+    size_t dir_len = strlen(directory);
+    size_t name_len = strlen(filename);
+    size_t full_len;
+    char *full_name;
+    asn1p_t *new_asn;
+    asn1p_module_t *mod;
+    if(name_len > SIZE_MAX - 2 || dir_len > SIZE_MAX - name_len - 2) return -1;
+    full_len = dir_len + name_len + 2;
+    full_name = malloc(full_len);
+    if(!full_name) return -1;
+    snprintf(full_name, full_len, "%s/%s", directory, filename);
+    new_asn = asn1p_parse_file(full_name, A1P_NOFLAGS);
+    if(!new_asn) {
+        fprintf(stderr, "WARNING: Cannot parse standard module \"%s\"\n", full_name);
+        free(full_name);
+        return -1;
+    }
+    free(full_name);
+    while((mod = TQ_REMOVE(&(new_asn->modules), mod_next))) {
+        mod->_tags |= MT_STANDARD_MODULE;
+        TQ_ADD(&(asn->modules), mod, mod_next);
+    }
+    asn1p_delete(new_asn);
+    asn1p_lex_destroy();
+    return 0;
+}
+
+/*
+ * Purpose: import standard ASN.1 modules in a stable order on every filesystem.
+ * Source: original importStandardModules and issue #592 PR #593 CI findings.
+ * Version: 2026-10-30. Author/responsible party: asn1c maintainers.
+ * Inputs: asn is the destination tree; skeletons_dir contains standard-modules.
+ * Return: zero on success, minus one on missing input, I/O, or allocation failure.
+ * Exceptions: none. History: sort names before parsing. Example: importStandardModules(asn, dir).
  */
 static int
 importStandardModules(asn1p_t *asn, const char *skeletons_dir) {
-    asn1p_t *new_asn;
-    asn1p_module_t *mod;
-    const char *filename;
-    char *fullname;
+    const char *suffix = "/standard-modules";
+    size_t dir_len;
     char *target_dir;
-    int target_dir_len;
-    int len;
+    char **names = NULL;
+    size_t count = 0;
+    size_t capacity = 0;
+    size_t i;
+    int ret = 0;
 #ifdef _WIN32
     intptr_t dir;
     struct _finddata_t c_file;
@@ -1137,82 +1234,77 @@ importStandardModules(asn1p_t *asn, const char *skeletons_dir) {
     struct dirent *dp;
     DIR *dir;
 #endif
-    int ret = 0;
 
-    /* Notes for the human reader */
-    assert(asn);
-    assert(skeletons_dir);
-
-    /*
-     * Figure out the standard-modules directory.
-     */
-    target_dir_len = strlen(skeletons_dir) + sizeof("/standard-modules") - 1;
-    target_dir = malloc(target_dir_len + 1);
-    assert(target_dir);
-    snprintf(target_dir, target_dir_len + 1, "%s/standard-modules",
-             skeletons_dir);
+    if(!asn || !skeletons_dir) return -1;
+    dir_len = strlen(skeletons_dir);
+    if(dir_len > SIZE_MAX - strlen(suffix) - 1) return -1;
+    dir_len += strlen(suffix);
+    target_dir = malloc(dir_len + 1);
+    if(!target_dir) return -1;
+    snprintf(target_dir, dir_len + 1, "%s%s", skeletons_dir, suffix);
 
 #ifdef _WIN32
-    len = target_dir_len + sizeof("/*.asn1");
-    pattern = malloc(len);
-    assert(pattern);
-    snprintf(pattern, len, "%s/*.asn1", target_dir);
+    if(dir_len > SIZE_MAX - sizeof("/*.asn1")) {
+        free(target_dir);
+        return -1;
+    }
+    pattern = malloc(dir_len + sizeof("/*.asn1"));
+    if(!pattern) {
+        free(target_dir);
+        return -1;
+    }
+    snprintf(pattern, dir_len + sizeof("/*.asn1"), "%s/*.asn1", target_dir);
     dir = _findfirst(pattern, &c_file);
+    free(pattern);
     if(dir == -1L) {
 #else
     dir = opendir(target_dir);
     if(!dir) {
 #endif
-        fprintf(stderr, "WARNING: Cannot find standard modules in %s\n",
-                target_dir);
+        fprintf(stderr, "WARNING: Cannot find standard modules in %s\n", target_dir);
+        free(target_dir);
         return -1;
     }
 
+    /* Copy names while iterating; the directory API's filename storage is temporary. */
 #ifdef _WIN32
     do {
-        filename = c_file.name;
+        const char *filename = c_file.name;
 #else
+    errno = 0;
     while((dp = readdir(dir))) {
-        filename = dp->d_name;
+        const char *filename = dp->d_name;
 #endif
-        len = strlen(filename);
-        if(len <= 5 || strcmp(filename + len - 5, ".asn1")) continue;
-        len = target_dir_len + 1 + len + 1;
-        fullname = malloc(len);
-        if(!fullname) continue; /* Just skip it, no big deal */
-        snprintf(fullname, len, "%s/%s", target_dir, filename);
-        filename = fullname;
-
-        new_asn = asn1p_parse_file(filename, A1P_NOFLAGS);
-        if(new_asn == NULL) {
-            fprintf(stderr, "WARNING: Cannot parse standard module \"%s\"\n",
-                    filename);
+        size_t length = strlen(filename);
+        if(length <= 5 || strcmp(filename + length - 5, ".asn1") != 0) continue;
+        if(append_standard_module_name(&names, &count, &capacity, filename)) {
+            fprintf(stderr, "WARNING: Cannot store standard module name %s\n", filename);
             ret = -1;
-            continue;
+            break;
         }
-
-        /* Import these modules and mark them as "standard" */
-        while((mod = TQ_REMOVE(&(new_asn->modules), mod_next))) {
-            mod->_tags |= MT_STANDARD_MODULE;
-            TQ_ADD(&(asn->modules), mod, mod_next);
-        }
-        asn1p_delete(new_asn);
-        asn1p_lex_destroy();
-
 #ifdef _WIN32
     } while(_findnext(dir, &c_file) == 0);
     _findclose(dir);
 #else
-        free(fullname);
-    } /* while(readdir()) */
+        errno = 0;
+    }
+    if(ret == 0 && errno != 0) {
+        fprintf(stderr, "WARNING: Cannot read standard modules in %s\n", target_dir);
+        ret = -1;
+    }
     closedir(dir);
 #endif
 
-#ifdef _WIN32
-    free(pattern);
-#endif
+    /* Parse in the fixture's stable order, then release all copied names. */
+    if(ret == 0) {
+        if(count > 1) qsort(names, count, sizeof(*names), standard_module_name_compare);
+        for(i = 0; i < count; i++) {
+            if(import_standard_module_file(asn, target_dir, names[i])) ret = -1;
+        }
+    }
+    for(i = 0; i < count; i++) free(names[i]);
+    free(names);
     free(target_dir);
-
     return ret;
 }
 
@@ -1247,7 +1339,8 @@ usage(const char *av0) {
 "ASN.1 Compiler, " VERSION "\n" COPYRIGHT
 "Usage: %s [options] file ...\n"
 "Options:\n"
-"  --rust                Generate Rust BOOLEAN, NULL, and bounded i64 INTEGER codecs (UPER/CER)\n"
+"  --rust                Generate Rust codecs for selected types and flat records\n"
+"                        (UPER/CER default; opt-in BER/DER, APER, OER, JER, CBOR, XER)\n"
 "  -E                    Run only the ASN.1 parser and print out the tree\n"
 "  -F                    During -E operation, also perform tree fixing\n"
 "\n"

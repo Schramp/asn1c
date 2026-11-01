@@ -139,7 +139,7 @@ cbor_type_encoder_f Enum2_encode_cbor;
 
 /*** <<< STAT-DEFS [Enum2] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Enum2_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Enum2_value2enum_7[] = {
 	{ 0,	3,	"red" },
 	{ 1,	5,	"green" },
 	{ 2,	5,	"alpha" },
@@ -149,7 +149,7 @@ static const asn_INTEGER_enum_map_t asn_MAP_Enum2_value2enum_1[] = {
 	{ 103,	5,	"gamma" }
 	/* This list is extensible */
 };
-static const unsigned int asn_MAP_Enum2_enum2value_1[] = {
+static const unsigned int asn_MAP_Enum2_enum2value_7[] = {
 	2,	/* alpha(2) */
 	5,	/* beta(12) */
 	4,	/* blue(45) */
@@ -159,28 +159,28 @@ static const unsigned int asn_MAP_Enum2_enum2value_1[] = {
 	0	/* red(0) */
 	/* This list is extensible */
 };
-static const asn_INTEGER_specifics_t asn_SPC_Enum2_specs_1 = {
-	asn_MAP_Enum2_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Enum2_enum2value_1,	/* N => "tag"; sorted by N */
+static const asn_INTEGER_specifics_t asn_SPC_Enum2_specs_7 = {
+	asn_MAP_Enum2_value2enum_7,	/* "tag" => N; sorted by tag */
+	asn_MAP_Enum2_enum2value_7,	/* N => "tag"; sorted by N */
 	7,	/* Number of elements in the maps */
 	6,	/* Extensions before this member */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Enum2_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Enum2_tags_7[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Enum2 = {
 	"Enum2",
 	"Enum2",
 	&asn_OP_ENUMERATED,
-	asn_DEF_Enum2_tags_1,
-	sizeof(asn_DEF_Enum2_tags_1)
-		/sizeof(asn_DEF_Enum2_tags_1[0]), /* 1 */
-	asn_DEF_Enum2_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Enum2_tags_1)
-		/sizeof(asn_DEF_Enum2_tags_1[0]), /* 1 */
+	asn_DEF_Enum2_tags_7,
+	sizeof(asn_DEF_Enum2_tags_7)
+		/sizeof(asn_DEF_Enum2_tags_7[0]), /* 1 */
+	asn_DEF_Enum2_tags_7,	/* Same as above */
+	sizeof(asn_DEF_Enum2_tags_7)
+		/sizeof(asn_DEF_Enum2_tags_7[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -194,7 +194,7 @@ asn_TYPE_descriptor_t asn_DEF_Enum2 = {
 		ENUMERATED_constraint
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Enum2_specs_1	/* Additional specs */
+	&asn_SPC_Enum2_specs_7	/* Additional specs */
 };
 
 
@@ -239,40 +239,40 @@ cbor_type_encoder_f Enum3_encode_cbor;
 
 /*** <<< STAT-DEFS [Enum3] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Enum3_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Enum3_value2enum_16[] = {
 	{ 0,	1,	"a" },
 	{ 3,	1,	"b" },
 	{ 1,	1,	"c" }
 	/* This list is extensible */
 };
-static const unsigned int asn_MAP_Enum3_enum2value_1[] = {
+static const unsigned int asn_MAP_Enum3_enum2value_16[] = {
 	0,	/* a(0) */
 	1,	/* b(3) */
 	2	/* c(1) */
 	/* This list is extensible */
 };
-static const asn_INTEGER_specifics_t asn_SPC_Enum3_specs_1 = {
-	asn_MAP_Enum3_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Enum3_enum2value_1,	/* N => "tag"; sorted by N */
+static const asn_INTEGER_specifics_t asn_SPC_Enum3_specs_16 = {
+	asn_MAP_Enum3_value2enum_16,	/* "tag" => N; sorted by tag */
+	asn_MAP_Enum3_enum2value_16,	/* N => "tag"; sorted by N */
 	3,	/* Number of elements in the maps */
 	3,	/* Extensions before this member */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Enum3_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Enum3_tags_16[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Enum3 = {
 	"Enum3",
 	"Enum3",
 	&asn_OP_ENUMERATED,
-	asn_DEF_Enum3_tags_1,
-	sizeof(asn_DEF_Enum3_tags_1)
-		/sizeof(asn_DEF_Enum3_tags_1[0]), /* 1 */
-	asn_DEF_Enum3_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Enum3_tags_1)
-		/sizeof(asn_DEF_Enum3_tags_1[0]), /* 1 */
+	asn_DEF_Enum3_tags_16,
+	sizeof(asn_DEF_Enum3_tags_16)
+		/sizeof(asn_DEF_Enum3_tags_16[0]), /* 1 */
+	asn_DEF_Enum3_tags_16,	/* Same as above */
+	sizeof(asn_DEF_Enum3_tags_16)
+		/sizeof(asn_DEF_Enum3_tags_16[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -286,7 +286,7 @@ asn_TYPE_descriptor_t asn_DEF_Enum3 = {
 		ENUMERATED_constraint
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Enum3_specs_1	/* Additional specs */
+	&asn_SPC_Enum3_specs_16	/* Additional specs */
 };
 
 
@@ -332,42 +332,42 @@ cbor_type_encoder_f Enum4_encode_cbor;
 
 /*** <<< STAT-DEFS [Enum4] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Enum4_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Enum4_value2enum_21[] = {
 	{ 0,	1,	"a" },
 	{ 1,	1,	"b" },
 	{ 3,	1,	"c" },
 	{ 4,	1,	"d" }
 	/* This list is extensible */
 };
-static const unsigned int asn_MAP_Enum4_enum2value_1[] = {
+static const unsigned int asn_MAP_Enum4_enum2value_21[] = {
 	0,	/* a(0) */
 	1,	/* b(1) */
 	2,	/* c(3) */
 	3	/* d(4) */
 	/* This list is extensible */
 };
-static const asn_INTEGER_specifics_t asn_SPC_Enum4_specs_1 = {
-	asn_MAP_Enum4_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Enum4_enum2value_1,	/* N => "tag"; sorted by N */
+static const asn_INTEGER_specifics_t asn_SPC_Enum4_specs_21 = {
+	asn_MAP_Enum4_value2enum_21,	/* "tag" => N; sorted by tag */
+	asn_MAP_Enum4_enum2value_21,	/* N => "tag"; sorted by N */
 	4,	/* Number of elements in the maps */
 	3,	/* Extensions before this member */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Enum4_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Enum4_tags_21[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Enum4 = {
 	"Enum4",
 	"Enum4",
 	&asn_OP_ENUMERATED,
-	asn_DEF_Enum4_tags_1,
-	sizeof(asn_DEF_Enum4_tags_1)
-		/sizeof(asn_DEF_Enum4_tags_1[0]), /* 1 */
-	asn_DEF_Enum4_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Enum4_tags_1)
-		/sizeof(asn_DEF_Enum4_tags_1[0]), /* 1 */
+	asn_DEF_Enum4_tags_21,
+	sizeof(asn_DEF_Enum4_tags_21)
+		/sizeof(asn_DEF_Enum4_tags_21[0]), /* 1 */
+	asn_DEF_Enum4_tags_21,	/* Same as above */
+	sizeof(asn_DEF_Enum4_tags_21)
+		/sizeof(asn_DEF_Enum4_tags_21[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -381,7 +381,7 @@ asn_TYPE_descriptor_t asn_DEF_Enum4 = {
 		ENUMERATED_constraint
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Enum4_specs_1	/* Additional specs */
+	&asn_SPC_Enum4_specs_21	/* Additional specs */
 };
 
 
@@ -426,40 +426,40 @@ cbor_type_encoder_f Enum5_encode_cbor;
 
 /*** <<< STAT-DEFS [Enum5] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Enum5_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Enum5_value2enum_27[] = {
 	{ 0,	1,	"a" },
 	{ 25,	1,	"z" },
 	{ 1,	1,	"d" }
 	/* This list is extensible */
 };
-static const unsigned int asn_MAP_Enum5_enum2value_1[] = {
+static const unsigned int asn_MAP_Enum5_enum2value_27[] = {
 	0,	/* a(0) */
 	2,	/* d(1) */
 	1	/* z(25) */
 	/* This list is extensible */
 };
-static const asn_INTEGER_specifics_t asn_SPC_Enum5_specs_1 = {
-	asn_MAP_Enum5_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Enum5_enum2value_1,	/* N => "tag"; sorted by N */
+static const asn_INTEGER_specifics_t asn_SPC_Enum5_specs_27 = {
+	asn_MAP_Enum5_value2enum_27,	/* "tag" => N; sorted by tag */
+	asn_MAP_Enum5_enum2value_27,	/* N => "tag"; sorted by N */
 	3,	/* Number of elements in the maps */
 	3,	/* Extensions before this member */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Enum5_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Enum5_tags_27[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Enum5 = {
 	"Enum5",
 	"Enum5",
 	&asn_OP_ENUMERATED,
-	asn_DEF_Enum5_tags_1,
-	sizeof(asn_DEF_Enum5_tags_1)
-		/sizeof(asn_DEF_Enum5_tags_1[0]), /* 1 */
-	asn_DEF_Enum5_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Enum5_tags_1)
-		/sizeof(asn_DEF_Enum5_tags_1[0]), /* 1 */
+	asn_DEF_Enum5_tags_27,
+	sizeof(asn_DEF_Enum5_tags_27)
+		/sizeof(asn_DEF_Enum5_tags_27[0]), /* 1 */
+	asn_DEF_Enum5_tags_27,	/* Same as above */
+	sizeof(asn_DEF_Enum5_tags_27)
+		/sizeof(asn_DEF_Enum5_tags_27[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -473,7 +473,7 @@ asn_TYPE_descriptor_t asn_DEF_Enum5 = {
 		ENUMERATED_constraint
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Enum5_specs_1	/* Additional specs */
+	&asn_SPC_Enum5_specs_27	/* Additional specs */
 };
 
 
@@ -527,19 +527,19 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_47")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_47;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_47_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_47;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_47[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -601,23 +601,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_47[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_47 = {
 	sizeof(struct encoding),
 	offsetof(struct encoding, _asn_ctx),
 	offsetof(struct encoding, present),
 	sizeof(((struct encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_47,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_47 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -637,12 +637,12 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_47,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_47	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_43[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -706,7 +706,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_47,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -724,11 +724,11 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_43[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_43[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -736,10 +736,10 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_43 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_43,
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -749,12 +749,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_43,
+	sizeof(asn_DEF_EXTERNAL_tags_43)
+		/sizeof(asn_DEF_EXTERNAL_tags_43[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_43,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_43)
+		/sizeof(asn_DEF_EXTERNAL_tags_43[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -767,8 +767,8 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_43,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_43	/* Additional specs */
 };
 

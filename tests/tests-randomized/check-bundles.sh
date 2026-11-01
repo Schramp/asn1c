@@ -37,6 +37,16 @@ MAKE="${MAKE:-make}"
 FUZZ_TIME="${FUZZ_TIME:-10}"
 FUZZ_TARGETS="${FUZZ_TARGETS:-all}"
 FUZZ_MAX_CORPUS_BYTES="${FUZZ_MAX_CORPUS_BYTES:-0}"
+RANDOM_TEST_TIMEOUT="${RANDOM_TEST_TIMEOUT:-300}"
+case "${RANDOM_TEST_TIMEOUT}" in
+    ''|*[!0-9]*) echo "RANDOM_TEST_TIMEOUT must be a positive integer" >&2; exit 1 ;;
+    *[1-9]*) ;;
+    *) echo "RANDOM_TEST_TIMEOUT must be a positive integer" >&2; exit 1 ;;
+esac
+if [ "${#RANDOM_TEST_TIMEOUT}" -gt 5 ] || [ "$RANDOM_TEST_TIMEOUT" -gt 86400 ]; then
+    echo "RANDOM_TEST_TIMEOUT must be at most 86400 seconds" >&2
+    exit 1
+fi
 
 # Decide corpus generation before any cached result is used.
 # Fuzzing requires seeds; ordinary checks can omit the unused filesystem work.
@@ -227,6 +237,48 @@ Make() {
     fi
 }
 
+# Purpose: Limit one generated driver's wall time, including a stuck codec call.
+# Source: asn1c randomized harness. Version/date: 2026-10-25.
+# Inputs: $1 is a positive timeout in seconds; $2 is the driver command text.
+# Returns: driver status, or 124 after the deadline. Exceptions: none.
+# Responsible party: asn1c maintainers. History: bound silent randomized runs.
+# Example: run_bounded_driver 300 './random-test-driver -s 128 -c'.
+run_bounded_driver() {
+    driver_limit=$1
+    driver_command=$2
+    timeout_marker=".random-test-timeout-$$"
+    rm -f "$timeout_marker"
+
+    # exec keeps the background PID attached to the driver rather than a shell.
+    (eval "exec env ${driver_command}") &
+    driver_pid=$!
+    (
+        # A completed driver must cancel both the timer shell and its sleep.
+        timer_child=
+        trap 'kill "$timer_child" 2>/dev/null || :; wait "$timer_child" 2>/dev/null || :; exit 0' TERM INT
+        sleep "$driver_limit" &
+        timer_child=$!
+        wait "$timer_child" || exit 0
+        if kill -0 "$driver_pid" 2>/dev/null; then
+            echo "Timed out after ${driver_limit}s: ${driver_command}" >&2
+            : >"$timeout_marker"
+            kill -TERM "$driver_pid" 2>/dev/null || :
+            sleep 2
+            kill -KILL "$driver_pid" 2>/dev/null || :
+        fi
+    ) &
+    timer_pid=$!
+
+    wait "$driver_pid" && driver_status=0 || driver_status=$?
+    kill "$timer_pid" 2>/dev/null || :
+    wait "$timer_pid" 2>/dev/null || :
+    if [ -f "$timeout_marker" ]; then
+        rm -f "$timeout_marker"
+        return 124
+    fi
+    return "$driver_status"
+}
+
 get_param() {
     param="$1"
     default="$2"
@@ -273,20 +325,25 @@ compile_and_test() {
     rmax=`get_param RMAX 128 "$asn"`
     if [ "0${rmax}" -lt 1 ]; then rmax=128; fi
 
-    echo "Checking random data encode-decode"
-    round_trip_check_cmd="${ASAN_ENV_FLAGS} ./random-test-driver -s ${rmax} ${encodings} -c"
+    # Very large values exercise length boundaries with fewer repetitions.
+    # The default 100 iterations can multiply into hours across eight codecs.
+    iterations=100
+    if [ "$rmax" -ge 16384 ]; then iterations=8; fi
+
+    echo "Checking random data encode-decode (${iterations} iterations, ${RANDOM_TEST_TIMEOUT}s limit)"
+    round_trip_check_cmd="${ASAN_ENV_FLAGS} ./random-test-driver -s ${rmax} -n ${iterations} ${encodings} -c"
     echo "(${reproduce_make} && ${round_trip_check_cmd})" > .test-reproduce
-    if eval "$round_trip_check_cmd"; then
+    if run_bounded_driver "$RANDOM_TEST_TIMEOUT" "$round_trip_check_cmd"; then
         echo "Random test OK"
     else
         { echo "RETRY:"; cat .test-reproduce ; }
         return 3
     fi
 
-    echo "Checking random data copy"
-    copy_check_cmd="${ASAN_ENV_FLAGS} ./random-test-driver -s ${rmax} ${encodings} -y"
+    echo "Checking random data copy (${iterations} iterations, ${RANDOM_TEST_TIMEOUT}s limit)"
+    copy_check_cmd="${ASAN_ENV_FLAGS} ./random-test-driver -s ${rmax} -n ${iterations} ${encodings} -y"
     echo "(${reproduce_make} && ${copy_check_cmd})" > .test-reproduce
-    if eval "$copy_check_cmd"; then
+    if run_bounded_driver "$RANDOM_TEST_TIMEOUT" "$copy_check_cmd"; then
         echo "Copy test OK"
     else
         { echo "RETRY:"; cat .test-reproduce ; }
@@ -302,9 +359,9 @@ compile_and_test() {
     echo "Generating new random data"
     rm -rf random-data
     cmd="${ASAN_ENV_FLAGS} UBSAN_OPTIONS=print_stacktrace=1"
-    cmd="${cmd} ./random-test-driver -s ${rmax} ${encodings} -g random-data"
+    cmd="${cmd} ./random-test-driver -s ${rmax} -n ${iterations} ${encodings} -g random-data"
     echo "(${reproduce_make} && ${cmd})" > .test-reproduce
-    if eval "$cmd" ; then
+    if run_bounded_driver "$RANDOM_TEST_TIMEOUT" "$cmd" ; then
         echo "Random data generated OK"
     else
         { echo "RETRY:"; cat .test-reproduce ; }

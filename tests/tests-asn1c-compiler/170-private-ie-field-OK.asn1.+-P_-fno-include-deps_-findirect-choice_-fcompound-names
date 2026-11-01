@@ -103,7 +103,7 @@ typedef long	 Criticality_t;
 /*** <<< FUNC-DECLS [Criticality] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_Criticality;
-extern const asn_INTEGER_specifics_t asn_SPC_Criticality_specs_1;
+extern const asn_INTEGER_specifics_t asn_SPC_Criticality_specs_2;
 asn_struct_free_f Criticality_free;
 asn_struct_print_f Criticality_print;
 asn_constr_check_f Criticality_constraint;
@@ -123,12 +123,12 @@ cbor_type_encoder_f Criticality_encode_cbor;
 
 /*** <<< STAT-DEFS [Criticality] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Criticality_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Criticality_value2enum_2[] = {
 	{ 0,	6,	"reject" },
 	{ 1,	6,	"ignore" },
 	{ 2,	6,	"notify" }
 };
-static int asn_validate_Criticality_1(const asn_TYPE_descriptor_t *td,
+static int asn_validate_Criticality_2(const asn_TYPE_descriptor_t *td,
                        const void *sptr,
                        asn_app_constraint_failed_f *ctfailcb,
                        void* app_key) {
@@ -142,33 +142,33 @@ static int asn_validate_Criticality_1(const asn_TYPE_descriptor_t *td,
     }
     return -1;
 }
-static const unsigned int asn_MAP_Criticality_enum2value_1[] = {
+static const unsigned int asn_MAP_Criticality_enum2value_2[] = {
 	1,	/* ignore(1) */
 	2,	/* notify(2) */
 	0	/* reject(0) */
 };
-const asn_INTEGER_specifics_t asn_SPC_Criticality_specs_1 = {
-	asn_MAP_Criticality_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Criticality_enum2value_1,	/* N => "tag"; sorted by N */
+const asn_INTEGER_specifics_t asn_SPC_Criticality_specs_2 = {
+	asn_MAP_Criticality_value2enum_2,	/* "tag" => N; sorted by tag */
+	asn_MAP_Criticality_enum2value_2,	/* N => "tag"; sorted by N */
 	3,	/* Number of elements in the maps */
 	0,	/* Enumeration is not extensible */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Criticality_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Criticality_tags_2[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Criticality = {
 	"Criticality",
 	"Criticality",
 	&asn_OP_NativeEnumerated,
-	asn_DEF_Criticality_tags_1,
-	sizeof(asn_DEF_Criticality_tags_1)
-		/sizeof(asn_DEF_Criticality_tags_1[0]), /* 1 */
-	asn_DEF_Criticality_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Criticality_tags_1)
-		/sizeof(asn_DEF_Criticality_tags_1[0]), /* 1 */
+	asn_DEF_Criticality_tags_2,
+	sizeof(asn_DEF_Criticality_tags_2)
+		/sizeof(asn_DEF_Criticality_tags_2[0]), /* 1 */
+	asn_DEF_Criticality_tags_2,	/* Same as above */
+	sizeof(asn_DEF_Criticality_tags_2)
+		/sizeof(asn_DEF_Criticality_tags_2[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -179,10 +179,10 @@ asn_TYPE_descriptor_t asn_DEF_Criticality = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn_validate_Criticality_1
+		asn_validate_Criticality_2
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Criticality_specs_1	/* Additional specs */
+	&asn_SPC_Criticality_specs_2	/* Additional specs */
 };
 
 
@@ -205,7 +205,7 @@ typedef long	 Presence_t;
 /*** <<< FUNC-DECLS [Presence] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_Presence;
-extern const asn_INTEGER_specifics_t asn_SPC_Presence_specs_1;
+extern const asn_INTEGER_specifics_t asn_SPC_Presence_specs_6;
 asn_struct_free_f Presence_free;
 asn_struct_print_f Presence_print;
 asn_constr_check_f Presence_constraint;
@@ -225,12 +225,12 @@ cbor_type_encoder_f Presence_encode_cbor;
 
 /*** <<< STAT-DEFS [Presence] >>> ***/
 
-static const asn_INTEGER_enum_map_t asn_MAP_Presence_value2enum_1[] = {
+static const asn_INTEGER_enum_map_t asn_MAP_Presence_value2enum_6[] = {
 	{ 0,	8,	"optional" },
 	{ 1,	11,	"conditional" },
 	{ 2,	9,	"mandatory" }
 };
-static int asn_validate_Presence_1(const asn_TYPE_descriptor_t *td,
+static int asn_validate_Presence_6(const asn_TYPE_descriptor_t *td,
                        const void *sptr,
                        asn_app_constraint_failed_f *ctfailcb,
                        void* app_key) {
@@ -244,33 +244,33 @@ static int asn_validate_Presence_1(const asn_TYPE_descriptor_t *td,
     }
     return -1;
 }
-static const unsigned int asn_MAP_Presence_enum2value_1[] = {
+static const unsigned int asn_MAP_Presence_enum2value_6[] = {
 	1,	/* conditional(1) */
 	2,	/* mandatory(2) */
 	0	/* optional(0) */
 };
-const asn_INTEGER_specifics_t asn_SPC_Presence_specs_1 = {
-	asn_MAP_Presence_value2enum_1,	/* "tag" => N; sorted by tag */
-	asn_MAP_Presence_enum2value_1,	/* N => "tag"; sorted by N */
+const asn_INTEGER_specifics_t asn_SPC_Presence_specs_6 = {
+	asn_MAP_Presence_value2enum_6,	/* "tag" => N; sorted by tag */
+	asn_MAP_Presence_enum2value_6,	/* N => "tag"; sorted by N */
 	3,	/* Number of elements in the maps */
 	0,	/* Enumeration is not extensible */
 	1,	/* Strict enumeration */
 	0,	/* Native long size */
 	0
 };
-static const ber_tlv_tag_t asn_DEF_Presence_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Presence_tags_6[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (10 << 2))
 };
 asn_TYPE_descriptor_t asn_DEF_Presence = {
 	"Presence",
 	"Presence",
 	&asn_OP_NativeEnumerated,
-	asn_DEF_Presence_tags_1,
-	sizeof(asn_DEF_Presence_tags_1)
-		/sizeof(asn_DEF_Presence_tags_1[0]), /* 1 */
-	asn_DEF_Presence_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Presence_tags_1)
-		/sizeof(asn_DEF_Presence_tags_1[0]), /* 1 */
+	asn_DEF_Presence_tags_6,
+	sizeof(asn_DEF_Presence_tags_6)
+		/sizeof(asn_DEF_Presence_tags_6[0]), /* 1 */
+	asn_DEF_Presence_tags_6,	/* Same as above */
+	sizeof(asn_DEF_Presence_tags_6)
+		/sizeof(asn_DEF_Presence_tags_6[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -281,10 +281,10 @@ asn_TYPE_descriptor_t asn_DEF_Presence = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn_validate_Presence_1
+		asn_validate_Presence_6
 	},
 	0, 0,	/* Defined elsewhere */
-	&asn_SPC_Presence_specs_1	/* Additional specs */
+	&asn_SPC_Presence_specs_6	/* Additional specs */
 };
 
 
@@ -333,29 +333,29 @@ typedef struct PrivateMessage_IEs {
 /*** <<< FUNC-DECLS [PrivateIE-Field] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_PrivateMessage_IEs;
-extern asn_SEQUENCE_specifics_t asn_SPC_PrivateMessage_IEs_specs_1;
-extern asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_1[3];
+extern asn_SEQUENCE_specifics_t asn_SPC_PrivateMessage_IEs_specs_22;
+extern asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_22[3];
 
 /*** <<< IOC-TABLES [PrivateIE-Field] >>> ***/
 
-static const long asn_VAL_PrivateMessage_IEs_1_1 = 1;
-static const long asn_VAL_PrivateMessage_IEs_1_reject = 0;
-static const long asn_VAL_PrivateMessage_IEs_1_mandatory = 2;
+static const long asn_VAL_PrivateMessage_IEs_29_1 = 1;
+static const long asn_VAL_PrivateMessage_IEs_30_reject = 0;
+static const long asn_VAL_PrivateMessage_IEs_32_mandatory = 2;
 
-static const asn_ioc_cell_t asn_IOS_PrivateMessage_IEs_1_rows[] = {
-	{ "&id", aioc__value, &asn_DEF_NativeInteger, &asn_VAL_PrivateMessage_IEs_1_1 },
-	{ "&criticality", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_PrivateMessage_IEs_1_reject },
+static const asn_ioc_cell_t asn_IOS_PrivateMessage_IEs_28_rows[] = {
+	{ "&id", aioc__value, &asn_DEF_NativeInteger, &asn_VAL_PrivateMessage_IEs_29_1 },
+	{ "&criticality", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_PrivateMessage_IEs_30_reject },
 	{ "&Value", aioc__type, &asn_DEF_NativeInteger },
-	{ "&presence", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_PrivateMessage_IEs_1_mandatory }
+	{ "&presence", aioc__value, &asn_DEF_NativeEnumerated, &asn_VAL_PrivateMessage_IEs_32_mandatory }
 };
-static const asn_ioc_set_t asn_IOS_PrivateMessage_IEs_1[] = {
-	{ 1, 4, asn_IOS_PrivateMessage_IEs_1_rows }
+static const asn_ioc_set_t asn_IOS_PrivateMessage_IEs_28[] = {
+	{ 1, 4, asn_IOS_PrivateMessage_IEs_28_rows }
 };
 
 /*** <<< CODE [PrivateIE-Field] >>> ***/
 
 static int
-memb_id_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+memb_id_constraint_22(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	long value;
 	
@@ -382,7 +382,7 @@ memb_id_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 static asn_type_selector_result_t
 select_PrivateMessage_IEs_criticality_type(const asn_TYPE_descriptor_t *parent_type, const void *parent_sptr) {
 	asn_type_selector_result_t result = {0, 0};
-	const asn_ioc_set_t *itable = asn_IOS_PrivateMessage_IEs_1;
+	const asn_ioc_set_t *itable = asn_IOS_PrivateMessage_IEs_28;
 	size_t constraining_column = 0; /* &id */
 	size_t for_column = 1; /* &criticality */
 	size_t row, presence_index = 0;
@@ -414,7 +414,7 @@ select_PrivateMessage_IEs_criticality_type(const asn_TYPE_descriptor_t *parent_t
 }
 
 static int
-memb_criticality_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+memb_criticality_constraint_22(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -435,7 +435,7 @@ memb_criticality_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 static asn_type_selector_result_t
 select_PrivateMessage_IEs_value_type(const asn_TYPE_descriptor_t *parent_type, const void *parent_sptr) {
 	asn_type_selector_result_t result = {0, 0};
-	const asn_ioc_set_t *itable = asn_IOS_PrivateMessage_IEs_1;
+	const asn_ioc_set_t *itable = asn_IOS_PrivateMessage_IEs_28;
 	size_t constraining_column = 0; /* &id */
 	size_t for_column = 2; /* &Value */
 	size_t row, presence_index = 0;
@@ -467,7 +467,7 @@ select_PrivateMessage_IEs_value_type(const asn_TYPE_descriptor_t *parent_type, c
 }
 
 static int
-memb_value_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+memb_value_constraint_22(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	
 	if(!sptr) {
@@ -488,7 +488,7 @@ memb_value_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [PrivateIE-Field] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_PrivateMessage_IEs__value_4[] = {
+static asn_TYPE_member_t asn_MBR_PrivateMessage_IEs__value_25[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct PrivateMessage_IEs__value, choice.INTEGER),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)),
 		.tag_mode = 0,
@@ -510,21 +510,21 @@ static asn_TYPE_member_t asn_MBR_PrivateMessage_IEs__value_4[] = {
 		.name = "INTEGER"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_value_tag2el_4[] = {
+static const asn_TYPE_tag2member_t asn_MAP_value_tag2el_25[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 0, 0, 0 } /* INTEGER */
 };
-static asn_CHOICE_specifics_t asn_SPC_value_specs_4 = {
+static asn_CHOICE_specifics_t asn_SPC_value_specs_25 = {
 	sizeof(struct PrivateMessage_IEs__value),
 	offsetof(struct PrivateMessage_IEs__value, _asn_ctx),
 	offsetof(struct PrivateMessage_IEs__value, present),
 	sizeof(((struct PrivateMessage_IEs__value *)0)->present),
-	.tag2el = asn_MAP_value_tag2el_4,
+	.tag2el = asn_MAP_value_tag2el_25,
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_value_4 = {
+asn_TYPE_descriptor_t asn_DEF_value_25 = {
 	"OPEN TYPE",
 	"OPEN_TYPE",
 	&asn_OP_OPEN_TYPE,
@@ -544,12 +544,12 @@ asn_TYPE_descriptor_t asn_DEF_value_4 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		OPEN_TYPE_constraint
 	},
-	asn_MBR_PrivateMessage_IEs__value_4,
+	asn_MBR_PrivateMessage_IEs__value_25,
 	1,	/* Elements count */
-	&asn_SPC_value_specs_4	/* Additional specs */
+	&asn_SPC_value_specs_25	/* Additional specs */
 };
 
-asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_1[] = {
+asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_22[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct PrivateMessage_IEs, id),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)),
 		.tag_mode = 0,
@@ -565,7 +565,7 @@ asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_1[] = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 			.jer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-			.general_constraints = memb_id_constraint_1
+			.general_constraints = memb_id_constraint_22
 		},
 		0, 0, /* No default value */
 		.name = "id"
@@ -585,7 +585,7 @@ asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_1[] = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 			.jer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-			.general_constraints = memb_criticality_constraint_1
+			.general_constraints = memb_criticality_constraint_22
 		},
 		0, 0, /* No default value */
 		.name = "criticality"
@@ -593,7 +593,7 @@ asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_1[] = {
 	{ ATF_OPEN_TYPE | ATF_NOFLAGS, 0, offsetof(struct PrivateMessage_IEs, value),
 		.tag = -1 /* Ambiguous tag (ANY?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_value_4,
+		.type = &asn_DEF_value_25,
 		.type_selector = select_PrivateMessage_IEs_value_type,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -605,23 +605,23 @@ asn_TYPE_member_t asn_MBR_PrivateMessage_IEs_1[] = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 			.jer_constraints = 0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-			.general_constraints = memb_value_constraint_1
+			.general_constraints = memb_value_constraint_22
 		},
 		0, 0, /* No default value */
 		.name = "value"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_PrivateMessage_IEs_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_PrivateMessage_IEs_tags_22[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_PrivateMessage_IEs_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_PrivateMessage_IEs_tag2el_22[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 0, 0, 0 }, /* id */
     { (ASN_TAG_CLASS_UNIVERSAL | (10 << 2)), 1, 0, 0 } /* criticality */
 };
-asn_SEQUENCE_specifics_t asn_SPC_PrivateMessage_IEs_specs_1 = {
+asn_SEQUENCE_specifics_t asn_SPC_PrivateMessage_IEs_specs_22 = {
 	sizeof(struct PrivateMessage_IEs),
 	offsetof(struct PrivateMessage_IEs, _asn_ctx),
-	.tag2el = asn_MAP_PrivateMessage_IEs_tag2el_1,
+	.tag2el = asn_MAP_PrivateMessage_IEs_tag2el_22,
 	.tag2el_count = 2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -631,12 +631,12 @@ asn_TYPE_descriptor_t asn_DEF_PrivateMessage_IEs = {
 	"PrivateMessage-IEs",
 	"PrivateMessage-IEs",
 	&asn_OP_SEQUENCE,
-	asn_DEF_PrivateMessage_IEs_tags_1,
-	sizeof(asn_DEF_PrivateMessage_IEs_tags_1)
-		/sizeof(asn_DEF_PrivateMessage_IEs_tags_1[0]), /* 1 */
-	asn_DEF_PrivateMessage_IEs_tags_1,	/* Same as above */
-	sizeof(asn_DEF_PrivateMessage_IEs_tags_1)
-		/sizeof(asn_DEF_PrivateMessage_IEs_tags_1[0]), /* 1 */
+	asn_DEF_PrivateMessage_IEs_tags_22,
+	sizeof(asn_DEF_PrivateMessage_IEs_tags_22)
+		/sizeof(asn_DEF_PrivateMessage_IEs_tags_22[0]), /* 1 */
+	asn_DEF_PrivateMessage_IEs_tags_22,	/* Same as above */
+	sizeof(asn_DEF_PrivateMessage_IEs_tags_22)
+		/sizeof(asn_DEF_PrivateMessage_IEs_tags_22[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -649,9 +649,9 @@ asn_TYPE_descriptor_t asn_DEF_PrivateMessage_IEs = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_PrivateMessage_IEs_1,
+	asn_MBR_PrivateMessage_IEs_22,
 	3,	/* Elements count */
-	&asn_SPC_PrivateMessage_IEs_specs_1	/* Additional specs */
+	&asn_SPC_PrivateMessage_IEs_specs_22	/* Additional specs */
 };
 
 
@@ -676,8 +676,8 @@ typedef struct PrivateIE_Container_48P0 {
 /*** <<< FUNC-DECLS [PrivateIE-Container] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_PrivateIE_Container_48P0;
-extern asn_SET_OF_specifics_t asn_SPC_PrivateIE_Container_48P0_specs_1;
-extern asn_TYPE_member_t asn_MBR_PrivateIE_Container_48P0_1[1];
+extern asn_SET_OF_specifics_t asn_SPC_PrivateIE_Container_48P0_specs_26;
+extern asn_TYPE_member_t asn_MBR_PrivateIE_Container_48P0_26[1];
 
 /*** <<< POST-INCLUDE [PrivateIE-Container] >>> ***/
 
@@ -701,7 +701,7 @@ extern asn_TYPE_member_t asn_MBR_PrivateIE_Container_48P0_1[1];
  * Example: Called by a constrained SEQUENCE OF or SET OF descriptor.
  */
 static int
-asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
+asn1c_collection_constraint_26(const asn_TYPE_descriptor_t *td, const void *sptr,
 			asn_app_constraint_failed_f *ctfailcb, void *app_key) {
 	size_t size;
 
@@ -729,7 +729,7 @@ asn1c_collection_constraint_1(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 /*** <<< STAT-DEFS [PrivateIE-Container] >>> ***/
 
-asn_TYPE_member_t asn_MBR_PrivateIE_Container_48P0_1[] = {
+asn_TYPE_member_t asn_MBR_PrivateIE_Container_48P0_26[] = {
 	{ ATF_POINTER, 0, 0,
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (16 << 2)),
 		.tag_mode = 0,
@@ -751,10 +751,10 @@ asn_TYPE_member_t asn_MBR_PrivateIE_Container_48P0_1[] = {
 		.name = ""
 		},
 };
-static const ber_tlv_tag_t asn_DEF_PrivateIE_Container_48P0_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_PrivateIE_Container_48P0_tags_26[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-asn_SET_OF_specifics_t asn_SPC_PrivateIE_Container_48P0_specs_1 = {
+asn_SET_OF_specifics_t asn_SPC_PrivateIE_Container_48P0_specs_26 = {
 	sizeof(struct PrivateIE_Container_48P0),
 	offsetof(struct PrivateIE_Container_48P0, _asn_ctx),
 	0,	/* XER encoding is XMLDelimitedItemList */
@@ -763,12 +763,12 @@ asn_TYPE_descriptor_t asn_DEF_PrivateIE_Container_48P0 = {
 	"PrivateIE-Container",
 	"PrivateIE-Container",
 	&asn_OP_SEQUENCE_OF,
-	asn_DEF_PrivateIE_Container_48P0_tags_1,
-	sizeof(asn_DEF_PrivateIE_Container_48P0_tags_1)
-		/sizeof(asn_DEF_PrivateIE_Container_48P0_tags_1[0]), /* 1 */
-	asn_DEF_PrivateIE_Container_48P0_tags_1,	/* Same as above */
-	sizeof(asn_DEF_PrivateIE_Container_48P0_tags_1)
-		/sizeof(asn_DEF_PrivateIE_Container_48P0_tags_1[0]), /* 1 */
+	asn_DEF_PrivateIE_Container_48P0_tags_26,
+	sizeof(asn_DEF_PrivateIE_Container_48P0_tags_26)
+		/sizeof(asn_DEF_PrivateIE_Container_48P0_tags_26[0]), /* 1 */
+	asn_DEF_PrivateIE_Container_48P0_tags_26,	/* Same as above */
+	sizeof(asn_DEF_PrivateIE_Container_48P0_tags_26)
+		/sizeof(asn_DEF_PrivateIE_Container_48P0_tags_26[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -779,11 +779,11 @@ asn_TYPE_descriptor_t asn_DEF_PrivateIE_Container_48P0 = {
 #if !defined(ASN_DISABLE_JER_SUPPORT)
 		0,
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
-		asn1c_collection_constraint_1
+		asn1c_collection_constraint_26
 	},
-	asn_MBR_PrivateIE_Container_48P0_1,
+	asn_MBR_PrivateIE_Container_48P0_26,
 	1,	/* Single element */
-	&asn_SPC_PrivateIE_Container_48P0_specs_1	/* Additional specs */
+	&asn_SPC_PrivateIE_Container_48P0_specs_26	/* Additional specs */
 };
 
 
@@ -794,12 +794,11 @@ asn_TYPE_descriptor_t asn_DEF_PrivateIE_Container_48P0 = {
 /*** <<< FWD-DECLS [PrivateMessage] >>> ***/
 
 struct PrivateIE_Container_48P0;
-struct PrivateIE_Container;
 
 /*** <<< TYPE-DECLS [PrivateMessage] >>> ***/
 
 typedef struct PrivateMessage {
-	struct PrivateIE_Container	*privateIEs;	/* OPTIONAL */
+	struct PrivateIE_Container_48P0	*privateIEs;	/* OPTIONAL */
 	
 	/* Context for parsing across buffer boundaries */
 	asn_struct_ctx_t _asn_ctx;
@@ -815,7 +814,7 @@ extern asn_TYPE_descriptor_t asn_DEF_PrivateMessage;
 
 /*** <<< STAT-DEFS [PrivateMessage] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_PrivateMessage_1[] = {
+static asn_TYPE_member_t asn_MBR_PrivateMessage_33[] = {
 	{ ATF_POINTER, 1, offsetof(struct PrivateMessage, privateIEs),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = -1,	/* IMPLICIT tag at current level */
@@ -837,16 +836,16 @@ static asn_TYPE_member_t asn_MBR_PrivateMessage_1[] = {
 		.name = "privateIEs"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_PrivateMessage_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_PrivateMessage_tags_33[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_PrivateMessage_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_PrivateMessage_tag2el_33[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 } /* privateIEs */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_PrivateMessage_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_PrivateMessage_specs_33 = {
 	sizeof(struct PrivateMessage),
 	offsetof(struct PrivateMessage, _asn_ctx),
-	.tag2el = asn_MAP_PrivateMessage_tag2el_1,
+	.tag2el = asn_MAP_PrivateMessage_tag2el_33,
 	.tag2el_count = 1,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -856,12 +855,12 @@ asn_TYPE_descriptor_t asn_DEF_PrivateMessage = {
 	"PrivateMessage",
 	"PrivateMessage",
 	&asn_OP_SEQUENCE,
-	asn_DEF_PrivateMessage_tags_1,
-	sizeof(asn_DEF_PrivateMessage_tags_1)
-		/sizeof(asn_DEF_PrivateMessage_tags_1[0]), /* 1 */
-	asn_DEF_PrivateMessage_tags_1,	/* Same as above */
-	sizeof(asn_DEF_PrivateMessage_tags_1)
-		/sizeof(asn_DEF_PrivateMessage_tags_1[0]), /* 1 */
+	asn_DEF_PrivateMessage_tags_33,
+	sizeof(asn_DEF_PrivateMessage_tags_33)
+		/sizeof(asn_DEF_PrivateMessage_tags_33[0]), /* 1 */
+	asn_DEF_PrivateMessage_tags_33,	/* Same as above */
+	sizeof(asn_DEF_PrivateMessage_tags_33)
+		/sizeof(asn_DEF_PrivateMessage_tags_33[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -874,9 +873,9 @@ asn_TYPE_descriptor_t asn_DEF_PrivateMessage = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_PrivateMessage_1,
+	asn_MBR_PrivateMessage_33,
 	1,	/* Elements count */
-	&asn_SPC_PrivateMessage_specs_1	/* Additional specs */
+	&asn_SPC_PrivateMessage_specs_33	/* Additional specs */
 };
 
 
@@ -930,19 +929,19 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_50")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_50;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_50_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_50;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_50[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL__encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -1004,23 +1003,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_50[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_50 = {
 	sizeof(struct EXTERNAL__encoding),
 	offsetof(struct EXTERNAL__encoding, _asn_ctx),
 	offsetof(struct EXTERNAL__encoding, present),
 	sizeof(((struct EXTERNAL__encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_50,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_50 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -1040,12 +1039,12 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_50,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_50	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_46[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -1109,7 +1108,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_50,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -1127,11 +1126,11 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_46[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_46[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -1139,10 +1138,10 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_46 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_46,
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -1152,12 +1151,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_46,
+	sizeof(asn_DEF_EXTERNAL_tags_46)
+		/sizeof(asn_DEF_EXTERNAL_tags_46[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_46,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_46)
+		/sizeof(asn_DEF_EXTERNAL_tags_46[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1170,9 +1169,9 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_46,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_46	/* Additional specs */
 };
 
 

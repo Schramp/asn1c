@@ -85,7 +85,7 @@ fn read_c_vector(filename: &str) -> Vec<u8> {
 /// Rust output and `expected` is the independent complete CER encoding.
 ///
 /// # Returns
-/// No value. The exact bytes are also saved for generic C ATS_CER decoding.
+/// No value. The exact bytes are also saved for generic C `ATS_CER` decoding.
 ///
 /// # Errors and panics
 /// Panics if Rust, the C encoder, or the independent expected bytes differ, or
@@ -229,6 +229,96 @@ fn cer_primitive_golden_vectors() {
     }
     let singleton = Singleton::new(5).unwrap().encode_cer(&limits).unwrap();
     check_cer_vector("cer_singleton.bin", &singleton, &[0x02, 0x01, 0x05]);
+}
+
+/// Check canonical DER output and BER decoding against shared C vectors.
+///
+/// # Parameters and returns
+/// No parameters or return value. Exercises all three generated BER/DER types.
+///
+/// # Errors and panics
+/// Panics if DER bytes, BER values, prefix consumption, or malformed-input
+/// handling differs from the runtime contract.
+///
+/// # Source, history, and example
+/// Original source: X.690 DER encoding and BER primitive decoding contracts.
+/// Version/date: 0.1.0, 2026-10-30. Responsible party: asn1c maintainers.
+/// History: added with opt-in generated BER/DER methods. Example: BOOLEAN TRUE
+/// uses the canonical DER bytes `01 01 FF`.
+#[test]
+fn ber_der_primitive_vectors_and_prefixes() {
+    let limits = Limits::default();
+    check_cer_vector(
+        "cer_bool_false.bin",
+        &Flag::new(false).encode_der(&limits).unwrap(),
+        &[0x01, 0x01, 0x00],
+    );
+    check_cer_vector(
+        "cer_bool_true.bin",
+        &Flag::new(true).encode_der(&limits).unwrap(),
+        &[0x01, 0x01, 0xff],
+    );
+    check_cer_vector(
+        "cer_null.bin",
+        &Empty.encode_der(&limits).unwrap(),
+        &[0x05, 0x00],
+    );
+    check_cer_vector(
+        "cer_count_min.bin",
+        &Count::new(-10).unwrap().encode_der(&limits).unwrap(),
+        &[0x02, 0x01, 0xf6],
+    );
+    check_cer_vector(
+        "cer_count_max.bin",
+        &Count::new(10).unwrap().encode_der(&limits).unwrap(),
+        &[0x02, 0x01, 0x0a],
+    );
+    check_cer_vector(
+        "cer_singleton.bin",
+        &Singleton::new(5).unwrap().encode_der(&limits).unwrap(),
+        &[0x02, 0x01, 0x05],
+    );
+    for (value, expected, filename) in [
+        (127, &[0x02, 0x01, 0x7f][..], "cer_sign_127.bin"),
+        (128, &[0x02, 0x02, 0x00, 0x80][..], "cer_sign_128.bin"),
+        (-128, &[0x02, 0x01, 0x80][..], "cer_sign_minus_128.bin"),
+        (-129, &[0x02, 0x02, 0xff, 0x7f][..], "cer_sign_minus_129.bin"),
+    ] {
+        let encoded = SignBounds::new(value).unwrap().encode_der(&limits).unwrap();
+        check_cer_vector(filename, &encoded, expected);
+    }
+
+    let mut boolean_prefix = read_c_vector("cer_bool_true.bin");
+    boolean_prefix.push(0x5a);
+    let decoded = Flag::decode_ber(&boolean_prefix, &limits).unwrap();
+    assert!(decoded.value.value());
+    assert_eq!(decoded.consumed_bytes, 3);
+    assert_eq!(decoded.consumed_bits, 24);
+    assert!(Flag::decode_ber(&[0x01, 0x01, 0x01], &limits)
+        .unwrap()
+        .value
+        .value());
+    assert!(Flag::decode_ber(&[0x01, 0x02, 0x00, 0xff], &limits).is_err());
+    assert!(Flag::decode_ber(&[0x01, 0x01], &limits).is_err());
+
+    let null_decoded = Empty::decode_ber(&read_c_vector("cer_null.bin"), &limits).unwrap();
+    assert_eq!(null_decoded.consumed_bytes, 2);
+    assert!(Empty::decode_ber(&[0x05, 0x01, 0x00], &limits).is_err());
+
+    let count_decoded = Count::decode_ber(&read_c_vector("cer_count_max.bin"), &limits).unwrap();
+    assert_eq!(count_decoded.value.value(), 10);
+    assert_eq!(count_decoded.consumed_bytes, 3);
+    let redundant_count = Count::decode_ber(&[0x02, 0x02, 0x00, 0x0a], &limits).unwrap();
+    assert_eq!(redundant_count.value.value(), 10);
+    assert!(Count::decode_ber(&[0x02, 0x01, 0x0b], &limits).is_err());
+    let singleton = Singleton::decode_ber(&read_c_vector("cer_singleton.bin"), &limits).unwrap();
+    assert_eq!(singleton.value.value(), 5);
+    let sign_bounds = SignBounds::decode_ber(
+        &read_c_vector("cer_sign_minus_129.bin"),
+        &limits,
+    )
+    .unwrap();
+    assert_eq!(sign_bounds.value.value(), -129);
 }
 
 /// Decode live C CER vectors with generated strict decoders and reject noncanonical TLVs.
@@ -583,7 +673,7 @@ fn resource_limits_are_enforced() {
     let defaults = Limits::default();
     let no_input = Limits {
         max_input_bytes: 0,
-        ..defaults.clone()
+        ..defaults
     };
     let input_error = Flag::decode_uper(&[0x80], &no_input).unwrap_err();
     assert!(matches!(
@@ -596,7 +686,7 @@ fn resource_limits_are_enforced() {
 
     let no_output = Limits {
         max_output_bytes: 0,
-        ..defaults.clone()
+        ..defaults
     };
     let output_error = Flag::new(true).encode_uper(&no_output).unwrap_err();
     assert!(matches!(
@@ -609,7 +699,7 @@ fn resource_limits_are_enforced() {
 
     let no_work = Limits {
         max_work_bits: 0,
-        ..defaults.clone()
+        ..defaults
     };
     let work_error = Flag::new(true).encode_uper(&no_work).unwrap_err();
     assert!(matches!(
@@ -631,7 +721,7 @@ fn resource_limits_are_enforced() {
     let wide = Wide::new(i64::MAX).unwrap();
     let seven_output_bytes = Limits {
         max_output_bytes: 7,
-        ..defaults.clone()
+        ..defaults
     };
     let output_error = wide.encode_uper(&seven_output_bytes).unwrap_err();
     assert!(matches!(

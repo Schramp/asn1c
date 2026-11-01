@@ -1,0 +1,16 @@
+HeaderTemplate DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+PROTOCOL-IES ::= CLASS {
+    &id INTEGER UNIQUE,
+    &Value
+} WITH SYNTAX { ID &id TYPE &Value }
+
+ProtocolIE-Field {PROTOCOL-IES : IEsSetParam} ::= SEQUENCE {
+    id PROTOCOL-IES.&id ({IEsSetParam}),
+    value PROTOCOL-IES.&Value ({IEsSetParam}{@id})
+}
+
+ProtocolIE-SingleContainer {PROTOCOL-IES : IEsSetParam} ::=
+    ProtocolIE-Field {{IEsSetParam}}
+
+END

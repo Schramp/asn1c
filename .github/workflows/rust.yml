@@ -34,7 +34,8 @@ jobs:
         run: |
           cargo fmt --manifest-path rust/asn1c-runtime/Cargo.toml --check
           cargo test --offline --manifest-path rust/asn1c-runtime/Cargo.toml
-          cargo clippy --offline --manifest-path rust/asn1c-runtime/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path rust/asn1c-runtime/Cargo.toml \
+            --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
       - name: Check generated codecs and CLI failures
         run: |
           command -v cargo

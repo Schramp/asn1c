@@ -1,6 +1,6 @@
 # ADR: Generate Rust codecs while retaining the C frontend
 
-**Status:** Accepted conversion direction; initial UPER and CER slices implemented.
+**Status:** Accepted conversion direction; initial UPER, CER, and primitive BER/DER slices implemented.
 **Date:** 2026-10-11.
 **Deciders:** Repository maintainer; Sol supervises Luna implementation agents.
 **Baseline:** `5a0ccf24ede9b176e8fd76861bf4855ed95f5105`.

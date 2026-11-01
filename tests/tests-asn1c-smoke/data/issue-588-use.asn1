@@ -1,0 +1,12 @@
+HeaderUse DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+IMPORTS PROTOCOL-IES, ProtocolIE-SingleContainer FROM HeaderTemplate;
+
+EMPTY-IES PROTOCOL-IES ::= { ... }
+OTHER-IES PROTOCOL-IES ::= { { ID 1 TYPE Node } }
+
+Node ::= CHOICE { leaf INTEGER, extension Node-Extension }
+Node-Extension ::= ProtocolIE-SingleContainer {{EMPTY-IES}}
+Top ::= ProtocolIE-SingleContainer {{OTHER-IES}}
+
+END

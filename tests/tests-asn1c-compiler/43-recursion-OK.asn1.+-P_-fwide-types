@@ -359,8 +359,8 @@ typedef struct Choice_1 {
 /*** <<< FUNC-DECLS [Choice-1] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_Choice_1;
-extern asn_CHOICE_specifics_t asn_SPC_Choice_1_specs_1;
-extern asn_TYPE_member_t asn_MBR_Choice_1_1[4];
+extern asn_CHOICE_specifics_t asn_SPC_Choice_1_specs_8;
+extern asn_TYPE_member_t asn_MBR_Choice_1_8[4];
 
 /*** <<< POST-INCLUDE [Choice-1] >>> ***/
 
@@ -370,19 +370,19 @@ extern asn_TYPE_member_t asn_MBR_Choice_1_1[4];
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_or __attribute__((weak, alias("asn_DEF_or_3")));
+extern asn_TYPE_descriptor_t asn_DEF_or __attribute__((weak, alias("asn_DEF_or_10")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_or_3;
+static asn_TYPE_descriptor_t asn_DEF_or_10;
 static asn_TYPE_descriptor_t asn_DEF_or;
-__attribute__((constructor)) static void asn_DEF_or_3_alias_init(void) {
-	asn_DEF_or = asn_DEF_or_3;
+__attribute__((constructor)) static void asn_DEF_or_10_alias_init(void) {
+	asn_DEF_or = asn_DEF_or_10;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 
 /*** <<< STAT-DEFS [Choice-1] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_Choice_1__or_3[] = {
+static asn_TYPE_member_t asn_MBR_Choice_1__or_10[] = {
 	{ ATF_POINTER, 0, 0,
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
@@ -404,26 +404,26 @@ static asn_TYPE_member_t asn_MBR_Choice_1__or_3[] = {
 		.name = ""
 		},
 };
-static const ber_tlv_tag_t asn_DEF_or_tags_3[] = {
+static const ber_tlv_tag_t asn_DEF_or_tags_10[] = {
 	(ASN_TAG_CLASS_CONTEXT | (2 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (17 << 2))
 };
-static asn_SET_OF_specifics_t asn_SPC_or_specs_3 = {
+static asn_SET_OF_specifics_t asn_SPC_or_specs_10 = {
 	sizeof(struct Or),
 	offsetof(struct Or, _asn_ctx),
 	2,	/* XER encoding is XMLValueList */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_or_3 = {
+asn_TYPE_descriptor_t asn_DEF_or_10 = {
 	"or",
 	"or",
 	&asn_OP_SET_OF,
-	asn_DEF_or_tags_3,
-	sizeof(asn_DEF_or_tags_3)
-		/sizeof(asn_DEF_or_tags_3[0]) - 1, /* 1 */
-	asn_DEF_or_tags_3,	/* Same as above */
-	sizeof(asn_DEF_or_tags_3)
-		/sizeof(asn_DEF_or_tags_3[0]), /* 2 */
+	asn_DEF_or_tags_10,
+	sizeof(asn_DEF_or_tags_10)
+		/sizeof(asn_DEF_or_tags_10[0]) - 1, /* 1 */
+	asn_DEF_or_tags_10,	/* Same as above */
+	sizeof(asn_DEF_or_tags_10)
+		/sizeof(asn_DEF_or_tags_10[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -436,12 +436,12 @@ asn_TYPE_descriptor_t asn_DEF_or_3 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SET_OF_constraint
 	},
-	asn_MBR_Choice_1__or_3,
+	asn_MBR_Choice_1__or_10,
 	1,	/* Single element */
-	&asn_SPC_or_specs_3	/* Additional specs */
+	&asn_SPC_or_specs_10	/* Additional specs */
 };
 
-asn_TYPE_member_t asn_MBR_Choice_1_1[] = {
+asn_TYPE_member_t asn_MBR_Choice_1_8[] = {
 	{ ATF_POINTER, 0, offsetof(struct Choice_1, choice.And),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -465,7 +465,7 @@ asn_TYPE_member_t asn_MBR_Choice_1_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct Choice_1, choice.Or),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (2 << 2)),
 		.tag_mode = 0,
-		.type = &asn_DEF_or_3,
+		.type = &asn_DEF_or_10,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -523,18 +523,18 @@ asn_TYPE_member_t asn_MBR_Choice_1_1[] = {
 		.name = "other"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_Choice_1_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_Choice_1_tag2el_8[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 0, 0, 0 }, /* and */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 1, 0, 0 }, /* or */
     { (ASN_TAG_CLASS_CONTEXT | (3 << 2)), 2, 0, 0 }, /* not */
     { (ASN_TAG_CLASS_CONTEXT | (4 << 2)), 3, 0, 0 } /* other */
 };
-asn_CHOICE_specifics_t asn_SPC_Choice_1_specs_1 = {
+asn_CHOICE_specifics_t asn_SPC_Choice_1_specs_8 = {
 	sizeof(struct Choice_1),
 	offsetof(struct Choice_1, _asn_ctx),
 	offsetof(struct Choice_1, present),
 	sizeof(((struct Choice_1 *)0)->present),
-	.tag2el = asn_MAP_Choice_1_tag2el_1,
+	.tag2el = asn_MAP_Choice_1_tag2el_8,
 	.tag2el_count = 4,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
@@ -559,9 +559,9 @@ asn_TYPE_descriptor_t asn_DEF_Choice_1 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_Choice_1_1,
+	asn_MBR_Choice_1_8,
 	4,	/* Elements count */
-	&asn_SPC_Choice_1_specs_1	/* Additional specs */
+	&asn_SPC_Choice_1_specs_8	/* Additional specs */
 };
 
 
@@ -599,8 +599,8 @@ typedef struct Test_structure_2 {
 /*** <<< FUNC-DECLS [Test-structure-2] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_Test_structure_2;
-extern asn_SET_specifics_t asn_SPC_Test_structure_2_specs_1;
-extern asn_TYPE_member_t asn_MBR_Test_structure_2_1[1];
+extern asn_SET_specifics_t asn_SPC_Test_structure_2_specs_14;
+extern asn_TYPE_member_t asn_MBR_Test_structure_2_14[1];
 
 /*** <<< POST-INCLUDE [Test-structure-2] >>> ***/
 
@@ -608,7 +608,7 @@ extern asn_TYPE_member_t asn_MBR_Test_structure_2_1[1];
 
 /*** <<< STAT-DEFS [Test-structure-2] >>> ***/
 
-asn_TYPE_member_t asn_MBR_Test_structure_2_1[] = {
+asn_TYPE_member_t asn_MBR_Test_structure_2_14[] = {
 	{ ATF_POINTER, 1, offsetof(struct Test_structure_2, m1),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (17 << 2)),
 		.tag_mode = 0,
@@ -630,36 +630,45 @@ asn_TYPE_member_t asn_MBR_Test_structure_2_1[] = {
 		.name = "m1"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_Test_structure_2_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Test_structure_2_tags_14[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (17 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_Test_structure_2_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_Test_structure_2_tag2el_14[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (17 << 2)), 0, 0, 0 } /* m1 */
 };
-static const uint8_t asn_MAP_Test_structure_2_mmap_1[(1 + (8 * sizeof(unsigned int)) - 1) / 8] = {
+static const uint8_t asn_MAP_Test_structure_2_mmap_14[(1 + (8 * sizeof(unsigned int)) - 1) / 8] = {
 	(0 << 7)
 };
-asn_SET_specifics_t asn_SPC_Test_structure_2_specs_1 = {
+static const unsigned asn_MAP_Test_structure_2_root_14[1] = {0};
+asn_SET_specifics_t asn_SPC_Test_structure_2_specs_14 = {
 	sizeof(struct Test_structure_2),
 	offsetof(struct Test_structure_2, _asn_ctx),
 	offsetof(struct Test_structure_2, _presence_map),
-	.tag2el = asn_MAP_Test_structure_2_tag2el_1,
+	.tag2el = asn_MAP_Test_structure_2_tag2el_14,
 	.tag2el_count = 1,	/* Count of tags in the map */
-	asn_MAP_Test_structure_2_tag2el_1,	/* Same as above */
+	asn_MAP_Test_structure_2_tag2el_14,	/* Same as above */
 	1,	/* Count of tags in the CXER map */
 	0,	/* Whether extensible */
-	(const unsigned int *)asn_MAP_Test_structure_2_mmap_1	/* Mandatory elements map */
+	(const unsigned int *)asn_MAP_Test_structure_2_mmap_14,	/* Mandatory elements map */
+	offsetof(asn_SET_specifics_t, extension_groups),	/* Metadata size */
+	ASN_SET_SPECIFICS_VERSION,	/* Metadata version */
+	asn_MAP_Test_structure_2_root_14,	/* Root members in declaration order */
+	1,	/* Root member count */
+	0,	/* No extension additions */
+	0,	/* Extension addition count */
+	0,	/* No extension group adapters */
+	0	/* Extension group count */
 };
 asn_TYPE_descriptor_t asn_DEF_Test_structure_2 = {
 	"Test-structure-2",
 	"Test-structure-2",
 	&asn_OP_SET,
-	asn_DEF_Test_structure_2_tags_1,
-	sizeof(asn_DEF_Test_structure_2_tags_1)
-		/sizeof(asn_DEF_Test_structure_2_tags_1[0]), /* 1 */
-	asn_DEF_Test_structure_2_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Test_structure_2_tags_1)
-		/sizeof(asn_DEF_Test_structure_2_tags_1[0]), /* 1 */
+	asn_DEF_Test_structure_2_tags_14,
+	sizeof(asn_DEF_Test_structure_2_tags_14)
+		/sizeof(asn_DEF_Test_structure_2_tags_14[0]), /* 1 */
+	asn_DEF_Test_structure_2_tags_14,	/* Same as above */
+	sizeof(asn_DEF_Test_structure_2_tags_14)
+		/sizeof(asn_DEF_Test_structure_2_tags_14[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -672,9 +681,9 @@ asn_TYPE_descriptor_t asn_DEF_Test_structure_2 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SET_constraint
 	},
-	asn_MBR_Test_structure_2_1,
+	asn_MBR_Test_structure_2_14,
 	1,	/* Elements count */
-	&asn_SPC_Test_structure_2_specs_1	/* Additional specs */
+	&asn_SPC_Test_structure_2_specs_14	/* Additional specs */
 };
 
 
@@ -712,8 +721,8 @@ typedef struct Test_structure_3 {
 /*** <<< FUNC-DECLS [Test-structure-3] >>> ***/
 
 extern asn_TYPE_descriptor_t asn_DEF_Test_structure_3;
-extern asn_SET_specifics_t asn_SPC_Test_structure_3_specs_1;
-extern asn_TYPE_member_t asn_MBR_Test_structure_3_1[1];
+extern asn_SET_specifics_t asn_SPC_Test_structure_3_specs_16;
+extern asn_TYPE_member_t asn_MBR_Test_structure_3_16[1];
 
 /*** <<< POST-INCLUDE [Test-structure-3] >>> ***/
 
@@ -721,7 +730,7 @@ extern asn_TYPE_member_t asn_MBR_Test_structure_3_1[1];
 
 /*** <<< STAT-DEFS [Test-structure-3] >>> ***/
 
-asn_TYPE_member_t asn_MBR_Test_structure_3_1[] = {
+asn_TYPE_member_t asn_MBR_Test_structure_3_16[] = {
 	{ ATF_POINTER, 1, offsetof(struct Test_structure_3, m1),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (17 << 2)),
 		.tag_mode = 0,
@@ -743,36 +752,45 @@ asn_TYPE_member_t asn_MBR_Test_structure_3_1[] = {
 		.name = "m1"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_Test_structure_3_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_Test_structure_3_tags_16[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (17 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_Test_structure_3_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_Test_structure_3_tag2el_16[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (17 << 2)), 0, 0, 0 } /* m1 */
 };
-static const uint8_t asn_MAP_Test_structure_3_mmap_1[(1 + (8 * sizeof(unsigned int)) - 1) / 8] = {
+static const uint8_t asn_MAP_Test_structure_3_mmap_16[(1 + (8 * sizeof(unsigned int)) - 1) / 8] = {
 	(0 << 7)
 };
-asn_SET_specifics_t asn_SPC_Test_structure_3_specs_1 = {
+static const unsigned asn_MAP_Test_structure_3_root_16[1] = {0};
+asn_SET_specifics_t asn_SPC_Test_structure_3_specs_16 = {
 	sizeof(struct Test_structure_3),
 	offsetof(struct Test_structure_3, _asn_ctx),
 	offsetof(struct Test_structure_3, _presence_map),
-	.tag2el = asn_MAP_Test_structure_3_tag2el_1,
+	.tag2el = asn_MAP_Test_structure_3_tag2el_16,
 	.tag2el_count = 1,	/* Count of tags in the map */
-	asn_MAP_Test_structure_3_tag2el_1,	/* Same as above */
+	asn_MAP_Test_structure_3_tag2el_16,	/* Same as above */
 	1,	/* Count of tags in the CXER map */
 	0,	/* Whether extensible */
-	(const unsigned int *)asn_MAP_Test_structure_3_mmap_1	/* Mandatory elements map */
+	(const unsigned int *)asn_MAP_Test_structure_3_mmap_16,	/* Mandatory elements map */
+	offsetof(asn_SET_specifics_t, extension_groups),	/* Metadata size */
+	ASN_SET_SPECIFICS_VERSION,	/* Metadata version */
+	asn_MAP_Test_structure_3_root_16,	/* Root members in declaration order */
+	1,	/* Root member count */
+	0,	/* No extension additions */
+	0,	/* Extension addition count */
+	0,	/* No extension group adapters */
+	0	/* Extension group count */
 };
 asn_TYPE_descriptor_t asn_DEF_Test_structure_3 = {
 	"Test-structure-3",
 	"Test-structure-3",
 	&asn_OP_SET,
-	asn_DEF_Test_structure_3_tags_1,
-	sizeof(asn_DEF_Test_structure_3_tags_1)
-		/sizeof(asn_DEF_Test_structure_3_tags_1[0]), /* 1 */
-	asn_DEF_Test_structure_3_tags_1,	/* Same as above */
-	sizeof(asn_DEF_Test_structure_3_tags_1)
-		/sizeof(asn_DEF_Test_structure_3_tags_1[0]), /* 1 */
+	asn_DEF_Test_structure_3_tags_16,
+	sizeof(asn_DEF_Test_structure_3_tags_16)
+		/sizeof(asn_DEF_Test_structure_3_tags_16[0]), /* 1 */
+	asn_DEF_Test_structure_3_tags_16,	/* Same as above */
+	sizeof(asn_DEF_Test_structure_3_tags_16)
+		/sizeof(asn_DEF_Test_structure_3_tags_16[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -785,9 +803,9 @@ asn_TYPE_descriptor_t asn_DEF_Test_structure_3 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SET_constraint
 	},
-	asn_MBR_Test_structure_3_1,
+	asn_MBR_Test_structure_3_16,
 	1,	/* Elements count */
-	&asn_SPC_Test_structure_3_specs_1	/* Additional specs */
+	&asn_SPC_Test_structure_3_specs_16	/* Additional specs */
 };
 
 
@@ -841,19 +859,19 @@ extern asn_TYPE_descriptor_t asn_DEF_EXTERNAL;
 
 #ifndef ASN1C_NO_UNSUFFIXED_PDU_ALIAS
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
-extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_5")));
+extern asn_TYPE_descriptor_t asn_DEF_encoding __attribute__((weak, alias("asn_DEF_encoding_33")));
 #else
-static asn_TYPE_descriptor_t asn_DEF_encoding_5;
+static asn_TYPE_descriptor_t asn_DEF_encoding_33;
 static asn_TYPE_descriptor_t asn_DEF_encoding;
-__attribute__((constructor)) static void asn_DEF_encoding_5_alias_init(void) {
-	asn_DEF_encoding = asn_DEF_encoding_5;
+__attribute__((constructor)) static void asn_DEF_encoding_33_alias_init(void) {
+	asn_DEF_encoding = asn_DEF_encoding_33;
 }
 #endif
 #endif /* ASN1C_NO_UNSUFFIXED_PDU_ALIAS */
 
 /*** <<< STAT-DEFS [EXTERNAL] >>> ***/
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_33[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct encoding, choice.single_ASN1_type),
 		.tag = (ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		.tag_mode = +1,	/* EXPLICIT tag at current level */
@@ -915,23 +933,23 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL__encoding_5[] = {
 		.name = "arbitrary"
 		},
 };
-static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_5[] = {
+static const asn_TYPE_tag2member_t asn_MAP_encoding_tag2el_33[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* single-ASN1-type */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 2, 0, 0 } /* arbitrary */
 };
-static asn_CHOICE_specifics_t asn_SPC_encoding_specs_5 = {
+static asn_CHOICE_specifics_t asn_SPC_encoding_specs_33 = {
 	sizeof(struct encoding),
 	offsetof(struct encoding, _asn_ctx),
 	offsetof(struct encoding, present),
 	sizeof(((struct encoding *)0)->present),
-	.tag2el = asn_MAP_encoding_tag2el_5,
+	.tag2el = asn_MAP_encoding_tag2el_33,
 	.tag2el_count = 3,	/* Count of tags in the map */
 	0, 0,
 	.first_extension = -1	/* Extensions start */
 };
 static /* Use -fall-defs-global to expose */
-asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
+asn_TYPE_descriptor_t asn_DEF_encoding_33 = {
 	"encoding",
 	"encoding",
 	&asn_OP_CHOICE,
@@ -951,12 +969,12 @@ asn_TYPE_descriptor_t asn_DEF_encoding_5 = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		CHOICE_constraint
 	},
-	asn_MBR_EXTERNAL__encoding_5,
+	asn_MBR_EXTERNAL__encoding_33,
 	3,	/* Elements count */
-	&asn_SPC_encoding_specs_5	/* Additional specs */
+	&asn_SPC_encoding_specs_33	/* Additional specs */
 };
 
-static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
+static asn_TYPE_member_t asn_MBR_EXTERNAL_29[] = {
 	{ ATF_POINTER, 3, offsetof(struct EXTERNAL, direct_reference),
 		.tag = (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)),
 		.tag_mode = 0,
@@ -1020,7 +1038,7 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct EXTERNAL, encoding),
 		.tag = -1 /* Ambiguous tag (CHOICE?) */,
 		.tag_mode = 0,
-		.type = &asn_DEF_encoding_5,
+		.type = &asn_DEF_encoding_33,
 		.type_selector = 0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -1038,11 +1056,11 @@ static asn_TYPE_member_t asn_MBR_EXTERNAL_1[] = {
 		.name = "encoding"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_EXTERNAL_tags_29[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (8 << 2)),
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_29[] = {
     { (ASN_TAG_CLASS_UNIVERSAL | (2 << 2)), 1, 0, 0 }, /* indirect-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (6 << 2)), 0, 0, 0 }, /* direct-reference */
     { (ASN_TAG_CLASS_UNIVERSAL | (7 << 2)), 2, 0, 0 }, /* data-value-descriptor */
@@ -1050,10 +1068,10 @@ static const asn_TYPE_tag2member_t asn_MAP_EXTERNAL_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 3, 0, 0 }, /* octet-aligned */
     { (ASN_TAG_CLASS_CONTEXT | (2 << 2)), 3, 0, 0 } /* arbitrary */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_1 = {
+static asn_SEQUENCE_specifics_t asn_SPC_EXTERNAL_specs_29 = {
 	sizeof(struct EXTERNAL),
 	offsetof(struct EXTERNAL, _asn_ctx),
-	.tag2el = asn_MAP_EXTERNAL_tag2el_1,
+	.tag2el = asn_MAP_EXTERNAL_tag2el_29,
 	.tag2el_count = 6,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
@@ -1063,12 +1081,12 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 	"EXTERNAL",
 	"EXTERNAL",
 	&asn_OP_SEQUENCE,
-	asn_DEF_EXTERNAL_tags_1,
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]) - 1, /* 1 */
-	asn_DEF_EXTERNAL_tags_1,	/* Same as above */
-	sizeof(asn_DEF_EXTERNAL_tags_1)
-		/sizeof(asn_DEF_EXTERNAL_tags_1[0]), /* 2 */
+	asn_DEF_EXTERNAL_tags_29,
+	sizeof(asn_DEF_EXTERNAL_tags_29)
+		/sizeof(asn_DEF_EXTERNAL_tags_29[0]) - 1, /* 1 */
+	asn_DEF_EXTERNAL_tags_29,	/* Same as above */
+	sizeof(asn_DEF_EXTERNAL_tags_29)
+		/sizeof(asn_DEF_EXTERNAL_tags_29[0]), /* 2 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -1081,8 +1099,8 @@ asn_TYPE_descriptor_t asn_DEF_EXTERNAL = {
 #endif  /* !defined(ASN_DISABLE_JER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_EXTERNAL_1,
+	asn_MBR_EXTERNAL_29,
 	4,	/* Elements count */
-	&asn_SPC_EXTERNAL_specs_1	/* Additional specs */
+	&asn_SPC_EXTERNAL_specs_29	/* Additional specs */
 };
 

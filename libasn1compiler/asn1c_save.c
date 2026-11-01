@@ -625,6 +625,18 @@ asn1c_print_streams(arg_t *arg)  {
 	return 0;
 }
 
+/*
+ * Purpose: Write a compiled type's C and header output streams to disk.
+ * Source: asn1c compiler output writer, extended in 2026.
+ * Version: 2026-10-23.
+ * Inputs: arg is the compiler context; deps tracks skeleton dependencies;
+ * destdir is the output directory; optc and argv describe compiler options.
+ * Return: Zero on success, negative on a file or compilation error.
+ * Exceptions: None; file failures are reported by return.
+ * Responsible party: asn1c maintainers.
+ * History: Place forward declarations before courtesy includes for #588.
+ * Example: Called by asn1c_dump_streams for each generated type.
+ */
 static int
 asn1c_save_streams(arg_t *arg, asn1c_dep_chainset *deps, const char *destdir,
                    int optc, char **argv) {
@@ -688,11 +700,13 @@ asn1c_save_streams(arg_t *arg, asn1c_dep_chainset *deps, const char *destdir,
 	}								\
 } while(0)
 
+	/* Forward declarations, including struct-safe aliases, must precede
+	 * courtesy includes that can recursively reach this guarded header. */
+	SAVE_STREAM(fp_h, OT_FWD_DECLS,	"Forward declarations", 0);
 	SAVE_STREAM(fp_h, OT_INCLUDES,	"Including external dependencies", 1);
 
 	safe_fprintf(fp_h, "\n#ifdef __cplusplus\nextern \"C\" {\n#endif\n");
 	SAVE_STREAM(fp_h, OT_DEPS,	"Dependencies", 0);
-	SAVE_STREAM(fp_h, OT_FWD_DECLS,	"Forward declarations", 0);
 	SAVE_STREAM(fp_h, OT_FWD_DEFS,	"Forward definitions", 0);
 	SAVE_STREAM(fp_h, OT_TYPE_DECLS, filename, 0);
 	SAVE_STREAM(fp_h, OT_FUNC_DECLS,"Implementation", 0);

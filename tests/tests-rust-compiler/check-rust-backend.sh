@@ -46,6 +46,219 @@ grep -F 'select at least one supported codec' \
     "$test_tmp/rejected-disabled-codecs.log" >/dev/null
 test ! -e "$test_tmp/rejected-disabled-codecs"
 
+# Unsupported dynamic and contained types must fail before publishing a crate.
+cat >"$test_tmp/Containing.asn1" <<'EOF'
+Containing DEFINITIONS ::= BEGIN
+Inner ::= INTEGER (0..2)
+Outer ::= BIT STRING (CONTAINING Inner)
+END
+EOF
+cat >"$test_tmp/Any.asn1" <<'EOF'
+AnyModule DEFINITIONS ::= BEGIN
+Value ::= ANY
+Packet ::= SEQUENCE { flag BOOLEAN, payload ANY OPTIONAL }
+Required ::= SEQUENCE { flag BOOLEAN, payload ANY }
+END
+EOF
+cat >"$test_tmp/Open.asn1" <<'EOF'
+OpenModule DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+TESTCLASS ::= CLASS { &id INTEGER UNIQUE, &Extension }
+    WITH SYNTAX { ID &id EXTENSION &Extension }
+MyExtIEs TESTCLASS ::= { { ID 1 EXTENSION OCTET STRING (SIZE(3)) }, ... }
+MyContainer ::= SEQUENCE {
+    id TESTCLASS.&id({MyExtIEs}),
+    extension TESTCLASS.&Extension({MyExtIEs}{@id})
+}
+END
+EOF
+for fixture in Open; do
+    rejected_out="$test_tmp/rejected-$fixture"
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$rejected_out" \
+        "$test_tmp/$fixture.asn1" >"$test_tmp/$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture" >&2
+        exit 1
+    fi
+    grep -F 'Rust backend does not support' "$test_tmp/$fixture.log" >/dev/null
+    test ! -e "$rejected_out"
+done
+
+# UPER CONTAINING supports direct local BOOLEAN and bounded INTEGER contents.
+cat >"$test_tmp/ContainingSupported.asn1" <<'EOF'
+Containing DEFINITIONS ::= BEGIN
+Inner ::= INTEGER (0..2)
+Bool ::= BOOLEAN
+Oct ::= OCTET STRING (CONTAINING Inner)
+Bits ::= BIT STRING (CONTAINING Inner)
+BoolOct ::= OCTET STRING (CONTAINING Bool)
+BoolBits ::= BIT STRING (CONTAINING BOOLEAN)
+Packet ::= SEQUENCE { x BOOLEAN, i OCTET STRING (CONTAINING Inner) OPTIONAL, b BIT STRING (CONTAINING Bool) }
+END
+EOF
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/containing-rust" \
+    "$test_tmp/ContainingSupported.asn1"
+mkdir -p "$test_tmp/containing-rust/tests" "$test_tmp/containing-c"
+cp "$test_srcdir/containing_conformance.rs" "$test_tmp/containing-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/containing-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/containing-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -no-gen-CER -S "$skeletons" -D "$test_tmp/containing-c" \
+    "$test_tmp/ContainingSupported.asn1"
+rm -f "$test_tmp/containing-c/converter-example.c" "$test_tmp/containing-c/pdu_collection.c"
+cc -I"$test_tmp/containing-c" "$test_tmp/containing-c"/*.c "$test_srcdir/c_containing.c" \
+    -lm -o "$test_tmp/c-containing"
+"$test_tmp/c-containing"
+
+# Reject unsupported contents shapes before publishing a Rust crate.
+cat >"$test_tmp/ContainingSingleton.asn1" <<'EOF'
+ContainingSingleton DEFINITIONS ::= BEGIN
+Inner ::= INTEGER (1..1)
+Outer ::= OCTET STRING (CONTAINING Inner)
+END
+EOF
+cat >"$test_tmp/ContainingSized.asn1" <<'EOF'
+ContainingSized DEFINITIONS ::= BEGIN
+Inner ::= INTEGER (0..2)
+Outer ::= OCTET STRING (SIZE(1)) (CONTAINING Inner)
+END
+EOF
+for fixture in ContainingSingleton ContainingSized; do
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/rejected-$fixture" \
+        "$test_tmp/$fixture.asn1" >"$test_tmp/$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture" >&2
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-$fixture"
+done
+if "$asn1c_bin" --rust -gen-APER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-containing-aper" "$test_tmp/ContainingSupported.asn1" \
+    >"$test_tmp/containing-aper.log" 2>&1; then
+    echo "FAIL: Rust backend accepted unsupported APER CONTAINING" >&2
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-containing-aper"
+
+# ANY preserves opaque bytes in a UPER envelope, including fragmented lengths.
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/any-rust" \
+    "$test_tmp/Any.asn1"
+mkdir -p "$test_tmp/any-rust/tests"
+cp "$test_srcdir/any_conformance.rs" "$test_tmp/any-rust/tests/any_conformance.rs"
+cargo test --offline --manifest-path "$test_tmp/any-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/any-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+
+# Cross-check matching boundary vectors with generated C ANY codecs.
+mkdir -p "$test_tmp/any-c"
+"$asn1c_bin" -no-gen-CER -S "$skeletons" -D "$test_tmp/any-c" "$test_tmp/Any.asn1"
+rm -f "$test_tmp/any-c/converter-example.c" "$test_tmp/any-c/pdu_collection.c"
+cc -I"$test_tmp/any-c" "$test_tmp/any-c"/*.c "$test_srcdir/c_any.c" -lm -o "$test_tmp/c-any"
+"$test_tmp/c-any"
+
+# Standalone ANY supports APER, OER, and JER opaque framing as well.
+cat >"$test_tmp/AnyAdditional.asn1" <<'EOF'
+AnyModule DEFINITIONS ::= BEGIN
+Value ::= ANY
+END
+EOF
+"$asn1c_bin" --rust -gen-APER -gen-OER -gen-JER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$test_tmp/any-extra" "$test_tmp/AnyAdditional.asn1"
+mkdir -p "$test_tmp/any-extra/tests" "$test_tmp/any-extra-c"
+cp "$test_srcdir/any_additional.rs" "$test_tmp/any-extra/tests/"
+cargo test --offline --manifest-path "$test_tmp/any-extra/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/any-extra/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-APER -gen-OER -gen-JER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/any-extra-c" "$test_tmp/AnyAdditional.asn1"
+rm -f "$test_tmp/any-extra-c/converter-example.c" "$test_tmp/any-extra-c/pdu_collection.c"
+cc -I"$test_tmp/any-extra-c" "$test_tmp/any-extra-c"/*.c "$test_srcdir/c_any_additional.c" \
+    -lm -o "$test_tmp/c-any-additional"
+"$test_tmp/c-any-additional"
+
+# Nonextensible local IOC OPEN TYPE rows select bounded UPER primitives.
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/open-selected-rust" \
+    "$test_srcdir/OpenSelected.asn1"
+mkdir -p "$test_tmp/open-selected-rust/tests" "$test_tmp/open-selected-c"
+cp "$test_srcdir/open_selected.rs" "$test_tmp/open-selected-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/open-selected-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/open-selected-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -no-gen-CER -S "$skeletons" -D "$test_tmp/open-selected-c" \
+    "$test_srcdir/OpenSelected.asn1"
+rm -f "$test_tmp/open-selected-c/converter-example.c" "$test_tmp/open-selected-c/pdu_collection.c"
+cc -I"$test_tmp/open-selected-c" "$test_tmp/open-selected-c"/*.c "$test_srcdir/c_open_selected.c" \
+    -lm -o "$test_tmp/c-open-selected"
+"$test_tmp/c-open-selected"
+
+# Extensible object sets and other codecs remain outside this slice.
+sed 's/INTEGER (5..5) } }/INTEGER (5..5) }, ... }/' "$test_srcdir/OpenSelected.asn1" \
+    >"$test_tmp/OpenExtensible.asn1"
+if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/rejected-open-extensible" \
+    "$test_tmp/OpenExtensible.asn1" >"$test_tmp/open-extensible.log" 2>&1; then
+    echo "FAIL: Rust backend accepted extensible selected OPEN TYPE" >&2
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-open-extensible"
+# APER/OER selected primitives have independently checked C wire vectors.
+"$asn1c_bin" --rust -gen-APER -gen-OER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/open-selected-extra-rust" "$test_srcdir/OpenSelected.asn1"
+mkdir -p "$test_tmp/open-selected-extra-rust/tests" "$test_tmp/open-selected-extra-c"
+cp "$test_srcdir/open_selected_extra.rs" "$test_tmp/open-selected-extra-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/open-selected-extra-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/open-selected-extra-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-APER -gen-OER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/open-selected-extra-c" "$test_srcdir/OpenSelected.asn1"
+rm -f "$test_tmp/open-selected-extra-c/converter-example.c" "$test_tmp/open-selected-extra-c/pdu_collection.c"
+cc -I"$test_tmp/open-selected-extra-c" "$test_tmp/open-selected-extra-c"/*.c \
+    "$test_srcdir/c_open_selected_extra.c" -lm -o "$test_tmp/c-open-selected-extra"
+"$test_tmp/c-open-selected-extra"
+
+# OER also supports multi-octet selector and selected INTEGER widths.
+sed -e 's/INTEGER (0..255) UNIQUE/INTEGER (0..65535) UNIQUE/' \
+    -e 's/INTEGER (0..2)/INTEGER (0..256)/' "$test_srcdir/OpenSelected.asn1" \
+    >"$test_tmp/OpenOerWide.asn1"
+"$asn1c_bin" --rust -gen-OER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/open-wide-rust" "$test_tmp/OpenOerWide.asn1"
+mkdir -p "$test_tmp/open-wide-rust/tests" "$test_tmp/open-wide-c"
+cp "$test_srcdir/open_selected_wide.rs" "$test_tmp/open-wide-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/open-wide-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/open-wide-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-OER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/open-wide-c" "$test_tmp/OpenOerWide.asn1"
+rm -f "$test_tmp/open-wide-c/converter-example.c" "$test_tmp/open-wide-c/pdu_collection.c"
+cc -I"$test_tmp/open-wide-c" "$test_tmp/open-wide-c"/*.c "$test_srcdir/c_open_selected_wide.c" \
+    -lm -o "$test_tmp/c-open-selected-wide"
+"$test_tmp/c-open-selected-wide"
+
+# APER rejects bounds outside the proven aligned primitive subset.
+sed 's/INTEGER (0..255) UNIQUE/INTEGER (0..256) UNIQUE/' "$test_srcdir/OpenSelected.asn1" \
+    >"$test_tmp/OpenAperWideSelector.asn1"
+sed 's/INTEGER (0..2)/INTEGER (0..256)/' "$test_srcdir/OpenSelected.asn1" \
+    >"$test_tmp/OpenAperWideValue.asn1"
+for fixture in OpenAperWideSelector OpenAperWideValue; do
+    if "$asn1c_bin" --rust -gen-APER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+        -D "$test_tmp/rejected-$fixture" "$test_tmp/$fixture.asn1" >"$test_tmp/$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture" >&2
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-$fixture"
+done
+
+# Reject unsupported relation shapes and selected types before publication.
+sed 's/value CLASS1.\&Type({SET1}{@id})/value CLASS1.\&Type({SET1}{@id}) OPTIONAL/' \
+    "$test_srcdir/OpenSelected.asn1" >"$test_tmp/OpenOptional.asn1"
+sed 's/TYPE BOOLEAN/TYPE NULL/' "$test_srcdir/OpenSelected.asn1" >"$test_tmp/OpenNull.asn1"
+sed 's/INTEGER (0..255) UNIQUE/INTEGER UNIQUE/' "$test_srcdir/OpenSelected.asn1" \
+    >"$test_tmp/OpenUnbounded.asn1"
+for fixture in OpenOptional OpenNull OpenUnbounded; do
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/rejected-$fixture" \
+        "$test_tmp/$fixture.asn1" >"$test_tmp/$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture" >&2
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-$fixture"
+done
+
 # An incomplete runtime beside explicit skeletons must fail before output.
 missing_skeletons="$test_tmp/missing-runtime/skeletons"
 missing_runtime="$missing_skeletons/rust/asn1c-runtime"
@@ -68,7 +281,9 @@ rust_out="$test_tmp/generated-rust"
 "$asn1c_bin" --rust -S "$skeletons" -D "$rust_out" \
     "$test_srcdir/FirstSlice.asn1"
 for generated in Cargo.toml src/lib.rs src/first_slice.rs runtime/Cargo.toml \
-    runtime/LICENSE runtime/src/lib.rs; do
+    runtime/LICENSE runtime/src/lib.rs runtime/src/cbor.rs runtime/src/jer.rs runtime/src/aper.rs \
+    runtime/src/oer.rs \
+    runtime/src/uper_cursor.rs; do
     if [ ! -f "$rust_out/$generated" ]; then
         echo "FAIL: generated Rust crate lacks $generated"
         exit 1
@@ -77,6 +292,11 @@ done
 grep -F 'pub fn encode_cer' "$rust_out/src/first_slice.rs" >/dev/null
 grep -F 'pub fn encode_uper' "$rust_out/src/first_slice.rs" >/dev/null
 grep -F 'pub fn decode_cer' "$rust_out/src/first_slice.rs" >/dev/null
+if grep -E 'pub fn (encode_der|decode_ber)' \
+    "$rust_out/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: default Rust selection unexpectedly generated BER/DER methods"
+    exit 1
+fi
 cp -R "$rust_out" "$test_tmp/first-generation"
 "$asn1c_bin" --rust -S "$skeletons" -D "$rust_out" \
     "$test_srcdir/FirstSlice.asn1"
@@ -180,14 +400,39 @@ for selector in default explicit; do
     fi
 done
 
-# BER selection does not alter the separate Rust CER codec mask.
+# Disabling BER removes its paired DER/BER methods and leaves CER selected.
 cer_without_ber="$test_tmp/cer-without-ber"
 "$asn1c_bin" --rust -no-gen-BER -no-gen-UPER -S "$skeletons" \
     -D "$cer_without_ber" "$test_srcdir/FirstSlice.asn1"
 grep -F 'pub fn encode_cer' "$cer_without_ber/src/first_slice.rs" >/dev/null
+if grep -E 'pub fn (encode_der|decode_ber)' \
+    "$cer_without_ber/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: -no-gen-BER retained generated BER/DER methods"
+    exit 1
+fi
 if grep -E 'pub fn (encode|decode)_uper' \
     "$cer_without_ber/src/first_slice.rs" >/dev/null; then
-    echo "FAIL: --no-gen-BER changed the independent Rust codec mask"
+    echo "FAIL: disabled UPER remained in the generated codec mask"
+    exit 1
+fi
+
+# BER-only selection emits the paired DER encoder and BER decoder per type.
+ber_only="$test_tmp/ber-only"
+"$asn1c_bin" --rust -gen-BER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$ber_only" "$test_srcdir/FirstSlice.asn1"
+ber_module="$ber_only/src/first_slice.rs"
+grep -F 'pub fn encode_der' "$ber_module" >/dev/null
+grep -F 'pub fn decode_ber' "$ber_module" >/dev/null
+if grep -E 'pub fn (encode|decode)_(uper|cer)' "$ber_module" >/dev/null; then
+    echo "FAIL: BER-only selection generated UPER or CER methods"
+    exit 1
+fi
+if ! (cd "$ber_only" && \
+    CARGO_TARGET_DIR="$test_tmp/ber-only-cargo-target" \
+    cargo check --offline --manifest-path Cargo.toml) \
+    >"$test_tmp/ber-only-cargo-check.log" 2>&1; then
+    cat "$test_tmp/ber-only-cargo-check.log"
+    echo "FAIL: generated BER-only Rust crate did not compile"
     exit 1
 fi
 
@@ -205,19 +450,744 @@ if grep -F 'pub fn decode_cer' "$uper_only/src/first_slice.rs" >/dev/null; then
     exit 1
 fi
 
-# Unsupported codec requests must fail without publishing any Rust output.
-for codec in BER APER OER XER JER CBOR; do
-    rejected_out="$test_tmp/rejected-$codec"
-    if "$asn1c_bin" --rust "-gen-$codec" -S "$skeletons" \
-        -D "$rejected_out" "$test_srcdir/FirstSlice.asn1" \
-        >"$test_tmp/rejected-$codec.log" 2>&1; then
-        echo "FAIL: Rust backend accepted unsupported -gen-$codec"
+# Flat SET and SEQUENCE basic XER encoders share formatting and defaults.
+cat >"$test_tmp/XerSlice.asn1" <<'EOF'
+XerSlice DEFINITIONS ::= BEGIN
+S ::= SET { flag BOOLEAN DEFAULT TRUE, count INTEGER (0..5) DEFAULT 2,
+            text IA5String OPTIONAL, ratio REAL DEFAULT 0.5 }
+Q ::= SEQUENCE { flag BOOLEAN DEFAULT TRUE, count INTEGER (0..5) DEFAULT 2,
+                 text IA5String OPTIONAL, ratio REAL DEFAULT 0.5 }
+Empty ::= SEQUENCE { text IA5String OPTIONAL }
+END
+EOF
+"$asn1c_bin" --rust -gen-XER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/xer-rust" "$test_tmp/XerSlice.asn1"
+mkdir -p "$test_tmp/xer-rust/tests"
+cp "$test_srcdir/xer_conformance.rs" "$test_tmp/xer-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/xer-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/xer-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+
+# Compare both default and present REAL output against the C encoder.
+mkdir -p "$test_tmp/xer-c"
+"$asn1c_bin" -S "$skeletons" -D "$test_tmp/xer-c" "$test_tmp/XerSlice.asn1"
+rm -f "$test_tmp/xer-c/converter-example.c" "$test_tmp/xer-c/pdu_collection.c"
+cc -I"$test_tmp/xer-c" "$test_tmp/xer-c"/*.c "$test_srcdir/c_xer_record.c" \
+    -lm -o "$test_tmp/c-xer-record"
+"$test_tmp/c-xer-record"
+
+# Automatic context tags put SET fields in declaration order, unlike the
+# universal tag ordering of the untagged SET above.
+sed 's/DEFINITIONS ::= BEGIN/DEFINITIONS AUTOMATIC TAGS ::= BEGIN/' \
+    "$test_tmp/XerSlice.asn1" >"$test_tmp/XerAutomatic.asn1"
+"$asn1c_bin" --rust -gen-XER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/xer-automatic" "$test_tmp/XerAutomatic.asn1"
+mkdir -p "$test_tmp/xer-automatic/tests" "$test_tmp/xer-automatic-c"
+cp "$test_srcdir/xer_conformance.rs" "$test_tmp/xer-automatic/tests/"
+ASN1C_XER_AUTOMATIC=1 cargo test --offline --manifest-path "$test_tmp/xer-automatic/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/xer-automatic/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -no-gen-JER -S "$skeletons" -D "$test_tmp/xer-automatic-c" \
+    "$test_tmp/XerAutomatic.asn1"
+rm -f "$test_tmp/xer-automatic-c/converter-example.c" "$test_tmp/xer-automatic-c/pdu_collection.c"
+cc -DXER_AUTOMATIC -I"$test_tmp/xer-automatic-c" "$test_tmp/xer-automatic-c"/*.c \
+    "$test_srcdir/c_xer_record.c" -lm -o "$test_tmp/c-xer-automatic"
+"$test_tmp/c-xer-automatic"
+
+# REAL and mixed codec requests are rejected before publishing output.
+cat >"$test_tmp/XerUnsupported.asn1" <<'EOF'
+XerUnsupported DEFINITIONS ::= BEGIN
+S ::= SET { ratio REAL DEFAULT 1.5 }
+END
+EOF
+if "$asn1c_bin" --rust -gen-XER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-xer" "$test_tmp/XerUnsupported.asn1" \
+    >"$test_tmp/rejected-xer.log" 2>&1; then
+    echo "FAIL: Rust XER accepted unsupported REAL"
+    exit 1
+fi
+grep -F 'unsupported flat XER record field or DEFAULT' \
+    "$test_tmp/rejected-xer.log" >/dev/null
+test ! -e "$test_tmp/rejected-xer"
+cat >"$test_tmp/XerExplicit.asn1" <<'EOF'
+XerExplicit DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+S ::= SET { flag [0] IMPLICIT BOOLEAN }
+END
+EOF
+if "$asn1c_bin" --rust -gen-XER -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-xer-explicit" "$test_tmp/XerExplicit.asn1" \
+    >"$test_tmp/rejected-xer-explicit.log" 2>&1; then
+    echo "FAIL: Rust XER accepted an explicitly tagged field"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-xer-explicit"
+if "$asn1c_bin" --rust -gen-XER -S "$skeletons" \
+    -D "$test_tmp/rejected-xer-mixed" "$test_tmp/XerSlice.asn1" \
+    >"$test_tmp/rejected-xer-mixed.log" 2>&1; then
+    echo "FAIL: Rust XER accepted a mixed codec selection"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-xer-mixed"
+
+# CBOR directly encodes primitive values and opaque ANY octets.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-rust" "$test_srcdir/CborSlice.asn1"
+mkdir -p "$test_tmp/cbor-rust/tests" "$test_tmp/cbor-c"
+cp "$test_srcdir/cbor_conformance.rs" "$test_tmp/cbor-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-c" "$test_srcdir/CborSlice.asn1"
+rm -f "$test_tmp/cbor-c/converter-example.c" "$test_tmp/cbor-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-c" "$test_tmp/cbor-c"/*.c "$test_srcdir/c_cbor.c" -lm -o "$test_tmp/c-cbor"
+"$test_tmp/c-cbor"
+
+# CBOR SEQUENCE maps cover direct primitives, OPTIONAL ANY, and DEFAULT fields.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-sequence-rust" "$test_srcdir/CborSequence.asn1"
+mkdir -p "$test_tmp/cbor-sequence-rust/tests" "$test_tmp/cbor-sequence-c"
+cp "$test_srcdir/cbor_sequence.rs" "$test_tmp/cbor-sequence-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-sequence-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-sequence-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-sequence-c" \
+    "$test_srcdir/CborSequence.asn1"
+rm -f "$test_tmp/cbor-sequence-c/converter-example.c" \
+    "$test_tmp/cbor-sequence-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-sequence-c" "$test_tmp/cbor-sequence-c"/*.c \
+    "$test_srcdir/c_cbor_sequence.c" -lm -o "$test_tmp/c-cbor-sequence"
+"$test_tmp/c-cbor-sequence"
+
+# Direct fixed and bounded CBOR strings preserve C's byte-string mapping.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-strings-rust" "$test_srcdir/CborStrings.asn1"
+mkdir -p "$test_tmp/cbor-strings-rust/tests" "$test_tmp/cbor-strings-c"
+cp "$test_srcdir/cbor_strings.rs" "$test_tmp/cbor-strings-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-strings-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-strings-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-strings-c" \
+    "$test_srcdir/CborStrings.asn1"
+rm -f "$test_tmp/cbor-strings-c/converter-example.c" \
+    "$test_tmp/cbor-strings-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-strings-c" "$test_tmp/cbor-strings-c"/*.c \
+    "$test_srcdir/c_cbor_strings.c" -lm -o "$test_tmp/c-cbor-strings"
+"$test_tmp/c-cbor-strings"
+
+# Flat CBOR SEQUENCE fields include direct fixed/bounded BIT/OCTET STRING.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-sequence-strings-rust" "$test_srcdir/CborSequenceStrings.asn1"
+mkdir -p "$test_tmp/cbor-sequence-strings-rust/tests" "$test_tmp/cbor-sequence-strings-c"
+cp "$test_srcdir/cbor_sequence_strings.rs" "$test_tmp/cbor-sequence-strings-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-sequence-strings-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-sequence-strings-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-sequence-strings-c" \
+    "$test_srcdir/CborSequenceStrings.asn1"
+rm -f "$test_tmp/cbor-sequence-strings-c/converter-example.c" \
+    "$test_tmp/cbor-sequence-strings-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-sequence-strings-c" "$test_tmp/cbor-sequence-strings-c"/*.c \
+    "$test_srcdir/c_cbor_sequence_strings.c" -lm -o "$test_tmp/c-cbor-sequence-strings"
+"$test_tmp/c-cbor-sequence-strings"
+
+# Direct CBOR CHOICE alternatives use the C one-entry text-key map.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-choice-rust" "$test_srcdir/CborChoice.asn1"
+mkdir -p "$test_tmp/cbor-choice-rust/tests" "$test_tmp/cbor-choice-c"
+cp "$test_srcdir/cbor_choice.rs" "$test_tmp/cbor-choice-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-choice-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-choice-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-choice-c" \
+    "$test_srcdir/CborChoice.asn1"
+rm -f "$test_tmp/cbor-choice-c/converter-example.c" \
+    "$test_tmp/cbor-choice-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-choice-c" "$test_tmp/cbor-choice-c"/*.c \
+    "$test_srcdir/c_cbor_choice.c" -lm -o "$test_tmp/c-cbor-choice"
+"$test_tmp/c-cbor-choice"
+
+# Typed local primitive CONTAINING uses inner CBOR bytes in an outer C-compatible string.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-containing-rust" "$test_srcdir/CborContaining.asn1"
+mkdir -p "$test_tmp/cbor-containing-rust/tests" "$test_tmp/cbor-containing-c"
+cp "$test_srcdir/cbor_containing.rs" "$test_tmp/cbor-containing-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-containing-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-containing-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-containing-c" \
+    "$test_srcdir/CborContaining.asn1"
+rm -f "$test_tmp/cbor-containing-c/converter-example.c" \
+    "$test_tmp/cbor-containing-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-containing-c" "$test_tmp/cbor-containing-c"/*.c \
+    "$test_srcdir/c_cbor_containing.c" -lm -o "$test_tmp/c-cbor-containing"
+"$test_tmp/c-cbor-containing"
+
+# The narrow IOC-selected OPEN TYPE uses direct selected CBOR map values.
+"$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/cbor-open-rust" "$test_srcdir/OpenSelected.asn1"
+mkdir -p "$test_tmp/cbor-open-rust/tests" "$test_tmp/cbor-open-c"
+cp "$test_srcdir/cbor_open_selected.rs" "$test_tmp/cbor-open-rust/tests/"
+cargo test --offline --manifest-path "$test_tmp/cbor-open-rust/Cargo.toml"
+cargo clippy --offline --manifest-path "$test_tmp/cbor-open-rust/Cargo.toml" \
+    --all-targets --all-features -- -W clippy::pedantic -W clippy::nursery -D warnings
+"$asn1c_bin" -gen-CBOR -S "$skeletons" -D "$test_tmp/cbor-open-c" \
+    "$test_srcdir/OpenSelected.asn1"
+rm -f "$test_tmp/cbor-open-c/converter-example.c" "$test_tmp/cbor-open-c/pdu_collection.c"
+cc -I"$test_tmp/cbor-open-c" "$test_tmp/cbor-open-c"/*.c \
+    "$test_srcdir/c_cbor_open_selected.c" -lm -o "$test_tmp/c-cbor-open"
+"$test_tmp/c-cbor-open"
+
+# Nested records and SEQUENCE CONTAINING stay unsupported.
+for fixture in "$test_srcdir/SequenceNested.asn1" \
+    "$test_tmp/ContainingSupported.asn1"; do
+    rejected_out="$test_tmp/rejected-cbor-$(basename "$fixture" .asn1)"
+    if "$asn1c_bin" --rust -gen-CBOR -no-gen-UPER -no-gen-CER -S "$skeletons" \
+        -D "$rejected_out" "$fixture" >"$test_tmp/rejected-cbor.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported CBOR $(basename "$fixture")" >&2
         exit 1
     fi
-    if [ -e "$rejected_out" ]; then
-        echo "FAIL: unsupported -gen-$codec created output before rejection"
+    test ! -e "$rejected_out"
+done
+
+# JER is an opt-in primitive codec; its generated methods build without PER or CER.
+jer_out="$test_tmp/primitive-jer"
+"$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$jer_out" "$test_srcdir/FirstSlice.asn1"
+grep -F 'pub fn encode_jer' "$jer_out/src/first_slice.rs" >/dev/null
+grep -F 'pub fn decode_jer' "$jer_out/src/first_slice.rs" >/dev/null
+if grep -E 'pub fn (encode|decode)_(uper|cer)' \
+    "$jer_out/src/first_slice.rs" >/dev/null; then
+    echo "FAIL: JER-only selection generated UPER or CER methods"
+    exit 1
+fi
+mkdir "$jer_out/tests"
+cp "$test_srcdir/jer_conformance.rs" "$jer_out/tests/jer_conformance.rs"
+if ! (cd "$jer_out" && CARGO_TARGET_DIR="$test_tmp/target-jer" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-jer" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-jer.log" 2>&1; then
+    cat "$test_tmp/check-jer.log"
+    echo "FAIL: generated JER primitive vectors or strict Clippy"
+    exit 1
+fi
+if "$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$test_tmp/rejected-jer-sequence" \
+    "$test_srcdir/SequenceSlice.asn1" \
+    >"$test_tmp/rejected-jer-sequence.log" 2>&1; then
+    echo "FAIL: JER-only selection accepted a SEQUENCE without a JER codec"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-jer-sequence"
+
+# OCTET STRING JER supports the fixed-size direct subset; BIT STRING and other
+# selected codecs remain rejected before the output crate is published.
+if "$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$test_tmp/rejected-jer-bit-string" \
+    "$test_srcdir/BitJERUnsupported.asn1" \
+    >"$test_tmp/rejected-jer-bit-string.log" 2>&1; then
+    echo "FAIL: JER-only Rust selection accepted BIT STRING"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-jer-bit-string"
+for unsupported in ExtensibleString VariableBitsExtensible VariableBitsUnion \
+    VariableBitsOversize OversizeBits NamedBitString; do
+    if "$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+        -S "$skeletons" -D "$test_tmp/rejected-jer-$unsupported" \
+        "$test_srcdir/$unsupported.asn1" \
+        >"$test_tmp/rejected-jer-$unsupported.log" 2>&1; then
+        echo "FAIL: JER-only Rust selection accepted unsupported BIT STRING $unsupported"
         exit 1
     fi
+    test ! -e "$test_tmp/rejected-jer-$unsupported"
+done
+if "$asn1c_bin" --rust -gen-JER -gen-OER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$test_tmp/rejected-octet-jer-oer" \
+    "$test_srcdir/OctetJER.asn1" >"$test_tmp/rejected-octet-jer-oer.log" 2>&1; then
+    echo "FAIL: Rust accepted unsupported OCTET STRING JER/OER selection"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-octet-jer-oer"
+for unsupported in VariableUnion VariableOversize ExtensibleOctets; do
+    if "$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+        -S "$skeletons" -D "$test_tmp/rejected-bounded-octet-jer-$unsupported" \
+        "$test_srcdir/$unsupported.asn1" \
+        >"$test_tmp/rejected-bounded-octet-jer-$unsupported.log" 2>&1; then
+        echo "FAIL: JER-only Rust selection accepted unsupported OCTET STRING $unsupported"
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-bounded-octet-jer-$unsupported"
+done
+
+octet_both_out="$test_tmp/octet-uper-jer"
+"$asn1c_bin" --rust -gen-JER -no-gen-CER -S "$skeletons" \
+    -D "$octet_both_out" "$test_srcdir/OctetJER.asn1"
+grep -F 'pub fn encode_uper' "$octet_both_out/src/octet_jer.rs" >/dev/null
+grep -F 'pub fn decode_uper' "$octet_both_out/src/octet_jer.rs" >/dev/null
+grep -F 'pub fn encode_jer' "$octet_both_out/src/octet_jer.rs" >/dev/null
+grep -F 'pub fn decode_jer' "$octet_both_out/src/octet_jer.rs" >/dev/null
+if ! (cd "$octet_both_out" && CARGO_TARGET_DIR="$test_tmp/target-octet-both" \
+    cargo check --offline --manifest-path Cargo.toml) \
+    >"$test_tmp/check-octet-both.log" 2>&1; then
+    cat "$test_tmp/check-octet-both.log"
+    echo "FAIL: combined OCTET STRING UPER/JER crate did not compile"
+    exit 1
+fi
+
+# Each newly available primitive family generates a standalone, offline crate.
+for codec in APER OER; do
+    codec_out="$test_tmp/primitive-$codec"
+    "$asn1c_bin" --rust "-gen-$codec" -no-gen-UPER -no-gen-CER \
+        -S "$skeletons" -D "$codec_out" "$test_srcdir/FirstSlice.asn1"
+    codec_lower=$(printf '%s' "$codec" | tr '[:upper:]' '[:lower:]')
+    grep -F "pub fn encode_$codec_lower" "$codec_out/src/first_slice.rs" >/dev/null
+    grep -F "pub fn decode_$codec_lower" "$codec_out/src/first_slice.rs" >/dev/null
+    if grep -E 'pub fn (encode|decode)_(uper|cer)' \
+        "$codec_out/src/first_slice.rs" >/dev/null; then
+        echo "FAIL: $codec-only selection generated UPER or CER methods"
+        exit 1
+    fi
+    if ! (cd "$codec_out" && CARGO_TARGET_DIR="$test_tmp/target-$codec" \
+        cargo check --offline --manifest-path Cargo.toml) \
+        >"$test_tmp/check-$codec.log" 2>&1; then
+        cat "$test_tmp/check-$codec.log"
+        echo "FAIL: generated $codec-only Rust crate did not compile"
+        exit 1
+    fi
+done
+
+# The combined selection must expose both generated APIs and pass wire tests.
+additional_out="$test_tmp/primitive-aper-oer"
+"$asn1c_bin" --rust -gen-APER -gen-OER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$additional_out" "$test_srcdir/FirstSlice.asn1"
+mkdir "$additional_out/tests"
+cp "$test_srcdir/additional_codecs.rs" "$additional_out/tests/additional_codecs.rs"
+if ! (cd "$additional_out" && CARGO_TARGET_DIR="$test_tmp/target-aper-oer" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-aper-oer" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-aper-oer.log" 2>&1; then
+    cat "$test_tmp/check-aper-oer.log"
+    echo "FAIL: generated APER/OER primitive vectors or strict Clippy"
+    exit 1
+fi
+
+# Fixed-size strings require UPER-only selection and compile with strict Clippy.
+if "$asn1c_bin" --rust -S "$skeletons" -D "$test_tmp/rejected-string-default" \
+    "$test_srcdir/StringSlice.asn1" >"$test_tmp/rejected-string-default.log" 2>&1; then
+    echo "FAIL: default Rust codecs accepted strings without CER support"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-string-default"
+for unsupported in ExtensibleString ExtensibleOctets VariableUnion VariableOversize \
+    VariableBitsExtensible VariableBitsUnion VariableBitsOversize NamedBitString \
+    OversizeOctets OversizeBits; do
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" \
+        -D "$test_tmp/rejected-$unsupported" "$test_srcdir/$unsupported.asn1" \
+        >"$test_tmp/rejected-$unsupported.log" 2>&1; then
+        echo "FAIL: Rust accepted unsupported string form $unsupported"
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-$unsupported"
+done
+for codec_args in "-gen-OER -no-gen-CER"; do
+    if "$asn1c_bin" --rust $codec_args -S "$skeletons" \
+        -D "$test_tmp/rejected-variable-codecs" "$test_srcdir/VariableString.asn1" \
+        >"$test_tmp/rejected-variable-codecs.log" 2>&1; then
+        echo "FAIL: Rust accepted bounded OCTET STRING with unsupported codec selection"
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-variable-codecs"
+done
+for codec_args in "-gen-OER -no-gen-CER"; do
+    if "$asn1c_bin" --rust $codec_args -S "$skeletons" \
+        -D "$test_tmp/rejected-variable-bit-codecs" \
+        "$test_srcdir/VariableBitString.asn1" \
+        >"$test_tmp/rejected-variable-bit-codecs.log" 2>&1; then
+        echo "FAIL: Rust accepted bounded BIT STRING with non-UPER codecs"
+        exit 1
+    fi
+    test ! -e "$test_tmp/rejected-variable-bit-codecs"
+done
+boundary_out="$test_tmp/boundary-strings"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$boundary_out" \
+    "$test_srcdir/BoundaryStrings.asn1"
+mkdir "$boundary_out/tests"
+cp "$test_srcdir/boundary_conformance.rs" "$boundary_out/tests/boundary_conformance.rs"
+if ! (cd "$boundary_out" && CARGO_TARGET_DIR="$test_tmp/target-boundary" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-boundary" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-boundary.log" 2>&1; then
+    cat "$test_tmp/check-boundary.log"
+    echo "FAIL: maximum fixed-string boundary or strict Clippy"
+    exit 1
+fi
+string_out="$test_tmp/string-uper"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$string_out" \
+    "$test_srcdir/StringSlice.asn1"
+mkdir "$string_out/tests"
+cp "$test_srcdir/string_conformance.rs" "$string_out/tests/string_conformance.rs"
+if ! (cd "$string_out" && CARGO_TARGET_DIR="$test_tmp/target-string" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-string" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-string.log" 2>&1; then
+    cat "$test_tmp/check-string.log"
+    echo "FAIL: generated fixed-size string tests or strict Clippy"
+    exit 1
+fi
+# Compare fixed string and mixed-record vectors with separately generated C.
+string_c_out="$test_tmp/string-c"
+mkdir "$string_c_out"
+"$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-XER -no-gen-JER \
+    -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+    -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
+    -no-gen-example -D "$string_c_out" "$test_srcdir/StringSlice.asn1" \
+    >"$test_tmp/string-c-generate.log" 2>&1
+string_cflags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$string_c_out/Makefile.am.libasncodec")
+if ! cc $string_cflags -I"$string_c_out" "$string_c_out"/*.c \
+    "$test_srcdir/c_string.c" -lm -o "$test_tmp/c-string" \
+    >"$test_tmp/c-string-compile.log" 2>&1; then
+    cat "$test_tmp/c-string-compile.log"
+    exit 1
+fi
+"$test_tmp/c-string"
+
+# Bounded OCTET STRING UPER supports one contiguous nonextensible SIZE range.
+variable_out="$test_tmp/variable-string-uper"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$variable_out" \
+    "$test_srcdir/VariableString.asn1" "$test_srcdir/VariableSequence.asn1"
+mkdir "$variable_out/tests"
+cp "$test_srcdir/variable_string_conformance.rs" \
+    "$variable_out/tests/variable_string_conformance.rs"
+if ! (cd "$variable_out" && CARGO_TARGET_DIR="$test_tmp/target-variable-string" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-variable-string" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-variable-string.log" 2>&1; then
+    cat "$test_tmp/check-variable-string.log"
+    echo "FAIL: generated bounded OCTET STRING tests or strict Clippy"
+    exit 1
+fi
+variable_c_out="$test_tmp/variable-string-c"
+mkdir "$variable_c_out"
+"$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-XER -no-gen-JER \
+    -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+    -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
+    -no-gen-example -D "$variable_c_out" "$test_srcdir/VariableString.asn1" \
+    "$test_srcdir/VariableSequence.asn1" \
+    >"$test_tmp/variable-string-c-generate.log" 2>&1
+variable_cflags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$variable_c_out/Makefile.am.libasncodec")
+if ! cc $variable_cflags -I"$variable_c_out" "$variable_c_out"/*.c \
+    "$test_srcdir/c_variable_string.c" -lm -o "$test_tmp/c-variable-string" \
+    >"$test_tmp/c-variable-string-compile.log" 2>&1; then
+    cat "$test_tmp/c-variable-string-compile.log"
+    exit 1
+fi
+"$test_tmp/c-variable-string"
+
+# Bounded BIT STRING UPER carries exact non-octet bit lengths in each value.
+variable_bits_out="$test_tmp/variable-bit-string-uper"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$variable_bits_out" \
+    "$test_srcdir/VariableBitString.asn1"
+mkdir "$variable_bits_out/tests"
+cp "$test_srcdir/variable_bit_string_conformance.rs" \
+    "$variable_bits_out/tests/variable_bit_string_conformance.rs"
+if ! (cd "$variable_bits_out" && CARGO_TARGET_DIR="$test_tmp/target-variable-bits" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-variable-bits" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-variable-bits.log" 2>&1; then
+    cat "$test_tmp/check-variable-bits.log"
+    echo "FAIL: generated bounded BIT STRING tests or strict Clippy"
+    exit 1
+fi
+variable_bits_c_out="$test_tmp/variable-bit-string-c"
+mkdir "$variable_bits_c_out"
+"$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-XER -no-gen-JER \
+    -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+    -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
+    -no-gen-example -D "$variable_bits_c_out" \
+    "$test_srcdir/VariableBitString.asn1" \
+    >"$test_tmp/variable-bit-string-c-generate.log" 2>&1
+variable_bits_cflags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$variable_bits_c_out/Makefile.am.libasncodec")
+if ! cc $variable_bits_cflags -I"$variable_bits_c_out" \
+    "$variable_bits_c_out"/*.c "$test_srcdir/c_variable_bit_string.c" \
+    -lm -o "$test_tmp/c-variable-bit-string" \
+    >"$test_tmp/c-variable-bit-string-compile.log" 2>&1; then
+    cat "$test_tmp/c-variable-bit-string-compile.log"
+    exit 1
+fi
+"$test_tmp/c-variable-bit-string"
+
+# Root ENUMERATED indexes follow numeric value order; extensions are gated.
+if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-extensible-enum" "$test_srcdir/ExtensibleEnum.asn1" \
+    >"$test_tmp/rejected-extensible-enum.log" 2>&1; then
+    echo "FAIL: Rust accepted an extensible ENUMERATED"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-extensible-enum"
+enum_out="$test_tmp/enum-uper"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$enum_out" \
+    "$test_srcdir/EnumSlice.asn1"
+mkdir "$enum_out/tests"
+cp "$test_srcdir/enum_conformance.rs" "$enum_out/tests/enum_conformance.rs"
+if ! (cd "$enum_out" && CARGO_TARGET_DIR="$test_tmp/target-enum" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-enum" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-enum.log" 2>&1; then
+    cat "$test_tmp/check-enum.log"
+    echo "FAIL: generated ENUMERATED tests or strict Clippy"
+    exit 1
+fi
+
+# ENUMERATED JER is opt-in and maps each root name to a complete JSON string.
+enum_jer_out="$test_tmp/enum-jer"
+"$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$enum_jer_out" "$test_srcdir/EnumSlice.asn1"
+grep -F 'pub fn encode_jer' "$enum_jer_out/src/enum_slice.rs" >/dev/null
+grep -F 'pub fn decode_jer' "$enum_jer_out/src/enum_slice.rs" >/dev/null
+if grep -E 'pub fn (encode|decode)_(uper|cer)' \
+    "$enum_jer_out/src/enum_slice.rs" >/dev/null; then
+    echo "FAIL: ENUMERATED JER-only selection generated UPER or CER methods"
+    exit 1
+fi
+mkdir "$enum_jer_out/tests"
+cp "$test_srcdir/enum_jer_conformance.rs" "$enum_jer_out/tests/enum_jer_conformance.rs"
+if ! (cd "$enum_jer_out" && CARGO_TARGET_DIR="$test_tmp/target-enum-jer" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-enum-jer" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-enum-jer.log" 2>&1; then
+    cat "$test_tmp/check-enum-jer.log"
+    echo "FAIL: generated ENUMERATED JER tests or strict Clippy"
+    exit 1
+fi
+enum_c_out="$test_tmp/enum-c"
+mkdir "$enum_c_out"
+"$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-XER -no-gen-JER \
+    -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+    -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
+    -no-gen-example -D "$enum_c_out" "$test_srcdir/EnumSlice.asn1" \
+    >"$test_tmp/enum-c-generate.log" 2>&1
+enum_cflags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$enum_c_out/Makefile.am.libasncodec")
+if ! cc $enum_cflags -I"$enum_c_out" "$enum_c_out"/*.c \
+    "$test_srcdir/c_enum.c" -lm -o "$test_tmp/c-enum" \
+    >"$test_tmp/c-enum-compile.log" 2>&1; then
+    cat "$test_tmp/c-enum-compile.log"
+    exit 1
+fi
+"$test_tmp/c-enum"
+
+# Flat required-field SEQUENCE is qualified only for an explicit UPER-only mask.
+if "$asn1c_bin" --rust -S "$skeletons" -D "$test_tmp/rejected-sequence-default" \
+    "$test_srcdir/SequenceSlice.asn1" >"$test_tmp/rejected-sequence-default.log" 2>&1; then
+    echo "FAIL: default Rust codecs accepted a SEQUENCE without CER support"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-sequence-default"
+if "$asn1c_bin" --rust -gen-OER -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-sequence-oer" "$test_srcdir/SequenceSlice.asn1" \
+    >"$test_tmp/rejected-sequence-oer.log" 2>&1; then
+    echo "FAIL: Rust OER selection accepted a SEQUENCE without OER support"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-sequence-oer"
+sequence_out="$test_tmp/sequence-uper"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$sequence_out" \
+    "$test_srcdir/SequenceSlice.asn1" "$test_srcdir/SequenceOptional.asn1" \
+    "$test_srcdir/SequenceDefaults.asn1" "$test_srcdir/SequenceNested.asn1"
+mkdir "$sequence_out/tests"
+cp "$test_srcdir/sequence_conformance.rs" "$sequence_out/tests/sequence_conformance.rs"
+cp "$test_srcdir/nested_conformance.rs" "$sequence_out/tests/nested_conformance.rs"
+if ! (cd "$sequence_out" && CARGO_TARGET_DIR="$test_tmp/target-sequence" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-sequence" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-sequence.log" 2>&1; then
+    cat "$test_tmp/check-sequence.log"
+    echo "FAIL: generated UPER SEQUENCE or strict Clippy"
+    exit 1
+fi
+# Compare the same complete vectors with separately generated C UPER code.
+sequence_c_out="$test_tmp/sequence-c"
+mkdir "$sequence_c_out"
+"$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-XER -no-gen-JER \
+    -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+    -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
+    -no-gen-example -D "$sequence_c_out" "$test_srcdir/SequenceSlice.asn1" \
+    "$test_srcdir/SequenceOptional.asn1" "$test_srcdir/SequenceDefaults.asn1" \
+    "$test_srcdir/SequenceNested.asn1" \
+    >"$test_tmp/sequence-c-generate.log" 2>&1
+sequence_cflags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$sequence_c_out/Makefile.am.libasncodec")
+if ! cc $sequence_cflags -I"$sequence_c_out" "$sequence_c_out"/*.c \
+    "$test_srcdir/c_sequence.c" -lm -o "$test_tmp/c-sequence" \
+    >"$test_tmp/c-sequence-compile.log" 2>&1; then
+    cat "$test_tmp/c-sequence-compile.log"
+    exit 1
+fi
+"$test_tmp/c-sequence"
+# Inline ENUMERATED fields use the same cursor and presence map as records.
+enum_sequence_out="$test_tmp/sequence-enum"
+"$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$enum_sequence_out" \
+    "$test_srcdir/SequenceEnum.asn1"
+mkdir "$enum_sequence_out/tests"
+cp "$test_srcdir/sequence_enum_conformance.rs" "$enum_sequence_out/tests/"
+(cd "$enum_sequence_out" && CARGO_TARGET_DIR="$test_tmp/target-sequence-enum" \
+    cargo test --offline && cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings)
+# Unsupported inline enum extensions and generated type collisions fail early.
+cat >"$test_tmp/EnumExt.asn1" <<'EOF'
+EnumExt DEFINITIONS ::= BEGIN
+Packet ::= SEQUENCE { field ENUMERATED { one(1), ..., two(2) } OPTIONAL }
+END
+EOF
+cat >"$test_tmp/EnumCollision.asn1" <<'EOF'
+EnumCollision DEFINITIONS ::= BEGIN
+Packet ::= SEQUENCE { field ENUMERATED { one(1) } OPTIONAL }
+PacketField ::= BOOLEAN
+END
+EOF
+for fixture in EnumExt EnumCollision; do
+    rejected_out="$test_tmp/rejected-$fixture"
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$rejected_out" \
+        "$test_tmp/$fixture.asn1" >"$test_tmp/$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture" >&2
+        exit 1
+    fi
+    grep -F 'Rust backend does not support' "$test_tmp/$fixture.log" >/dev/null
+    test ! -e "$rejected_out"
+done
+enum_sequence_c="$test_tmp/sequence-enum-c"
+mkdir "$enum_sequence_c"
+"$asn1c_bin" -S "$skeletons" -gen-UPER -no-gen-XER -no-gen-JER \
+    -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+    -no-gen-random-fill -pdu=all -fgen-only-pdu-deps -no-gen-example \
+    -D "$enum_sequence_c" "$test_srcdir/SequenceEnum.asn1" \
+    >"$test_tmp/sequence-enum-c.log" 2>&1
+enum_sequence_cflags=$(sed -n 's/^ASN_MODULE_CFLAGS=//p' \
+    "$enum_sequence_c/Makefile.am.libasncodec")
+cc $enum_sequence_cflags -I"$enum_sequence_c" "$enum_sequence_c"/*.c \
+    "$test_srcdir/c_sequence_enum.c" -lm -o "$test_tmp/c-sequence-enum"
+"$test_tmp/c-sequence-enum"
+cat >"$test_tmp/SequenceTopTagged.asn1" <<'EOF'
+SequenceTopTagged DEFINITIONS ::= BEGIN
+TaggedPacket ::= [0] IMPLICIT BOOLEAN
+END
+EOF
+for fixture in SequenceExtension; do
+    rejected_out="$test_tmp/rejected-$fixture"
+    fixture_path="$test_srcdir/$fixture.asn1"
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$rejected_out" \
+        "$fixture_path" >"$test_tmp/rejected-$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture fields"
+        exit 1
+    fi
+    grep -F 'SEQUENCE field' "$test_tmp/rejected-$fixture.log" >/dev/null
+    test ! -e "$rejected_out"
+done
+
+# Nested constructed DEFAULTs and extensions remain outside the supported tree.
+cat >"$test_tmp/NestedConstructedDefault.asn1" <<'EOF'
+NestedConstructedDefault DEFINITIONS ::= BEGIN
+Bad ::= SEQUENCE { inner SEQUENCE { flag BOOLEAN } DEFAULT {} }
+END
+EOF
+cat >"$test_tmp/NestedExtension.asn1" <<'EOF'
+NestedExtension DEFINITIONS ::= BEGIN
+Bad ::= SEQUENCE { inner SEQUENCE { flag BOOLEAN, ... } }
+END
+EOF
+for fixture in NestedConstructedDefault NestedExtension; do
+    rejected_out="$test_tmp/rejected-$fixture"
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$rejected_out" \
+        "$test_tmp/$fixture.asn1" >"$test_tmp/rejected-$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted unsupported $fixture"
+        exit 1
+    fi
+    test ! -e "$rejected_out"
+done
+if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-nested-name-collision" \
+    "$test_srcdir/NestedNameCollision.asn1" \
+    >"$test_tmp/rejected-nested-name-collision.log" 2>&1; then
+    echo "FAIL: Rust backend accepted colliding nested type names"
+    exit 1
+fi
+grep -F 'nested SEQUENCE type names collide' \
+    "$test_tmp/rejected-nested-name-collision.log" >/dev/null
+test ! -e "$test_tmp/rejected-nested-name-collision"
+
+depth_body='flag BOOLEAN'
+depth_level=0
+while [ "$depth_level" -lt 17 ]; do
+    depth_body="inner SEQUENCE { $depth_body }"
+    depth_level=$((depth_level + 1))
+done
+{
+    printf '%s\n' 'NestedDepth DEFINITIONS ::= BEGIN'
+    printf 'Bad ::= SEQUENCE { %s }\n' "$depth_body"
+    printf '%s\n' 'END'
+} >"$test_tmp/NestedDepth.asn1"
+if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-nested-depth" "$test_tmp/NestedDepth.asn1" \
+    >"$test_tmp/rejected-nested-depth.log" 2>&1; then
+    echo "FAIL: Rust backend accepted excessive nested SEQUENCE depth"
+    exit 1
+fi
+test ! -e "$test_tmp/rejected-nested-depth"
+
+# Direct AUTOMATIC TAGS on SEQUENCE members are ignored by PER; top-level tags
+# remain outside the Rust subset and are rejected before output publication.
+if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" \
+    -D "$test_tmp/rejected-top-level-tag" "$test_tmp/SequenceTopTagged.asn1" \
+    >"$test_tmp/rejected-top-level-tag.log" 2>&1; then
+    echo "FAIL: Rust backend accepted a top-level tagged type"
+    exit 1
+fi
+grep -F 'explicit type tags are not supported' \
+    "$test_tmp/rejected-top-level-tag.log" >/dev/null
+test ! -e "$test_tmp/rejected-top-level-tag"
+
+# Unsupported DEFAULT value types and out-of-range integer literals fail closed.
+cat >"$test_tmp/SequenceDefaultBadType.asn1" <<'EOF'
+SequenceDefaultBadType DEFINITIONS ::= BEGIN
+BadType ::= SEQUENCE { value BOOLEAN DEFAULT 1 }
+END
+EOF
+cat >"$test_tmp/SequenceDefaultOutOfRange.asn1" <<'EOF'
+SequenceDefaultOutOfRange DEFINITIONS ::= BEGIN
+OutOfRange ::= SEQUENCE { value INTEGER (0..3) DEFAULT 4 }
+END
+EOF
+for fixture in SequenceDefaultBadType SequenceDefaultOutOfRange; do
+    rejected_out="$test_tmp/rejected-$fixture"
+    if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" \
+        -D "$rejected_out" "$test_tmp/$fixture.asn1" \
+        >"$test_tmp/rejected-$fixture.log" 2>&1; then
+        echo "FAIL: Rust backend accepted invalid $fixture"
+        exit 1
+    fi
+    grep -F 'DEFAULT needs a literal BOOLEAN or in-range bounded INTEGER' \
+        "$test_tmp/rejected-$fixture.log" >/dev/null
+    test ! -e "$rejected_out"
 done
 
 # Unsupported C layout and inspection options must also reject before output.
@@ -236,12 +1206,12 @@ for option in -fnative-types -fwide-types -E; do
 done
 
 # Unsupported ASN.1 types and ranges outside Rust i64 must fail before output.
-if "$asn1c_bin" --rust -S "$skeletons" -D "$test_tmp/rejected-sequence" \
+if "$asn1c_bin" --rust -no-gen-CER -S "$skeletons" -D "$test_tmp/rejected-sequence" \
     "$test_srcdir/Unsupported.asn1" >"$test_tmp/rejected-sequence.log" 2>&1; then
     echo "FAIL: Rust backend accepted an unsupported SEQUENCE"
     exit 1
 fi
-grep -F 'parameterized, constructed, or object types are unsupported' \
+grep -F 'SEQUENCE field needs a supported direct UPER primitive' \
     "$test_tmp/rejected-sequence.log" >/dev/null
 if [ -e "$test_tmp/rejected-sequence" ]; then
     echo "FAIL: unsupported SEQUENCE created output before rejection"
@@ -439,10 +1409,11 @@ esac
 # repository skeleton archive, so the test cannot link stale compiled objects.
 c_out="$test_tmp/generated-c"
 mkdir "$c_out"
-if ! "$asn1c_bin" -S "$skeletons" -gen-UPER -gen-CER -no-gen-XER \
-    -no-gen-JER -no-gen-CBOR -no-gen-OER -no-gen-APER -no-gen-print \
+if ! "$asn1c_bin" -S "$skeletons" -gen-UPER -gen-CER -gen-OER -gen-APER -no-gen-XER \
+    -no-gen-CBOR -no-gen-print \
     -no-gen-random-fill -fwide-types -pdu=all -fgen-only-pdu-deps \
     -no-gen-example -D "$c_out" "$test_srcdir/CParity.asn1" \
+    "$test_srcdir/OctetJER.asn1" \
     >"$test_tmp/c-generate.log" 2>&1; then
     cat "$test_tmp/c-generate.log"
     exit 1
@@ -460,19 +1431,82 @@ if ! cc $asn1c_module_cflags -I"$c_out" "$c_out"/*.c \
     cat "$test_tmp/c-compile.log"
     exit 1
 fi
+if ! cc $asn1c_module_cflags -I"$c_out" "$c_out"/*.c \
+    "$test_srcdir/c_additional.c" -lm \
+    -o "$test_tmp/c-additional" >"$test_tmp/c-additional-compile.log" 2>&1; then
+    cat "$test_tmp/c-additional-compile.log"
+    exit 1
+fi
+"$test_tmp/c-additional"
+if ! cc $asn1c_module_cflags -I"$c_out" "$c_out"/*.c \
+    "$test_srcdir/c_jer.c" -lm \
+    -o "$test_tmp/c-jer" >"$test_tmp/c-jer-compile.log" 2>&1; then
+    cat "$test_tmp/c-jer-compile.log"
+    exit 1
+fi
+"$test_tmp/c-jer"
+
+octet_jer_out="$test_tmp/octet-jer"
+"$asn1c_bin" --rust -gen-JER -no-gen-UPER -no-gen-CER \
+    -S "$skeletons" -D "$octet_jer_out" "$test_srcdir/OctetJER.asn1"
+grep -F 'pub fn encode_jer' "$octet_jer_out/src/octet_jer.rs" >/dev/null
+grep -F 'pub fn decode_jer' "$octet_jer_out/src/octet_jer.rs" >/dev/null
+if grep -E 'pub fn (encode|decode)_(uper|cer)' \
+    "$octet_jer_out/src/octet_jer.rs" >/dev/null; then
+    echo "FAIL: OCTET STRING JER-only selection generated UPER or CER methods"
+    exit 1
+fi
+mkdir "$octet_jer_out/tests" "$test_tmp/c-octet-jer-vectors" \
+    "$test_tmp/rust-octet-jer-vectors"
+cp "$test_srcdir/octet_jer_conformance.rs" \
+    "$octet_jer_out/tests/octet_jer_conformance.rs"
+cp "$test_srcdir/bit_jer_conformance.rs" \
+    "$octet_jer_out/tests/bit_jer_conformance.rs"
+"$test_tmp/c-jer" --write-dir "$test_tmp/c-octet-jer-vectors"
+if ! (cd "$octet_jer_out" && \
+    ASN1C_C_JER_VECTORS="$test_tmp/c-octet-jer-vectors" \
+    ASN1C_RUST_JER_VECTORS="$test_tmp/rust-octet-jer-vectors" \
+    ASN1C_C_BIT_JER_VECTORS="$test_tmp/c-octet-jer-vectors" \
+    ASN1C_RUST_BIT_JER_VECTORS="$test_tmp/rust-octet-jer-vectors" \
+    CARGO_TARGET_DIR="$test_tmp/target-octet-jer" \
+    cargo test --offline --manifest-path Cargo.toml && \
+    CARGO_TARGET_DIR="$test_tmp/target-octet-jer" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings) \
+    >"$test_tmp/check-octet-jer.log" 2>&1; then
+    cat "$test_tmp/check-octet-jer.log"
+    echo "FAIL: generated OCTET STRING JER tests or strict Clippy"
+    exit 1
+fi
+"$test_tmp/c-jer" --decode-octet-dir "$test_tmp/rust-octet-jer-vectors"
+"$test_tmp/c-jer" --decode-bit-dir "$test_tmp/rust-octet-jer-vectors"
+
+# Exchange Rust JER primitive tokens with the independently built C decoder.
+mkdir "$test_tmp/jer-vectors"
+(cd "$jer_out" && ASN1C_RUST_JER_VECTORS="$test_tmp/jer-vectors" \
+    CARGO_TARGET_DIR="$test_tmp/target-jer" \
+    cargo test --offline --manifest-path Cargo.toml)
+"$test_tmp/c-jer" --decode-dir "$test_tmp/jer-vectors"
 
 # Both codecs exchange actual generated bytes through temporary wire fixtures.
 mkdir "$test_tmp/c-vectors" "$test_tmp/rust-vectors"
 "$test_tmp/c-reference" "$test_tmp/c-vectors"
 
 # Keep Cargo's build artifacts outside both the repository and generated crate.
-mkdir "$rust_out/tests"
-cp "$test_srcdir/conformance.rs" "$rust_out/tests/conformance.rs"
-(cd "$rust_out" && \
+rust_ber_out="$test_tmp/generated-rust-ber"
+"$asn1c_bin" --rust -gen-BER -S "$skeletons" -D "$rust_ber_out" \
+    "$test_srcdir/FirstSlice.asn1"
+mkdir "$rust_ber_out/tests"
+cp "$test_srcdir/conformance.rs" "$rust_ber_out/tests/conformance.rs"
+(cd "$rust_ber_out" && \
     ASN1C_C_VECTORS="$test_tmp/c-vectors" \
     ASN1C_RUST_VECTORS="$test_tmp/rust-vectors" \
     CARGO_TARGET_DIR="$test_tmp/cargo-target" \
     cargo test --offline --manifest-path Cargo.toml)
+(cd "$rust_ber_out" && \
+    CARGO_TARGET_DIR="$test_tmp/cargo-target" \
+    cargo clippy --offline --all-targets --all-features -- \
+    -W clippy::pedantic -W clippy::nursery -D warnings)
 "$test_tmp/c-reference" --decode-dir "$test_tmp/rust-vectors"
 
-echo "PASS: generated Rust UPER/CER primitive slice"
+echo "PASS: generated Rust UPER/CER/BER-DER primitive slice"

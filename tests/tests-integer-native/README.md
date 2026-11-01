@@ -15,7 +15,7 @@ After building asn1c in-tree:
 ./run.sh /path/to/asn1c /path/to/skeletons
 ```
 
-The script exercises four areas:
+The script exercises six areas:
 
 1. **Command-line option parsing** — `auto`, `int32`, `uint32`, `int64`,
    `uint64` are accepted for `-finteger-native-type`, `32` and `64` are
@@ -29,6 +29,16 @@ The script exercises four areas:
    helpers, the `asn_ulong2INTEGER()` fix, constraint enforcement (accept /
    reject at and beyond each bound, including `UINT64_MAX` vs `-1` and
    oversized `INTEGER_t` bounds), and UPER round-trips for `T5`/`T6`.
+5. **GitHub issue #590** — generates [issue-590.asn1](issue-590.asn1) with
+   `-fcompound-names` in `uint32` and `uint64` modes. It verifies the two
+   repeated `direction` members reference separate suffixed descriptors,
+   compiles all generated sources, and links/runs a descriptor check. This
+   catches missing or incorrectly shared descriptors for constrained native
+   INTEGER members nested in separate CHOICE alternatives.
+6. **GitHub issue #591** — generates [issue-591.asn1](issue-591.asn1) in all
+   five storage modes, compiles and links the resulting C, then calls each
+   DEFAULT setter and comparator. DER checks verify positive, zero, and
+   negative defaults for both native scalar and `INTEGER_t` members.
 
 ## Expected generated storage (`oversized-integers.asn1`)
 

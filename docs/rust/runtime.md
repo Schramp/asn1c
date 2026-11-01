@@ -6,7 +6,9 @@ Baseline: commit 5a0ccf24ede9b176e8fd76861bf4855ed95f5105.
 
 Status: architecture target with an implemented first runtime slice in
 [rust/asn1c-runtime](../../rust/asn1c-runtime/README.md). That slice supports
-UPER BOOLEAN, NULL, and bounded i64 INTEGER operations. The generic runtime
+UPER, CER, and BER/DER BOOLEAN, NULL, and bounded i64 INTEGER operations. Its
+UPER cursor also composes fixed-size OCTET STRING and BIT STRING fields. The
+generic runtime
 shape and remaining codec families described below are conversion targets.
 
 ## Accepted target constraints
@@ -105,7 +107,7 @@ instead of inferring complete coverage from a family-level filename.
 
 | Codec family | Current modes | Main C source anchors |
 | --- | --- | --- |
-| BER / DER | BER decode; DER encode | ber_decoder.c, der_encoder.c |
+| BER / DER | BER decode; DER encode; Rust primitive slice | ber_decoder.c, der_encoder.c |
 | CER | Strict C decode and encode; Rust strict primitive encode/decode slice | cer_decoder.c, cer_encoder.c |
 | PER | UPER / APER, each basic and canonical | per_*.c, uper_*.c, aper_*.c |
 | OER | Basic and canonical | oer_*.c |

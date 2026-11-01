@@ -1,1 +1,0 @@
-/home/runner/work/asn1c/asn1c/skeletons/constr_SET_OF_ber.c

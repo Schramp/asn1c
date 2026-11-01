@@ -1,4 +1,266 @@
 Changes since v1.5.3:
+	* Free partially decoded APER SET members in the truncation regression test,
+	  eliminating its LeakSanitizer failure in C/C++ CI and distcheck.
+	* Fix issue #594 C XER output: separate SET members with one newline,
+	  materialize absent DEFAULT members in basic as well as canonical XER,
+	  and generate REAL DEFAULT callbacks for native and wide C storage.
+	  Generated regressions cover SET and SEQUENCE XER plus JER REAL defaults.
+	* Escape BMPString and UniversalString JER content as valid JSON and
+	  flatten SEQUENCE extension-addition group members in JER objects.
+	  Add malformed Unicode and generated group regressions.
+	* Add opt-in Rust basic XER encoding for a bounded flat SET/SEQUENCE
+	  subset, including issue #594 DEFAULT values, tag-ordered SET output,
+	  XML escaping, C parity vectors, and strict resource limits.
+	* Extend C CBOR SEQUENCE decoding with duplicate/required-member checks,
+	  deferred direct selected OPEN TYPE resolution, and transactional output.
+	  Flatten SET extension-group leaves into its repository-defined name-keyed
+	  map, validate duplicate names, and preserve existing SET values on errors.
+	* Validate C CBOR SEQUENCE OF and SET OF array counts, list storage, and child
+	  consumption before accepting values; stage decoded lists so malformed
+	  input preserves a preallocated value.
+	* Validate C CBOR CHOICE descriptors and active arms before encoding, then
+	  decode a complete one-entry map into staged storage with UTF-8 key and
+	  full child-consumption checks. Add generated sanitizer and fuzz regressions.
+	* Harden C CBOR byte strings, BIT STRING padding, negative large INTEGER
+	  conversion, UTF-8 text and UTF8String validation, recursive unknown-item
+	  skipping, and public codec argument validation. Add malformed-length,
+	  CONTAINING, fuzz corpus, and preallocated-value regressions.
+	* Expand opt-in Rust CBOR encoding and decoding for direct BIT/OCTET STRING,
+	  flat SEQUENCE with OPTIONAL/default fields, narrow CHOICE alternatives,
+	  selected OPEN TYPE, and typed primitive CONTAINING values. Add bounded map
+	  parsing, C interoperability vectors, and unsupported-shape gates.
+	* Add bounded C SET BER/DER direct OPEN TYPE support for one unambiguous
+	  explicitly tagged member, with two-pass unordered decoding, canonical
+	  DER sorting, selector checks, and generated sanitizer regressions.
+	* Add a bounded C SET XER direct OPEN TYPE path with parent-aware selected
+	  encoding, selector-first decoding, streaming replay, and malformed-input tests.
+	* Add opt-in Rust CBOR codecs for BOOLEAN, NULL, bounded INTEGER and opaque
+	  ANY with checked prefix decoding, resource limits and C parity vectors.
+	* Add C SET CBOR direct IOC-selected OPEN TYPE dispatch with unordered-key
+	  resolution, selected-arm storage validation, and cleanup of partial arms.
+	* Extend the bounded Rust selected OPEN TYPE slice to OER and aligned APER,
+	  with cumulative resource limits and C interoperability vectors.
+	* Added C SET UPER OPEN TYPE roots and additions with deferred selectors,
+	  nested-envelope checks, and generated SEQUENCE interoperability tests.
+	* Generate a bounded UPER IOC-selected OPEN TYPE Rust slice with typed
+	  variants, selector checks, shared resource limits and C parity tests.
+	* Added C SET JER direct OPEN TYPE support with selector-order-independent
+	  decoding, duplicate and selected-arm validation, and generated wire tests.
+	* Validate C SET CBOR map members before encoding or decoding, reject
+	  missing mandatory fields and duplicate known or unknown keys, and cover
+	  all-optional SETs and malformed input in generated tests.
+	* Check every present C SET member constraint, including later required and
+	  OPTIONAL fields, and reject missing mandatory pointer fields. CER now
+	  omits absent OPTIONAL ANY members in SEQUENCE and SET while continuing
+	  to reject present opaque ANY values.
+	* Reject malformed APER and OER SET OPEN TYPE members without a selector
+	  before consuming input, except valid opaque APER fallback wrappers.
+	* Validate selected OER OPEN TYPE descriptors and full storage spans, and
+	  preserve preallocated values on failed envelope decoding. SET supports
+	  the smaller inline ANY layout with validated parsing-context metadata.
+	  Constructed children validate parser contexts, presence fields and list
+	  storage before decoding or cleanup, with bounded cycle-aware validation
+	  of constructed member tables and full storage slots.
+	* Generate IOC-selected C SET members as open-type wrappers with selectors,
+	  including pointer-backed extension IDs and additions. Selected OER values
+	  must consume their complete envelope and retain inline arm constraints.
+	* Added C SET APER and OER extension-addition OPEN TYPE encoding and
+	  deferred decoding, including selectors in later additions and streaming
+	  OER nested-envelope validation.
+	* Adapted C ANY BER/DER, OER, CBOR, XER and JER byte handling to its
+	  signed-size ABI, including bounds checks and safe buffer conversion.
+	  Complete-value codec tests and split BER/JER decoding cover the adapters.
+	* Added Rust UPER opaque ANY values as top-level assignments and required
+	  or OPTIONAL SEQUENCE fields, with fragmented length handling, resource
+	  limits, malformed-input tests, and generated C wire comparisons.
+	  Direct ANY also supports APER, OER, and JER with C interoperability
+	  vectors and malformed-input checks.
+	* Added Rust UPER BIT/OCTET STRING CONTAINING a direct BOOLEAN or bounded
+	  INTEGER at top level and in required or OPTIONAL SEQUENCE fields, with
+	  shared cursor budgets, embedded-value validation, and C wire comparisons.
+	* Promoted inline C BIT/OCTET STRING CONTAINING types into generated
+	  descriptors, preserving INTEGER bounds and constructed-type metadata.
+	  Marked contained descriptors as PDU-only generation dependencies and
+	  added primitive, constructed, multi-module, and malformed-value tests.
+	* Decode C SET APER and OER root OPEN TYPE fields after their table
+	  selectors, including fields preceding selectors in canonical wire order.
+	  OER retains deferred envelopes across incremental reads and frees them
+	  when a partial SET is released.
+	* Hardened C ANY APER and UPER decoding against malformed storage and
+	  integer overflow, and fixed clearing APER conversion buffers.
+	* Added C OCTET STRING (CONTAINING named Type) constraint checks for complete
+	  embedded values. PER padding and spare values are validated, while
+	  non-PER syntax uses complete-byte consumption. Added UPER and APER
+	  negative cases to the CONTAINING smoke test. Syntax-aware recursive
+	  constraint checks now have a depth bound.
+	* Corrected C JER IOC-selected OPEN TYPE cleanup for incomplete and
+	  malformed selected values. Added generated present/absent OPTIONAL
+	  round trips, truncation and malformed-input regressions. JER text-string
+	  decoding now rejects invalid JSON escapes, control bytes, and isolated
+	  Unicode surrogates while accepting valid surrogate pairs.
+	* Extended Rust UPER SEQUENCE fields to required and OPTIONAL inline
+	  nonextensible ENUMERATED values, with C wire comparisons and malformed
+	  rank tests. Unsupported Rust CONTAINING forms and IOC OPEN TYPE schemas
+	  still fail before output publication while type resolution remains pending.
+	* Encoded and decoded C SET extension-group leaves as flat JER object
+	  members. Added key routing across input splits, duplicate and malformed
+	  descriptor checks, DEFAULT and renamed-leaf regressions, and pretty
+	  output. Group-bearing CBOR SET values now fail before output or decoder
+	  allocation until a repository CBOR mapping is defined.
+	* Added Rust JER encoding and decoding for direct bounded nonextensible
+	  OCTET STRING values, with inclusive SIZE checks, malformed-input and
+	  resource-limit tests, and generated C/Rust hexadecimal wire comparisons.
+	* Added Rust JER encoding and decoding for direct fixed-size and bounded
+	  BIT STRING values, with exact bit lengths, canonical padding checks,
+	  resource limits, and generated C/Rust interoperability vectors.
+	* Hardened C BIT STRING JER parsing and encoding for empty values,
+	  malformed lengths, exact fixed sizes, unused-bit padding, and existing
+	  value preservation on decode failure. C OCTET STRING JER hex and base64
+	  encoders now handle null-backed empty values safely; base64 chunking no
+	  longer narrows remaining lengths to int.
+	* Added C UPER, APER, and OER support for SET extension groups. Version 3
+	  metadata supplies a SEQUENCE wire view while preserving the synthetic SET
+	  structure for other codecs. Groups use one addition bitmap bit and an
+	  open type; empty or DEFAULT-only groups are omitted. Added independent
+	  wire vectors, malformed-metadata tests, older-schema skipping, OER split
+	  input, and single-flavor generated build checks.
+	* Added generated Rust UPER encoding and decoding for nonextensible BIT
+	  STRING values with one bounded SIZE range below 65536. A validated
+	  packed value preserves exact bit length, including non-octet values.
+	  Standalone and required or OPTIONAL SEQUENCE fields share bit cursors and
+	  resource limits; generated C/Rust wire vectors and malformed-input tests
+	  cover the new slice. Named-bit lists remain unsupported.
+	* Added C OER encoding and streaming decoding for SETs with individual
+	  extension additions. Versioned metadata separates roots from additions;
+	  root values use canonical tag order and additions use declaration-order
+	  open types. Known additions, unknown additions, DEFAULT restoration,
+	  malformed bitmaps, split input, and extensible CHOICE ordering have
+	  generated-code regressions. Legacy extensible descriptors continue to
+	  fail closed.
+	* Added generated Rust UPER encoding and decoding for OCTET STRING values
+	  with one contiguous nonextensible SIZE range below 65536. Standalone
+	  values and required or OPTIONAL SEQUENCE fields share checked bit cursors
+	  and resource limits. Added malformed-length, unsupported-constraint,
+	  strict Clippy, and generated C/Rust interoperability tests.
+	* Added C APER encoding and decoding for SETs with individual extension
+	  additions using versioned root and addition maps. Trailing roots retain
+	  canonical tag order; known and unknown additions use aligned open types.
+	  Added DEFAULT, truncation, malformed-metadata, and APER-only regressions.
+	  Legacy extensible descriptors and extension groups remain unsupported.
+	* Added generated Rust JER encoding and complete-input decoding for direct
+	  fixed-size OCTET STRING values as quoted hexadecimal. Added uppercase
+	  output, lowercase input, length and resource validation, malformed-input
+	  tests, and two-way C interoperability vectors.
+	* Added C UPER encoding and decoding for SETs with individual extension
+	  additions. Versioned generated metadata records roots and additions,
+	  including roots after a second marker. Decoding skips unknown additions
+	  and preserves the open-type decoder status for truncated input. Legacy
+	  extensible descriptors and extension groups fail closed in UPER.
+	* Added generated Rust UPER support for inline nested SEQUENCE fields.
+	  Required and OPTIONAL nested records share one bit cursor and resource
+	  budget with their parent. Added C/Rust wire comparisons, nested DEFAULT
+	  cases, and malformed-input and generator-limit regressions.
+	* Corrected C OER table-selected open-type cleanup for incomplete and
+	  failed CHOICE-wrapper decoding. Added ownership and malformed-input
+	  regressions, including truncated length determinants.
+	* Added literal BOOLEAN and bounded INTEGER DEFAULT fields to the
+	  generated Rust flat SEQUENCE UPER slice. Presence bits share the
+	  OPTIONAL bitmap, absent defaults are restored, and C wire interop
+	  covers omitted and explicit-present default values. Direct component
+	  tags, including AUTOMATIC TAGS, are accepted for UPER-only SEQUENCE.
+	* Added C OER and APER encode/decode operations for nonextensible SET,
+	  with canonical root tag order, optional/default presence handling,
+	  streaming OER decode, APER member alignment, and generated-code
+	  regressions. Extensible SET and table-selected open-type members
+	  remain unsupported by these codecs.
+	* Fixed C UPER SET ordering when an untagged CHOICE extension
+	  alternative has a lower tag than its root alternatives. The
+	  canonical root map now determines order; added a wire regression.
+	* Added opt-in Rust JER encoding and strict complete-input decoding
+	  for direct nonextensible ENUMERATED names, with generated-code and
+	  malformed-input tests.
+	* Added opt-in Rust JER encoding and complete-input decoding for direct
+	  BOOLEAN, NULL, and finite bounded signed i64 INTEGER assignments.
+	  The JSON primitives use compact tokens and enforce input, output, and
+	  work limits. Added malformed-input and generated C/Rust comparison
+	  tests. JER for other ASN.1 types remains pending.
+	* Added UPER presence bitmaps for OPTIONAL direct fields in flat Rust
+	  SEQUENCE assignments. Generated fields use Option<T>; present values
+	  retain the shared cursor and resource budget. Added C wire comparisons
+	  including a cross-octet presence bitmap, and negative DEFAULT,
+	  nesting, extension, and tag regressions.
+	* Kept BMPString__dump available in generated C JER-only builds where
+	  print and XER support are disabled.
+	* Added generated Rust UPER support for direct fixed-size OCTET STRING
+	  and BIT STRING, standalone and as required flat SEQUENCE fields. The
+	  runtime validates exact sizes and unused BIT STRING bits, packs fields
+	  continuously, and enforces one complete-value resource budget. Added
+	  generated-code and malformed-input regression tests.
+	* Added direct nonextensible ENUMERATED UPER generation with root indexes
+	  sorted by numeric value. Added spare-index, singleton, budget, and live
+	  C interoperability regressions.
+	* Added operation-wide UPER reader/writer budgets for composed fields and
+	  generated Rust support for flat SEQUENCE assignments with required direct
+	  BOOLEAN, NULL, and finite i64 INTEGER fields under UPER-only selection.
+	  Each field charges its wire bits plus eight work units, including zero-bit
+	  fields. Added packing, boundary, malformed-input, and budget regressions.
+	* Added opt-in generated Rust APER and OER encoding/decoding for direct
+	  BOOLEAN, NULL, and finite nonextensible signed i64 INTEGER assignments.
+	  Added bounded runtime primitives, malformed-input and range-boundary
+	  tests, generated API vectors, and offline packaging of both new modules.
+	  Constructed and open types, and XER/JER, remain outside the Rust slice.
+	* Extended the generated Rust primitive slice with opt-in BER decoding and
+	  DER encoding for BOOLEAN, NULL, and bounded i64 INTEGER. BER accepts
+	  definite long-form lengths and reports prefix consumption; DER emits
+	  canonical primitive TLVs. Added malformed-input, resource-limit, and
+	  generated-code regression coverage. The Rust default remains UPER/CER;
+	  broader ASN.1 types and codec families remain pending. Rust CI now runs
+	  pedantic and nursery Clippy lints with warnings denied.
+	* Import standard ASN.1 modules in a deterministic order, keeping the
+	  built-in EXTERNAL module first. Directory iteration order had shifted
+	  generated descriptor indexes and failed check-parsing.sh in PR #593 CI.
+	  Added a regression using opposite file creation orders.
+	* Fixed issue #592: recursion-safe pointer members now name the defined
+	  struct for numbered parameterized instances and constructed-type aliases.
+	  Grow the generated tag buffer to fit long identifiers without truncation.
+	  Added generated-header compile and long-name regressions.
+	* Fixed issue #591: generate INTEGER DEFAULT setters and comparators
+	  according to the actual selected C storage type. Unconstrained INTEGER
+	  members in unsigned native modes now use INTEGER_t conversion callbacks
+	  instead of invalid scalar operators. Added generated-code and callback
+	  regressions for all integer-native storage modes. Encode negative DEFAULT
+	  values with an identifier-safe "m" suffix in callback names.
+	* Updated the 127-per-long compiler-output baseline after issue #590:
+	  its two inline unsigned INTEGER members now reference their concrete
+	  suffixed descriptors. This keeps check-parsing.sh aligned with generated
+	  output and checks the corrected naming in the existing PER fixture.
+	* Fixed issue #590: emit distinct suffixed descriptors for repeated,
+	  constrained native INTEGER members nested in separate CHOICE alternatives
+	  when compound names and fixed-width unsigned storage are enabled. Added a
+	  generated-code compile/link regression for uint32 and uint64 modes.
+	* Corrected callback error handling in JER UniversalString and canonical
+	  XER SET OF encoders, and balanced JER CHOICE recursion depth when a child
+	  encoder fails. Custom XER TEXT BIT STRING generation now omits callback
+	  labels and callback-only variables when there are no named bits, so the
+	  generated source compiles with strict warning settings. Added focused
+	  failure-path and generated-code regressions.
+	* Removed an unreachable XER SEQUENCE encoder failure label left after
+	  callback handling moved into a helper; Apple Clang rejected the generated
+	  code under -Wall -Werror. Pass the configured compiler to the IEEE 1609
+	  IOC test so its generated-code build uses Clang in the Clang CI job.
+	* Corrected the issue #552 C regression to inspect the alias descriptor's
+	  inherited PER range instead of a generated constraint-table suffix, which
+	  changes when symbol indexes are allocated across the input.
+	* Fixed an infinite loop in generated constraint checkers exposed by
+	  randomized OCTET STRING value-constraint tests. Recompute the generated
+	  function name after constraint emission reuses the naming buffer, so
+	  the recursion guard compares against the checker itself. Safely handle
+	  an absent fallback callback. Regenerate affected C sources with the
+	  updated compiler; existing generated binaries retain the faulty guard.
+	* Corrected the check-65 multi-tag BER fixture: two binary REAL values
+	  omitted their mantissas and were rejected after the issue #585 fix.
+	  Use complete encodings and verify decoded values; retain missing-mantissa
+	  inputs as rejection cases and cover truncation and malformed wrappers.
 	* Fixed issue #586: retain unknown APER open-type payloads from extensible
 	  information-object sets in a generated, owned ANY alternative, allowing
 	  decode/modify/re-encode. Keep known alternatives' presence indices and

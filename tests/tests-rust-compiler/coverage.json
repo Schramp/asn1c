@@ -1,13 +1,18 @@
 {
-  "suite": "generated Rust stage-one primitive UPER and CER slice",
+  "suite": "generated Rust primitive codecs, fixed and bounded-size UPER strings, ENUMERATED, and nested UPER SEQUENCE slice",
   "scope": "Only the listed nonextensible primitive subset is qualified.",
   "cases": [
     {
       "asn1_type": "BOOLEAN",
       "feature": "primitive, nonextensible",
       "codec": "UPER",
-      "variants": ["basic/default UPER API"],
-      "directions": ["encode", "decode"],
+      "variants": [
+        "basic/default UPER API"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
       "status": "tested",
       "evidence": "conformance.rs; c_reference.c"
     },
@@ -15,8 +20,13 @@
       "asn1_type": "NULL",
       "feature": "primitive, nonextensible, zero-width complete value",
       "codec": "UPER",
-      "variants": ["basic/default UPER API"],
-      "directions": ["encode", "decode"],
+      "variants": [
+        "basic/default UPER API"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
       "status": "tested",
       "evidence": "conformance.rs; c_reference.c"
     },
@@ -24,8 +34,13 @@
       "asn1_type": "INTEGER",
       "feature": "bounded signed i64, nonextensible, range -10..10",
       "codec": "UPER",
-      "variants": ["basic/default UPER API"],
-      "directions": ["encode", "decode"],
+      "variants": [
+        "basic/default UPER API"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
       "status": "tested_with_live_C_comparison",
       "evidence": "conformance.rs; c_reference.c"
     },
@@ -33,8 +48,13 @@
       "asn1_type": "INTEGER",
       "feature": "singleton range 5..5",
       "codec": "UPER",
-      "variants": ["basic/default UPER API"],
-      "directions": ["encode", "decode"],
+      "variants": [
+        "basic/default UPER API"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
       "status": "tested_with_live_C_comparison",
       "evidence": "conformance.rs; c_reference.c"
     },
@@ -42,8 +62,13 @@
       "asn1_type": "INTEGER",
       "feature": "full signed i64 range",
       "codec": "UPER",
-      "variants": ["basic/default UPER API"],
-      "directions": ["encode", "decode"],
+      "variants": [
+        "basic/default UPER API"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
       "status": "tested_against_fixed_golden_vectors",
       "evidence": "conformance.rs"
     },
@@ -51,8 +76,14 @@
       "asn1_type": "BOOLEAN",
       "feature": "primitive, nonextensible",
       "codec": "CER",
-      "variants": ["canonical FALSE 00", "canonical TRUE FF"],
-      "directions": ["encode", "strict decode"],
+      "variants": [
+        "canonical FALSE 00",
+        "canonical TRUE FF"
+      ],
+      "directions": [
+        "encode",
+        "strict decode"
+      ],
       "status": "tested_with_live_C_comparison",
       "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
     },
@@ -60,8 +91,13 @@
       "asn1_type": "NULL",
       "feature": "primitive, nonextensible",
       "codec": "CER",
-      "variants": ["empty primitive content"],
-      "directions": ["encode", "strict decode"],
+      "variants": [
+        "empty primitive content"
+      ],
+      "directions": [
+        "encode",
+        "strict decode"
+      ],
       "status": "tested_with_live_C_comparison",
       "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
     },
@@ -69,37 +105,262 @@
       "asn1_type": "INTEGER",
       "feature": "finite signed i64, minimal two's-complement content",
       "codec": "CER",
-      "variants": ["127", "128", "-128", "-129", "i64::MIN", "i64::MAX"],
-      "directions": ["encode", "strict decode"],
+      "variants": [
+        "127",
+        "128",
+        "-128",
+        "-129",
+        "i64::MIN",
+        "i64::MAX"
+      ],
+      "directions": [
+        "encode",
+        "strict decode"
+      ],
       "status": "tested_with_live_C_comparison",
       "evidence": "conformance.rs; c_reference.c; asn1c-runtime unit tests"
+    },
+    {
+      "asn1_type": "BOOLEAN, NULL, INTEGER",
+      "feature": "universal primitive tags; INTEGER bounded signed i64",
+      "codec": "BER decode / DER encode",
+      "variants": [
+        "definite lengths",
+        "canonical DER output",
+        "BER prefix consumption",
+        "BOOLEAN content is exactly one octet"
+      ],
+      "directions": [
+        "BER decode",
+        "DER encode"
+      ],
+      "status": "tested_primitive_subset",
+      "evidence": "conformance.rs; asn1c-runtime unit tests"
+    },
+    {
+      "asn1_type": "BOOLEAN, NULL, INTEGER",
+      "feature": "direct primitive; INTEGER finite nonextensible signed i64 bounds",
+      "codec": "APER",
+      "variants": [
+        "BOOLEAN one bit",
+        "NULL zero-width complete value",
+        "bounded INTEGER aligned range thresholds"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_primitive_subset",
+      "evidence": "additional_codecs.rs; asn1c-runtime/src/aper.rs tests; c_additional.c"
+    },
+    {
+      "asn1_type": "BOOLEAN, NULL, INTEGER",
+      "feature": "direct primitive; INTEGER finite nonextensible signed i64 bounds",
+      "codec": "OER",
+      "variants": [
+        "canonical BOOLEAN output and basic truth decoding",
+        "empty NULL",
+        "fixed-width bounded INTEGER"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_primitive_subset",
+      "evidence": "additional_codecs.rs; asn1c-runtime/src/oer.rs tests; c_additional.c"
+    },
+    {
+      "asn1_type": "SEQUENCE",
+      "feature": "required or OPTIONAL direct and inline nested fields plus literal BOOLEAN and bounded INTEGER DEFAULT; UPER-only selection",
+      "codec": "UPER",
+      "variants": [
+        "cross-byte field packing",
+        "declaration-order OPTIONAL presence bitmap and absent fields",
+        "declaration-order DEFAULT presence bits interleaved with OPTIONAL fields",
+        "AUTOMATIC TAGS on direct SEQUENCE components ignored by UPER",
+        "DEFAULT payload omission and literal substitution",
+        "present values equal to DEFAULT accepted by the decoder",
+        "literal DEFAULT range/type rejection before publication",
+        "nine-bit presence bitmap crossing an octet boundary",
+        "zero-width member and complete-value filler",
+        "full signed i64 INTEGER range",
+        "cumulative work and whole-input/output ceilings",
+        "required and OPTIONAL nested records with local presence maps",
+        "required and OPTIONAL inline nonextensible ENUMERATED fields",
+        "nested primitive DEFAULT omission and substitution",
+        "nested truncation, filler, and cumulative limit rejection"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "sequence_conformance.rs; nested_conformance.rs; sequence_enum_conformance.rs; c_sequence.c; c_sequence_enum.c; C UPER encode/decode vectors"
+    },
+    {
+      "asn1_type": "OCTET STRING, BIT STRING",
+      "feature": "direct fixed SIZE(N), bounded OCTET SIZE(l..u), and bounded BIT SIZE(l..u), all below 65536; standalone and required or OPTIONAL SEQUENCE field",
+      "codec": "UPER",
+      "variants": [
+        "zero-size complete filler",
+        "continuous cross-byte packing",
+        "BIT STRING unused-bit validation",
+        "whole-value resource budgets",
+        "SIZE(65535) accepted; SIZE(65536) rejected",
+        "bounded OCTET STRING SIZE(1..3), standalone and required or OPTIONAL SEQUENCE field",
+        "bounded BIT STRING SIZE(1..3), exact non-octet bit lengths and required or OPTIONAL SEQUENCE field",
+        "bounded BIT STRING SIZE(2..4), non-octet payload after OPTIONAL presence bits",
+        "spare constrained-length codes, truncation, padding, input/work/output limits",
+        "deterministic mutation of every meaningful bit in bounded BIT STRING golden vectors"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "string_conformance.rs; c_string.c; asn1c-runtime/src/uper_cursor.rs tests; boundary_conformance.rs; variable_string_conformance.rs; c_variable_string.c; variable_bit_string_conformance.rs; c_variable_bit_string.c"
+    },
+    {
+      "asn1_type": "OCTET STRING",
+      "feature": "direct fixed nonextensible SIZE(N), N < 65536; JER alone or combined with UPER",
+      "codec": "JER",
+      "variants": [
+        "empty quoted hexadecimal token",
+        "mixed bytes with uppercase C-compatible encoding",
+        "lowercase hexadecimal decoding and surrounding JSON whitespace",
+        "malformed tokens, incorrect fixed size, and trailing input rejection",
+        "input, output, and cumulative work limit enforcement"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "octet_jer_conformance.rs; c_jer.c; OctetJER.asn1; asn1c-runtime/src/jer.rs tests"
+    },
+    {
+      "asn1_type": "OCTET STRING",
+      "feature": "direct bounded nonextensible SIZE(l..u), 0 <= l < u < 65536; JER alone or with UPER",
+      "codec": "JER",
+      "variants": [
+        "C-compatible quoted uppercase hexadecimal output",
+        "case-insensitive decoding with surrounding JSON whitespace",
+        "inclusive range, malformed hex, and complete-input validation",
+        "input, output, and work limit enforcement",
+        "generated C encode/decode interoperability"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "octet_jer_conformance.rs; c_jer.c; OctetJER.asn1; asn1c-runtime/src/jer.rs tests"
+    },
+    {
+      "asn1_type": "BIT STRING",
+      "feature": "direct fixed nonextensible SIZE(N); JER alone or with UPER",
+      "codec": "JER",
+      "variants": [
+        "C-compatible packed uppercase hexadecimal string",
+        "case-insensitive decoding with surrounding JSON whitespace",
+        "exact storage length, zero-padding, and complete-input validation",
+        "generated C encode/decode interoperability"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "bit_jer_conformance.rs; c_jer.c; OctetJER.asn1; asn1c-runtime/src/jer.rs tests"
+    },
+    {
+      "asn1_type": "BIT STRING",
+      "feature": "direct bounded nonextensible SIZE(l..u), 0 <= l < u < 65536; JER alone or with UPER",
+      "codec": "JER",
+      "variants": [
+        "C-compatible minified object with value before length",
+        "exact logical bit length and packed hexadecimal payload",
+        "range, hexadecimal, zero-padding, and complete-input validation",
+        "generated C encode/decode interoperability"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "bit_jer_conformance.rs; c_jer.c; OctetJER.asn1; asn1c-runtime/src/jer.rs tests"
+    },
+    {
+      "asn1_type": "BOOLEAN, NULL, INTEGER",
+      "feature": "top-level direct primitive; INTEGER finite nonextensible signed i64 bounds",
+      "codec": "JER",
+      "variants": [
+        "compact JSON primitive tokens",
+        "complete-input decoding with JSON whitespace",
+        "checked integer syntax, bounds, and resource limits"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "jer_conformance.rs; c_jer.c; asn1c-runtime/src/jer.rs tests"
+    },
+    {
+      "asn1_type": "ENUMERATED",
+      "feature": "direct nonextensible root values fitting i64, at most 64 members; numeric-order UPER indexes",
+      "codec": "UPER",
+      "variants": [
+        "out-of-order numeric declaration",
+        "singleton complete filler",
+        "spare root index",
+        "work budget",
+        "mixed-case keyword normalization"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested_with_live_C_comparison",
+      "evidence": "enum_conformance.rs; c_enum.c; EnumSlice.asn1"
+    },
+    {
+      "asn1_type": "ENUMERATED",
+      "feature": "direct nonextensible root values, at most 64 members; JER uses the declared ASN.1 identifier",
+      "codec": "JER",
+      "variants": [
+        "compact quoted-name tokens matching the C mapping",
+        "complete-input decode with JSON whitespace",
+        "unknown-name, escape, trailing-data, and resource-limit rejection"
+      ],
+      "directions": [
+        "encode",
+        "decode"
+      ],
+      "status": "tested",
+      "evidence": "enum_jer_conformance.rs; asn1c-runtime/src/jer.rs tests; EnumSlice.asn1"
     }
   ],
   "not_yet_implemented_by_this_Rust_slice": [
     {
-      "family": "BER/DER",
+      "family": "BER/DER outside the primitive slice",
       "status": "not_implemented",
-      "note": "No generated Rust encoder or decoder is qualified for these variants."
+      "note": "Constructed, tagged, and other primitive types are not qualified."
     },
     {
-      "family": "APER",
+      "family": "APER/OER outside the primitive slice",
       "status": "not_implemented",
-      "note": "No generated Rust encoder or decoder is qualified."
+      "note": "Constructed, tagged, extensible, unconstrained, and other primitive types are not qualified."
     },
     {
-      "family": "OER",
+      "family": "XER and JER outside supported slices",
       "status": "not_implemented",
-      "note": "Basic and canonical OER are not qualified."
+      "note": "XER supports only basic encoding of flat SET and SEQUENCE records with untagged or automatic-tagged direct BOOLEAN, bounded INTEGER, and unconstrained IA5String, and REAL DEFAULT 0.5 fields with finite limited values; decoding and mixed codec selection are unsupported. JER is qualified for listed primitives and strings."
     },
     {
-      "family": "XER/JER/CBOR",
-      "status": "not_implemented",
-      "note": "No generated Rust encoder or decoder is qualified."
-    },
-    {
-      "family": "constructed, string, CHOICE, ENUMERATED, REAL, open types",
+      "family": "constructed outside nested UPER SEQUENCE, extensible, unbounded, fragmented or disjoint strings, named-bit strings, CHOICE, extensible ENUMERATED, REAL, open types",
       "status": "outside_first_slice",
-      "note": "No Rust correctness or interoperability claim is made for these types."
+      "note": "No Rust correctness or interoperability claim is made beyond the listed SEQUENCE and bounded string subsets."
     },
     {
       "family": "extensible constraints and cross-codec conversion",
@@ -120,12 +381,18 @@
   "compiler_boundary_checks": {
     "rejected_before_output": [
       "aliases and imports",
-      "explicit tags and encoding controls",
+      "top-level explicit tags and encoding controls",
       "unconstrained, extensible, union, and named-number INTEGER",
-      "unsupported constructed types and module-name sanitization collisions",
-      "unsupported codec and C-layout selectors",
+      "unsupported DEFAULT forms, constructed DEFAULT, nested extensions, excessive nesting or aggregate field-work, generated nested-name collisions, extensible and otherwise unsupported constructed types",
       "duplicate --rust selectors and disabling all Rust codecs",
-      "an incomplete runtime asset set beside explicit skeletons"
+      "an incomplete runtime asset set beside explicit skeletons",
+      "unsupported XER shapes and mixed codecs, unsupported JER type combinations, and C-layout selectors",
+      "extensible ENUMERATED root values",
+      "fixed string SIZE(65536) at the fragmentation boundary",
+      "extensible-size, size unions, and named-bit OCTET/BIT STRING forms",
+      "bounded BIT STRING upper bound 65536",
+      "bounded BIT STRING with codecs other than UPER or JER",
+      "bounded OCTET STRING with extensible, disjoint, oversized, or unsupported codec constraints"
     ],
     "output_safety": [
       "unowned destination preservation",
@@ -139,11 +406,18 @@
     ]
   },
   "observed_counts": {
-    "generated_rust_test_functions": 10,
+    "generated_rust_test_functions": 57,
     "live_c_rust_vectors_each_direction": 8,
-    "unsupported_target_or_schema_cases": 23,
-    "single_octet_mutation_inputs": 768,
+    "single_octet_mutation_inputs": 796,
+    "JER_single_octet_mutation_inputs": 256,
     "wide_prefix_inputs_including_complete_value": 9,
-    "truncated_wide_prefix_inputs": 8
+    "truncated_wide_prefix_inputs": 8,
+    "live_C_fixed_string_encode_vectors": 5,
+    "live_C_enum_encode_vectors": 4,
+    "live_C_JER_primitive_vectors_each_direction": 8,
+    "live_C_bounded_octet_JER_encode_vectors": 1,
+    "live_C_bounded_string_encode_vectors": 3,
+    "live_C_bounded_bit_string_encode_vectors": 4,
+    "bounded_BIT_single_bit_mutation_inputs": 8
   }
 }

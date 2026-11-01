@@ -84,6 +84,21 @@ TESTS += check-src/check-563.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-583.-fcompound-names.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-584.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-585.-fcompound-names.c
+TESTS += check-src/check-593.-gen-UPER.c
+TESTS += check-src/check-594.-gen-OER.c
+check_595_prefix = check-src/check-595.-gen-APER.
+check_595_disabled_a = -no-gen-BER.-no-gen-XER.-no-gen-JER.-no-gen-CBOR.
+check_595_disabled_b = -no-gen-OER.-no-gen-UPER.-no-gen-print.-no-gen-random-fill.c
+TESTS += $(check_595_prefix)$(check_595_disabled_a)$(check_595_disabled_b)
+TESTS += check-src/check-596.-gen-UPER.c
+TESTS += check-src/check-597.-gen-UPER.c
+TESTS += check-src/check-598.-gen-APER.c
+TESTS += check-src/check-599.-gen-OER.c
+TESTS += check-src/check-600.-gen-UPER.-gen-APER.-gen-OER.c
+TESTS += check-src/check-601.-fcompound-names.-gen-JER.-gen-CBOR.c
+TESTS += check-src/check-601.-findirect-choice.-fcompound-names.-gen-CBOR.c
+TESTS += check-src/check-602.-findirect-choice.-fcompound-names.-gen-JER.c
+TESTS += check-src/check-603.-gen-UPER.c
 TESTS += check-src/check-582.-gen-UPER.-gen-APER.c
 TESTS += check-src/check-569.-gen-UPER.c
 TESTS += check-src/check-570.c
@@ -116,6 +131,27 @@ EXTRA_DIST =    \
     data-203    \
     check-src/check64-134.-gen-UPER.c    \
     check-src/check64-136.-gen-OER.c
+EXTRA_DIST += $(check_595_prefix)$(check_595_disabled_a)$(check_595_disabled_b)
+EXTRA_DIST += check-src/check-596.-gen-UPER.c
+EXTRA_DIST += check-src/check-597.-gen-UPER.c
+EXTRA_DIST += check-src/check-598.-gen-APER.c
+EXTRA_DIST += check-src/check-599.-gen-OER.c
+EXTRA_DIST += check-src/check-600.-gen-UPER.-gen-APER.-gen-OER.c
+EXTRA_DIST += check-src/check-601.-fcompound-names.-gen-JER.-gen-CBOR.c
+EXTRA_DIST += check-src/check-601.-findirect-choice.-fcompound-names.-gen-CBOR.c
+EXTRA_DIST += check-src/check-602.-findirect-choice.-fcompound-names.-gen-JER.c
+EXTRA_DIST += check-src/check-603.-gen-UPER.c
 
 clean-local:
 	rm -rf test-*
+
+TESTS += check-src/check-604.-findirect-choice.-fcompound-names.-gen-XER.c
+EXTRA_DIST += check-src/check-604.-findirect-choice.-fcompound-names.-gen-XER.c
+TESTS += check-src/check-605.-findirect-choice.-fcompound-names.-gen-CBOR.c
+EXTRA_DIST += check-src/check-605.-findirect-choice.-fcompound-names.-gen-CBOR.c
+EXTRA_DIST += data-605
+TESTS += check-src/check-606.-gen-CBOR.c
+EXTRA_DIST += check-src/check-606.-gen-CBOR.c
+EXTRA_DIST += data-606
+TESTS += check-src/check-608.-fcompound-names.-gen-JER.c
+EXTRA_DIST += check-src/check-608.-fcompound-names.-gen-JER.c

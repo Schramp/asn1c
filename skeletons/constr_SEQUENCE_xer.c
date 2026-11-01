@@ -618,13 +618,15 @@ cb_failed:
 /*
  * Purpose: encode SEQUENCE contents as XER, flattening extension groups.
  * Original source: asn1c's XER SEQUENCE encoder.
- * Version/date: 2026-10-21.
+ * Version/date: 2026-10-24.
  * Inputs: td describes the sequence; sptr is its value; ilevel controls
  *         indentation; flags selects canonical form; cb/app_key collect bytes.
  * Returns: encoded byte count, or an error result if a child fails.
  * Exceptions: callback and child encoder errors propagate as encoding failure.
  * Responsible party: asn1c maintainers.
- * History: the extension-group path was added for issue #583.
+ * History: the extension-group path was added for issue #583. Removed the
+ *          unreachable callback-failure label after callback work moved to
+ *          SEQUENCE_xer_encode_member on 2026-10-24.
  * Example: encode group members as sibling tags inside the parent sequence.
  */
 asn_enc_rval_t
@@ -689,8 +691,4 @@ SEQUENCE_encode_xer(const asn_TYPE_descriptor_t *td, const void *sptr,
 
     XER_ENCODER_RECURSION_DEPTH_DEC();
     ASN__ENCODED_OK(er);
-cb_failed:
-    if(tmp_def_val) ASN_STRUCT_FREE(*tmp_def_val_td, tmp_def_val);
-    XER_ENCODER_RECURSION_DEPTH_DEC();
-    ASN__ENCODE_FAILED;
 }

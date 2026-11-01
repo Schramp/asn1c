@@ -1,0 +1,14 @@
+Issue590 DEFINITIONS IMPLICIT TAGS ::= BEGIN
+
+MyChoice ::= CHOICE {
+    move1 [1] SEQUENCE {
+        speed [1] INTEGER,
+        direction [2] INTEGER (0..359) OPTIONAL
+    },
+    move2 [2] SEQUENCE {
+        distance [1] INTEGER,
+        direction [2] INTEGER (0..359) OPTIONAL
+    }
+}
+
+END

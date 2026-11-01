@@ -90,6 +90,8 @@ libasn1cskeletons_la_SOURCES =                  \
     constr_SEQUENCE_oer.c                       \
     constr_SEQUENCE_OF.c constr_SEQUENCE_OF.h   \
     constr_SET.c constr_SET.h                   \
+    constr_SET_aper.c                            \
+    constr_SET_oer.c                             \
     constr_SET_OF.c constr_SET_OF.h             \
     constr_SET_OF_oer.c                         \
     constr_TYPE.c constr_TYPE.h                 \
@@ -117,7 +119,7 @@ libasn1cskeletons_la_SOURCES =                  \
     jer_decoder.c jer_decoder.h                 \
     jer_encoder.c jer_encoder.h                 \
     xer_support.c xer_support.h                 \
-    jer_support.c jer_support.h                 \
+    jer_support.c jer_support.h jer_string.h    \
     cbor_decoder.c cbor_decoder.h               \
     cbor_encoder.c cbor_encoder.h               \
     cbor_support.c cbor_support.h               \

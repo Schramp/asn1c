@@ -1,0 +1,6 @@
+XerTextBitString DEFINITIONS ::= BEGIN
+
+Empty ::= [TEXT] BIT STRING
+Named ::= [TEXT] BIT STRING { alpha(0), beta(1) }
+
+END

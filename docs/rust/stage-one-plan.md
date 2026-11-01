@@ -211,7 +211,9 @@ C descriptor-driven CER encoder and strict re-encode-and-compare CER decoder.
 The current Rust CER primitive slice encodes and strictly decodes; expand its
 matrix to every C-supported descriptor/value cell, with reviewed exclusions
 only for forms the C encoder does not support. Keep Rust strict CER decoding
-and permissive BER decoding separately qualified.
+and permissive BER decoding separately qualified. The first Rust BER/DER slice
+handles top-level BOOLEAN, NULL, and bounded i64 INTEGER with definite lengths;
+constructed types and incremental BER state remain pending.
 Port OER length and presence determinants, constraints, open types, and ordering.
 Qualify basic/canonical variants independently, including malformed encodings.
 

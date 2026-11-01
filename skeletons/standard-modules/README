@@ -1,2 +1,6 @@
 All *.asn1 files in this directory will be automatically
 picked up by the asn1c during compilation of any user specified module.
+
+The compiler imports ASN1C-UsefulInformationObjectClasses.asn1 first, then
+the remaining .asn1 files in filename order. This keeps generated symbol
+indexes stable across filesystems with different directory iteration orders.

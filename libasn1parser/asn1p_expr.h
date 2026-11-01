@@ -280,14 +280,15 @@ typedef struct asn1p_expr_s {
 	  TM_NAMECLASH	= (1<<3), /* Name clash found, need to add module name to resolve */
 	  TM_NAMEGIVEN  = (1<<4), /* The expression has already yielded a name */
 	  TM_PDU_DEPENDENCY = (1<<5), /* Part of PDU dependency chain */
-	  TM_ENCODING_INSTRUCTION = (1<<6) /* ENCODING-CONTROL instruction, not a regular type */
+	  TM_ENCODING_INSTRUCTION = (1<<6), /* ENCODING-CONTROL instruction, not a regular type */
+	  TM_UNIQUE_INDEX = (1<<7) /* Temporary recursion mark during type indexing */
 	} _mark;
 
 	/*
 	 * Some tags used by the compiler.
 	 */
 	int _anonymous_type;	/* This type is unnamed */
-	int _type_unique_index;	/* A per top-level-type unique index */
+	int _type_unique_index;	/* Unique per-input suffix for generated C symbols */
 	int _type_referenced;	/* This type is referenced from another place */
 
 	/*

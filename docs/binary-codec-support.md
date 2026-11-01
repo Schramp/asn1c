@@ -1,6 +1,6 @@
 # Binary codec support and dispatch
 
-Source-audited on 2026-10-12 against generated descriptors, the generic
+Source-audited through 2026-10-30 against generated descriptors, the generic
 dispatcher, and CER regression cases. This records available operations, not
 blanket support for every ASN.1 type or proof of canonical conformance.
 
@@ -138,7 +138,8 @@ The Rust backend currently emits CER encoding for top-level BOOLEAN, NULL, and
 finite nonextensible INTEGER ranges that fit in `i64`, plus a strict
 `decode_cer()` that accepts only the canonical short-form TLV.
 Rust codec defaults include UPER and CER; `-no-gen-UPER` selects CER-only
-generation. Other Rust types and codecs remain outside this implemented slice.
+generation. See [the Rust implementation matrix](rust/implementation.md#implemented-boundary)
+for the additional supported UPER, APER, OER, BER/DER, and JER slices.
 
 CER is a constrained form of BER. The primary
 [X.690 (2015) text, sections 9.1, 9.2, 9.3, and 11.6][x690]
@@ -150,8 +151,216 @@ rejects input that does not match them.
 
 ## Other binary families
 
-No additional mismatch was found between the generic binary selectors and their
-implemented codec families. Basic/canonical OER and PER decode selectors share
+### OPTIONAL, CONTAINING, ANY, and OPEN TYPE
+
+C constructed codecs use generated presence metadata for `OPTIONAL` members.
+For `BIT STRING (CONTAINING Type)` and
+`OCTET STRING (CONTAINING Type)`, the
+syntax-aware constraint checker decodes the embedded value, checks its own
+constraints, and requires a complete encoding. The OCTET STRING checker
+accepts only zero padding after the last PER bit; non-PER encodings must
+consume every octet. The [CONTAINING smoke test](../tests/tests-asn1c-smoke/check-CONTAINING.sh)
+covers valid and invalid UPER and APER encodings, including spare values,
+padding, and trailing data. Random filling of OCTET STRING CONTAINING values
+does not yet construct a valid embedded value.
+Inline contained types receive generated descriptors that preserve their
+constraints and codec metadata. PDU-only generation includes descriptors
+referenced solely through `CONTAINING`. Parameterized types are supported when
+the actual contained type is supplied as an argument or when the contained
+type refers to a bound formal type. The
+[inline regression](../tests/tests-c-compiler/check-src/check-603.-gen-UPER.c)
+covers bounded INTEGER and constructed contained types under UPER, APER,
+OER, and BER. Syntax-aware constraint checking limits nested calls to 64,
+so recursive contained values fail safely at that depth.
+
+`ANY` remains an opaque encoded-value container with codec-specific behavior;
+the BER compatibility boundary is described above. C BER/DER, OER, CBOR,
+XER and JER adapters preserve the public signed-size `ANY_t` layout. Their
+regressions cover complete values, malformed input, and split BER and JER
+input. IOC-selected `OPEN TYPE`
+uses its selected concrete descriptor. The
+[JER OPEN TYPE regression](../tests/tests-c-compiler/check-src/check-602.-findirect-choice.-fcompound-names.-gen-JER.c)
+covers a selected value with an `OPTIONAL` field, truncation, and malformed
+input. C SET APER and OER defer root open-type decoding until their selectors
+are available, including when a root open member precedes its selector in
+canonical wire order. APER and OER SET also support open types in extension
+additions, including selectors carried in later additions. Extension additions
+use a nested open-type envelope; OER retains the encoded value across partial
+input until its selector is available. UPER SET also supports direct root and
+extension-addition open values with deferred selector resolution and nested
+addition envelopes. Unknown UPER selectors fail because its selected-value
+runtime has no opaque fallback. The
+[generated SET IOC regression](../tests/tests-asn1c-smoke/check-SET-open-type.sh)
+covers open roots and additions with selectors in later canonical or extension
+order. Direct SET OPEN TYPE members also support JER with the selector before
+or after the value; duplicate keys and mismatched selectors are rejected. For
+such SETs, incomplete JER objects return `RC_WMORE` with zero bytes consumed,
+so callers must retain and replay the complete object. OPEN TYPE leaves inside
+SET extension groups remain unsupported in JER. OER rejects selected values
+that leave trailing bytes inside their open-type envelopes. Constructed storage validation permits pointer-recursive
+layouts and rejects graphs beyond 64 nested levels, 1024 distinct cached types,
+or 16384 descriptor visits.
+
+BMPString and UniversalString JER encoders emit valid JSON strings: quotes,
+backslashes, and C0 controls are escaped, and invalid Unicode scalar values or
+misaligned storage lengths fail encoding. SEQUENCE extension-addition groups
+are represented as flat sibling fields in the outer JER object. Their fields
+are encoded and decoded in declaration order; a present group must include its
+required children. Unknown extension values are skipped only after strict JSON
+value parsing, including nested arrays, objects, and escaped strings. The flat
+group path rejects duplicate and out-of-order known fields. OPEN TYPE leaves
+inside SEQUENCE extension groups remain unsupported by this path.
+
+Direct SET XER OPEN TYPE members support selector-first decoding once every
+other sibling has appeared. This conservative rule also rejects a present
+open value when an unrelated OPTIONAL sibling is absent. The encoder rejects
+canonical order that would put the open member before a sibling. Partial open
+XML members return `RC_WMORE` with zero member bytes consumed; callers retain
+and replay those bytes. Open leaves inside SET extension groups and a
+self-closing outer open-member element remain unsupported.
+
+Direct SET BER/DER OPEN TYPE support covers one explicitly tagged open member
+with an unambiguous tag route. BER waits for a complete SET TLV, returning
+`RC_WMORE` with zero bytes consumed until the caller can replay it. Two-pass
+decoding permits the selector before or after the open value; DER sorts the
+selected field canonically. A present open value requires every non-open
+sibling to be present before selector invocation, so an omitted unrelated
+OPTIONAL or DEFAULT sibling is conservatively rejected. Untagged, colliding,
+multiple, and extension-group open members remain unsupported in this path.
+
+The Rust backend supports `OPTIONAL` fields in its documented UPER and CBOR
+flat SEQUENCE subsets. UPER includes inline nonextensible ENUMERATED, opaque
+`ANY`, and primitive `CONTAINING` values. Direct `ANY` supports UPER, APER,
+OER, JER, and CBOR. Opt-in CBOR adds direct BOOLEAN, NULL, bounded INTEGER,
+fixed/bounded BIT and OCTET STRING, flat SEQUENCE maps, narrow CHOICE maps,
+IOC-selected OPEN TYPE, and top-level typed primitive CONTAINING values.
+Rust CBOR SET/collections, nested constructed fields, wider selected object
+sets, and indefinite items remain unsupported.
+UPER `CONTAINING` supports unconstrained BIT/OCTET STRING containing a local
+direct BOOLEAN or non-singleton bounded INTEGER, at top level or as a required
+or OPTIONAL SEQUENCE field. A narrow UPER, APER, OER, and CBOR IOC-selected
+`OPEN TYPE` subset supports one local nonextensible object set with bounded
+INTEGER selectors and primitive BOOLEAN or bounded INTEGER rows in a two-field
+required SEQUENCE. APER requires selector bounds 0..255 and selected INTEGER
+range spans at most 255. Other forms are rejected before output publication. See the
+[Rust implementation boundary](rust/implementation.md#implemented-boundary).
+
+### C SET support in OER and APER
+
+The C `SET` operation table has OER and APER encoders and decoders for
+nonextensible `SET` types and individual extension additions in both codecs.
+Root members and their optionality bits follow
+canonical tag order. An untagged `CHOICE` is placed by its lowest root
+alternative tag, even when another alternative is selected or an extension
+alternative has a lower tag. The OER decoder supports input split across
+calls and frees its retained presence map when an incomplete value is freed.
+The APER codec uses child APER operations, including aligned member
+encodings. Both codecs support root table-selected open types. An open
+component can precede its selector in
+canonical SET order; decoding that form requires deferred component resolution.
+The shared OER open-type decoder now releases incomplete or failed CHOICE
+wrappers through their descriptor, with a focused malformed-input regression.
+Generated C UPER descriptors now carry versioned root and addition maps.
+UPER and APER encode and decode individual SET extension additions, including
+roots after a second extension marker, and skip unknown additions during
+decoding. APER uses aligned open types for additions. Version 3 descriptors
+also encode and decode SET extension groups as SEQUENCE open types in UPER,
+APER, and OER. Empty or DEFAULT-only groups are omitted, and unknown groups
+are skipped. Legacy group descriptors fail closed in these codecs. OER
+streams roots, the extension bitmap, and known or unknown open types across
+input chunks. It restores omitted DEFAULT additions and rejects malformed
+bitmap padding and open types with trailing child bytes. Its decoder accepts
+an empty or all-zero extension map when the extension bit is set, matching the
+existing C SEQUENCE decoder's permissive behavior; the encoder sets that bit
+only when at least one addition is present.
+
+The focused generated C regressions are
+[check-593](../tests/tests-c-compiler/check-src/check-593.-gen-UPER.c),
+[check-594](../tests/tests-c-compiler/check-src/check-594.-gen-OER.c), and
+[check-595](../tests/tests-asn1c-compiler/595-set-aper-OK.asn1).
+They exercise canonical ordering, presence/default handling, streaming OER,
+single-flavor generated dependencies, malformed input and metadata, and
+unsupported extensions. The runtime APER tests also cover alignment and
+truncated input. The root ordering follows [X.691 section 21][x691], while
+OER SET ordering follows [X.696 section 18][x696].
+The additional [check-596](../tests/tests-c-compiler/check-src/check-596.-gen-UPER.c)
+and [check-597](../tests/tests-c-compiler/check-src/check-597.-gen-UPER.c)
+cover versioned metadata, known and unknown UPER additions, and truncation.
+[Check-598](../tests/tests-c-compiler/check-src/check-598.-gen-APER.c)
+covers APER additions, trailing-root order, DEFAULT restoration, unknown
+additions, truncation, and malformed metadata.
+[Check-599](../tests/tests-c-compiler/check-src/check-599.-gen-OER.c)
+covers OER additions, independent wire vectors, trailing-root and extensible
+CHOICE ordering, DEFAULT restoration, unknown additions, every input split,
+malformed bitmaps, and strict open-type payload consumption.
+[Check-600](../tests/tests-c-compiler/check-src/check-600.-gen-UPER.-gen-APER.-gen-OER.c)
+covers grouped additions with independent UPER, APER, and OER vectors, empty
+groups, DEFAULT restoration, older-schema skipping, malformed v3 metadata,
+and OER streaming and payload validation.
+[Check-601](../tests/tests-c-compiler/check-src/check-601.-fcompound-names.-gen-JER.-gen-CBOR.c)
+covers flat SET group members in JER, split input, defaults, renamed and
+duplicate keys, and malformed metadata. CBOR now flattens SET extension-group
+leaves into the same name-keyed map as JER: a group leaf appears beside direct
+SET members, and an absent group contributes no map entries. This is a
+repository-specific CBOR mapping. Duplicate names across direct and grouped
+members fail before encoding or decoder allocation; group OPEN TYPE leaves
+remain unsupported.
+[Check-608](../tests/tests-c-compiler/check-src/check-608.-fcompound-names.-gen-JER.c)
+covers flat SEQUENCE group output, round trips at every input split, missing
+required group children, duplicate and out-of-order keys, unknown JSON values,
+malformed storage offsets, and callback failures.
+
+SET constraint checking visits each present member, including OPTIONAL members,
+and rejects absent mandatory pointers. CER permits an absent OPTIONAL ANY
+member in SEQUENCE or SET, producing the usual empty component encoding when
+no other members are present. A present opaque ANY remains unsupported in CER.
+SET CBOR decoding rejects missing required members and duplicate map keys,
+including duplicate unknown keys. Direct IOC-selected CBOR SET open members
+are resolved against their selector regardless of map-key order. An absent
+OPTIONAL open member is accepted; malformed selections, wrappers, and repeated
+keys fail. Open leaves inside SET extension groups remain unsupported in CBOR
+and UPER. Opaque selector callbacks require every other flat SET member to be
+present, so a present open value with an absent unrelated OPTIONAL sibling is
+rejected. CBOR selection from another deferred open member is unsupported.
+
+SEQUENCE CBOR uses the same direct member-name map: the encoder writes members
+in declaration order, while the decoder accepts any key order. Decoding rejects
+missing required members and repeated known or unknown keys. A direct
+IOC-selected OPEN TYPE may precede its selector in the map; the decoder stages
+the value until the parent is complete and preserves a preallocated parent on
+failure. Omitted pointer-backed and inline generated DEFAULT values are
+restored in staged storage. Opaque selector callbacks require every other
+sibling to be present, so a present open value with an absent unrelated
+OPTIONAL sibling is rejected.
+SEQUENCE extension groups remain unsupported in CBOR.
+CBOR map text keys and skipped text items are checked for valid UTF-8.
+
+C CBOR CHOICE uses a one-entry text-key map. The encoder validates its active
+arm before output. The decoder checks the key, complete child item and active
+arm in staged storage, preserving a preallocated CHOICE on failure. Unknown or
+malformed keys and incomplete child values fail.
+
+CBOR `SEQUENCE OF` and `SET OF` use definite arrays in list order. The C
+encoder rejects null element holes and inconsistent list counts before writing
+the array header. The decoder bounds the declared count by available input,
+checks each child consumes a nonempty item, and stages the whole array so a
+failure preserves a preallocated caller value. The shared CBOR item skipper
+also rejects malformed UTF-8 text inside nested unknown values.
+The UTF8String adapter validates text and compatible byte-string input as
+UTF-8 and preserves preallocated values when a malformed length is rejected.
+
+CBOR BIT STRING and OCTET STRING remain byte strings; a CONTAINING constraint
+does not introduce another CBOR wrapper. The C CBOR codec carries the contained
+bytes; `asn_check_constraints` with CBOR syntax checks that those bytes form a
+complete value of the contained type. BIT STRING uses an initial unused-bit
+count octet and rejects nonzero padding. Byte-string decoders reject truncated
+or overflowing lengths without replacing an existing value. INTEGER decoding
+preserves existing values on failure and converts negative major-one values
+below `INT64_MIN` into BER bytes without host-endian dependence. Unknown-item
+skipping checks nested lengths and accumulated byte counts before advancing.
+
+The generic binary selectors map to their implemented codec families.
+Basic/canonical OER and PER decode selectors share
 the same family entrypoint. The DER decode selector shares the permissive BER
 decoder and is not a strict canonicality check; the CER selector is strict.
 
@@ -251,3 +460,5 @@ disabled-build cases in
 [check-CER.sh](../tests/tests-asn1c-smoke/check-CER.sh).
 
 [x690]: https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.690-201508-S%21%21PDF-E&lang=e&type=items
+[x691]: https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.691-202102-I%21%21PDF-E&lang=e&type=items
+[x696]: https://www.itu.int/rec/dologin_pub.asp?id=T-REC-X.696-202102-I%21%21PDF-E&lang=e&type=items

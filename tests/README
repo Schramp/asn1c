@@ -4,6 +4,26 @@ tests-c-compiler     - C code compiles and runs, and produces expected result
 tests-skeletons      - "skeletons" code primitives are correct
 tests-randomized     - fuzz-testing of DER/OER/PER/XER codecs
 
+Generated constraint recursion regression (2026-10-23)
+----------------------------------------------------
+The randomized OCTET STRING value-constraint case previously stalled inside
+its generated checker: a reused compiler naming buffer caused its recursion
+guard to compare against OCTET_STRING_constraint instead of its own callback.
+Regenerate affected C sources using the updated compiler and rebuild them.
+The runtime alone cannot repair a guard already compiled into an application.
+The focused compiler regression checks direct constraint calls with a timeout;
+the existing OCTET STRING and character-string bundles cover random generation,
+round trips and copying through the same checkers.
+
+    make -C tests/tests-asn1c-compiler check \
+        TESTS=check-no-applicable-constraints.sh
+
+To repeat only the randomized case that stalled (both compiler modes and all
+eight driver encodings), run from tests/tests-randomized:
+
+    RNDTEMP=.tmp.constraint-repro ./check-bundles.sh -j 8 \
+        -t 'T ::= OCTET STRING ("Value Constraint")'
+
 Randomized corpus coverage (local, opt-in)
 ----------------------------------------
 Ordinary randomized checks keep encode/decode and copy tests, but skip corpus
